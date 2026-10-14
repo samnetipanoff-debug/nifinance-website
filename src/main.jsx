@@ -189,6 +189,7 @@ function useOrbitalScroll() {
 }
 
 function App() {
+  useOrbitalScroll();
   const [menuOpen, setMenuOpen] = useState(false);
   const [formState, setFormState] = useState({ name: '', email: '', company: '', market: '', challenge: '' });
   const [sent, setSent] = useState(false);
@@ -223,7 +224,7 @@ function App() {
         <h1 data-fly="hero">GROW<br /><span>BEYOND</span><br />BORDERS<span className="period">.</span></h1>
         <div className="hero-bottom">
           <p className="hero-intro" data-fly="hero">We help ambitious businesses turn international expansion into a clear, commercially grounded move.</p>
-          <a className="round-link" data-fly="hero"> href="#approach" aria-label="Discover our approach"><span>↓</span></a>
+          <a className="round-link" data-fly="hero" href="#approach" aria-label="Discover our approach"><span>↓</span></a>
         </div>
       </div>
       <WorldEngine />
