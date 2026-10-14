@@ -11,14 +11,12 @@ function WorldEngine() {
     let renderer, scene, camera, frame, core, ringA, ringB, particles;
     let pointerX = 0, pointerY = 0, targetX = 0, targetY = 0;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const mobile = window.matchMedia('(max-width: 700px)').matches;
-    let lastRender = 0;
     try {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(36, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 100);
       camera.position.set(0, 0, 8.8);
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !mobile, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.15 : 1.7));
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
       renderer.setSize(el.clientWidth, el.clientHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       el.appendChild(renderer.domElement);
@@ -61,7 +59,7 @@ function WorldEngine() {
       };
       const globeDots = [];
       const oceanDots = [];
-      const dotCount = mobile ? 3000 : 6800;
+      const dotCount = 6800;
       for (let i = 0; i < dotCount; i++) {
         const lat = Math.asin(2 * Math.random() - 1) * 180 / Math.PI;
         const lon = Math.random() * 360 - 180;
@@ -117,11 +115,8 @@ function WorldEngine() {
       el.addEventListener('pointermove', move);
       window.addEventListener('resize', resize);
       const clock = new THREE.Clock();
-      const animate = (now = 0) => {
+      const animate = () => {
         frame = requestAnimationFrame(animate);
-        // Limit mobile rendering to ~30 FPS to reduce heat and scrolling stutter.
-        if (mobile && now - lastRender < 33) return;
-        lastRender = now;
         const t = clock.getElapsedTime();
         pointerX += (targetX - pointerX) * 0.035;
         pointerY += (targetY - pointerY) * 0.035;
@@ -168,66 +163,42 @@ const services = [
 
 function useOrbitalScroll() {
   useEffect(() => {
-    const nodes = Array.from(document.querySelectorAll('[data-fly]'));
+    const nodes = Array.from(document.querySelectorAll('[data-fly]:not([data-fly="hero"])'));
     if (!nodes.length) return;
-    const clamp = (v, min = 0, max = 1) => Math.max(min, Math.min(max, v));
-    const settings = nodes.map((el, i) => {
-      const mode = el.getAttribute('data-fly') || '';
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    nodes.forEach((el, i) => {
       const seed = (i * 37 + 13) % 100;
       const direction = i % 2 === 0 ? 1 : -1;
       const serviceRow = el.classList.contains('service-row');
-      return {
-        el,
-        // Service rows contain information people need to read, so keep their
-        // travel distance deliberately small and their motion close to viewport edges.
-        x: mode === 'hero' ? 0 : serviceRow ? (direction * (18 + seed % 18)) : (seed % 2 ? 1 : -1) * (70 + seed * 1.7),
-        y: mode === 'hero' ? 0 : serviceRow ? direction * (8 + seed % 10) : direction * (45 + (seed % 43) * 1.3),
-        rot: mode === 'hero' ? 0 : serviceRow ? direction * (0.6 + (seed % 12) / 10) : direction * (3 + seed % 8),
-        scale: mode === 'hero' ? 1 : serviceRow ? 0.985 : 0.88 + (seed % 12) / 100,
-        hero: mode === 'hero',
-        serviceRow
-      };
+      const x = serviceRow ? direction * (18 + seed % 18) : (seed % 2 ? 1 : -1) * (42 + seed * 0.65);
+      const y = serviceRow ? direction * (8 + seed % 10) : direction * (28 + (seed % 43) * 0.65);
+      const rot = serviceRow ? direction * (0.5 + (seed % 8) / 10) : direction * (1.5 + seed % 4);
+      const scale = serviceRow ? 0.99 : 0.965 + (seed % 4) / 100;
+      el.style.setProperty('--fly-x', x.toFixed(1) + 'px');
+      el.style.setProperty('--fly-y', y.toFixed(1) + 'px');
+      el.style.setProperty('--fly-rot', rot.toFixed(2) + 'deg');
+      el.style.setProperty('--fly-scale', scale.toFixed(3));
     });
-    let raf = 0;
-    const paint = () => {
-      raf = 0;
-      const vh = window.innerHeight || 800;
-      settings.forEach(({ el, x, y, rot, scale, hero, serviceRow }) => {
-        const r = el.getBoundingClientRect();
-        // Start the transition only when the element is near the viewport edge.
-        // Rows in section 02 get a longer, calmer travel window to remain readable.
-        const enter = serviceRow
-          ? clamp((vh * 0.98 - r.top) / (vh * 0.34))
-          : clamp((vh * 0.86 - r.top) / (vh * 0.48));
-        const exit = serviceRow
-          ? clamp((r.bottom - vh * 0.02) / (vh * 0.34))
-          : clamp(r.bottom / (vh * 0.32));
-        const progress = Math.min(enter, exit);
-        const scatter = 1 - progress;
-        const fromX = hero ? 0 : x;
-        const fromY = hero ? 0 : y;
-        const fromRot = hero ? 0 : rot;
-        el.style.opacity = String(hero ? Math.max(0, Math.min(1, exit)) : progress);
-        el.style.transform = 'translate3d(' + (fromX * scatter).toFixed(1) + 'px,' + (fromY * scatter).toFixed(1) + 'px,0) rotate(' + (fromRot * scatter).toFixed(2) + 'deg) scale(' + (hero ? 1 : scale + (1 - scale) * progress).toFixed(3) + ')';
-        el.style.filter = 'blur(' + (hero ? 0 : scatter * (serviceRow ? 0.8 : 5)).toFixed(2) + 'px)';
-        el.style.pointerEvents = progress < 0.12 ? 'none' : '';
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      nodes.forEach(el => el.classList.add('is-visible'));
+      return;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
       });
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(paint);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    paint();
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.04 });
+
+    nodes.forEach(el => observer.observe(el));
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-      settings.forEach(({ el }) => {
-        el.style.removeProperty('opacity');
-        el.style.removeProperty('transform');
-        el.style.removeProperty('filter');
-        el.style.removeProperty('pointer-events');
+      observer.disconnect();
+      nodes.forEach(el => {
+        el.classList.remove('is-visible');
+        ['--fly-x', '--fly-y', '--fly-rot', '--fly-scale'].forEach(prop => el.style.removeProperty(prop));
       });
     };
   }, []);
