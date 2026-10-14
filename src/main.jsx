@@ -238,6 +238,11 @@ function App() {
         </div>
       </div>
       <WorldEngine />
+      <div className="neon-sign" data-fly aria-label="Open new markets">
+        <span className="neon-sign-top">NIF / FIELD SIGNAL 01</span>
+        <strong>OPEN NEW<br />MARKETS</strong>
+        <span className="neon-sign-bottom"><i /> STRATEGY IN MOTION</span>
+      </div>
       <div className="hero-index"><span>01 / 04</span><span>INDEPENDENT STRATEGY & EXECUTION</span></div>
       <div className="hero-side-note">NEW MARKETS.<br />NEW ADVANTAGE.</div>
     </section>
