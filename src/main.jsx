@@ -272,14 +272,14 @@ function App() {
       <div className="hero-side-note">NEW MARKETS.<br />NEW ADVANTAGE.</div>
     </section>
 
-    <div className="ticker" aria-label="Our principles"><div className="ticker-track">{Array.from({ length: 4 }).map((_, i) => <span key={i}>CLARITY BEFORE SCALE <b>✳</b> LOCAL KNOWLEDGE, GLOBAL THINKING <b>✳</b> STRATEGY THAT MOVES <b>✳</b></span>)}</div></div>
+    <div className="ticker" aria-label="Our principles"><div className="ticker-track">{Array.from({ length: 4 }).map((_, i) => <span key={i}>CLARITY BEFORE SCALE <b>✳︎</b> LOCAL KNOWLEDGE, GLOBAL THINKING <b>✳︎</b> STRATEGY THAT MOVES <b>✳︎</b></span>)}</div></div>
 
     <section className="manifesto section-pad" id="approach">
       <div className="section-kicker"><span>01 — THE POINT OF VIEW</span><span>THINK WIDER. MOVE SMARTER.</span></div>
       <div className="manifesto-layout">
         <h2 data-fly>Expansion is not<br />a destination.<br /><em>It's a new system.</em></h2>
         <div className="manifesto-aside" data-fly>
-          <div className="asterisk">✳</div>
+          <div className="asterisk">✳︎</div>
           <p>Going international is more than entering a new country. It's rethinking how you find demand, create trust, build partnerships and make the numbers work.</p>
           <p className="muted">We connect the big picture with the details that decide whether a market move becomes a business result.</p>
           <a className="text-link" href="#capabilities">Explore our capabilities <span>↗︎</span></a>
