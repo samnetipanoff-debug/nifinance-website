@@ -140,23 +140,33 @@ function useOrbitalScroll() {
       const mode = el.getAttribute('data-fly') || '';
       const seed = (i * 37 + 13) % 100;
       const direction = i % 2 === 0 ? 1 : -1;
+      const serviceRow = el.classList.contains('service-row');
       return {
         el,
-        x: mode === 'hero' ? 0 : (seed % 2 ? 1 : -1) * (70 + seed * 1.7),
-        y: mode === 'hero' ? 0 : direction * (45 + (seed % 43) * 1.3),
-        rot: mode === 'hero' ? 0 : direction * (3 + seed % 8),
-        scale: mode === 'hero' ? 1 : 0.88 + (seed % 12) / 100,
-        hero: mode === 'hero'
+        // Service rows contain information people need to read, so keep their
+        // travel distance deliberately small and their motion close to viewport edges.
+        x: mode === 'hero' ? 0 : serviceRow ? (direction * (18 + seed % 18)) : (seed % 2 ? 1 : -1) * (70 + seed * 1.7),
+        y: mode === 'hero' ? 0 : serviceRow ? direction * (8 + seed % 10) : direction * (45 + (seed % 43) * 1.3),
+        rot: mode === 'hero' ? 0 : serviceRow ? direction * (0.6 + (seed % 12) / 10) : direction * (3 + seed % 8),
+        scale: mode === 'hero' ? 1 : serviceRow ? 0.985 : 0.88 + (seed % 12) / 100,
+        hero: mode === 'hero',
+        serviceRow
       };
     });
     let raf = 0;
     const paint = () => {
       raf = 0;
       const vh = window.innerHeight || 800;
-      settings.forEach(({ el, x, y, rot, scale, hero }) => {
+      settings.forEach(({ el, x, y, rot, scale, hero, serviceRow }) => {
         const r = el.getBoundingClientRect();
-        const enter = clamp((vh * 0.86 - r.top) / (vh * 0.48));
-        const exit = clamp(r.bottom / (vh * 0.32));
+        // Start the transition only when the element is near the viewport edge.
+        // Rows in section 02 get a longer, calmer travel window to remain readable.
+        const enter = serviceRow
+          ? clamp((vh * 0.98 - r.top) / (vh * 0.34))
+          : clamp((vh * 0.86 - r.top) / (vh * 0.48));
+        const exit = serviceRow
+          ? clamp((r.bottom - vh * 0.02) / (vh * 0.34))
+          : clamp(r.bottom / (vh * 0.32));
         const progress = Math.min(enter, exit);
         const scatter = 1 - progress;
         const fromX = hero ? 0 : x;
@@ -164,7 +174,7 @@ function useOrbitalScroll() {
         const fromRot = hero ? 0 : rot;
         el.style.opacity = String(hero ? Math.max(0, Math.min(1, exit)) : progress);
         el.style.transform = 'translate3d(' + (fromX * scatter).toFixed(1) + 'px,' + (fromY * scatter).toFixed(1) + 'px,0) rotate(' + (fromRot * scatter).toFixed(2) + 'deg) scale(' + (hero ? 1 : scale + (1 - scale) * progress).toFixed(3) + ')';
-        el.style.filter = 'blur(' + (hero ? 0 : scatter * 5).toFixed(2) + 'px)';
+        el.style.filter = 'blur(' + (hero ? 0 : scatter * (serviceRow ? 0.8 : 5)).toFixed(2) + 'px)';
         el.style.pointerEvents = progress < 0.12 ? 'none' : '';
       });
     };
