@@ -265,8 +265,8 @@ function App() {
       <h2 data-fly>From first question<br />to <em>next chapter.</em></h2>
       <div className="method-steps">
         <div className="method-step" data-fly><span>01 / DISCOVER</span><div className="step-line"><i /></div><h3>Understand</h3><p>Clarify the ambition, constraints and economics behind the move.</p></div>
-        <div className="method-step"><span>02 / DECIDE</span><div className="step-line"><i /></div><h3>Focus</h3><p>Identify the right market, the strongest entry path and the assumptions to test.</p></div>
-        <div className="method-step"><span>03 / BUILD</span><div className="step-line"><i /></div><h3>Activate</h3><p>Translate strategy into action, owners, milestones and measurable outcomes.</p></div>
+        <div className="method-step" data-fly><span>02 / DECIDE</span><div className="step-line"><i /></div><h3>Focus</h3><p>Identify the right market, the strongest entry path and the assumptions to test.</p></div>
+        <div className="method-step" data-fly><span>03 / BUILD</span><div className="step-line"><i /></div><h3>Activate</h3><p>Translate strategy into action, owners, milestones and measurable outcomes.</p></div>
       </div>
     </section>
 
