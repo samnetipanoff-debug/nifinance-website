@@ -131,6 +131,63 @@ const services = [
   { n: '04', title: 'Operating model', desc: 'Create the financial and operational logic behind expansion, from unit economics and pricing to management reporting.', tags: 'FINANCE · OPERATIONS' }
 ];
 
+function useOrbitalScroll() {
+  useEffect(() => {
+    const nodes = Array.from(document.querySelectorAll('[data-fly]'));
+    if (!nodes.length) return;
+    const clamp = (v, min = 0, max = 1) => Math.max(min, Math.min(max, v));
+    const settings = nodes.map((el, i) => {
+      const mode = el.getAttribute('data-fly') || '';
+      const seed = (i * 37 + 13) % 100;
+      const direction = i % 2 === 0 ? 1 : -1;
+      return {
+        el,
+        x: mode === 'hero' ? 0 : (seed % 2 ? 1 : -1) * (70 + seed * 1.7),
+        y: mode === 'hero' ? 0 : direction * (45 + (seed % 43) * 1.3),
+        rot: mode === 'hero' ? 0 : direction * (3 + seed % 8),
+        scale: mode === 'hero' ? 1 : 0.88 + (seed % 12) / 100,
+        hero: mode === 'hero'
+      };
+    });
+    let raf = 0;
+    const paint = () => {
+      raf = 0;
+      const vh = window.innerHeight || 800;
+      settings.forEach(({ el, x, y, rot, scale, hero }) => {
+        const r = el.getBoundingClientRect();
+        const enter = clamp((vh * 0.86 - r.top) / (vh * 0.48));
+        const exit = clamp(r.bottom / (vh * 0.32));
+        const progress = Math.min(enter, exit);
+        const scatter = 1 - progress;
+        const fromX = hero ? 0 : x;
+        const fromY = hero ? 0 : y;
+        const fromRot = hero ? 0 : rot;
+        el.style.opacity = String(hero ? Math.max(0, Math.min(1, exit)) : progress);
+        el.style.transform = 'translate3d(' + (fromX * scatter).toFixed(1) + 'px,' + (fromY * scatter).toFixed(1) + 'px,0) rotate(' + (fromRot * scatter).toFixed(2) + 'deg) scale(' + (hero ? 1 : scale + (1 - scale) * progress).toFixed(3) + ')';
+        el.style.filter = 'blur(' + (hero ? 0 : scatter * 5).toFixed(2) + 'px)';
+        el.style.pointerEvents = progress < 0.12 ? 'none' : '';
+      });
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(paint);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    paint();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+      settings.forEach(({ el }) => {
+        el.style.removeProperty('opacity');
+        el.style.removeProperty('transform');
+        el.style.removeProperty('filter');
+        el.style.removeProperty('pointer-events');
+      });
+    };
+  }, []);
+}
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [formState, setFormState] = useState({ name: '', email: '', company: '', market: '', challenge: '' });
@@ -162,11 +219,11 @@ function App() {
     <section className="hero" id="top">
       <div className="hero-grid" aria-hidden="true" />
       <div className="hero-copy">
-        <div className="eyebrow"><span className="live-dot" /> STRATEGY FOR A BORDERLESS ECONOMY</div>
-        <h1>GROW<br /><span>BEYOND</span><br />BORDERS<span className="period">.</span></h1>
+        <div className="eyebrow" data-fly="hero"><span className="live-dot" /> STRATEGY FOR A BORDERLESS ECONOMY</div>
+        <h1 data-fly="hero">GROW<br /><span>BEYOND</span><br />BORDERS<span className="period">.</span></h1>
         <div className="hero-bottom">
-          <p className="hero-intro">We help ambitious businesses turn international expansion into a clear, commercially grounded move.</p>
-          <a className="round-link" href="#approach" aria-label="Discover our approach"><span>↓</span></a>
+          <p className="hero-intro" data-fly="hero">We help ambitious businesses turn international expansion into a clear, commercially grounded move.</p>
+          <a className="round-link" data-fly="hero"> href="#approach" aria-label="Discover our approach"><span>↓</span></a>
         </div>
       </div>
       <WorldEngine />
@@ -179,8 +236,8 @@ function App() {
     <section className="manifesto section-pad" id="approach">
       <div className="section-kicker"><span>01 — THE POINT OF VIEW</span><span>THINK WIDER. MOVE SMARTER.</span></div>
       <div className="manifesto-layout">
-        <h2>Expansion is not<br />a destination.<br /><em>It's a new system.</em></h2>
-        <div className="manifesto-aside">
+        <h2 data-fly>Expansion is not<br />a destination.<br /><em>It's a new system.</em></h2>
+        <div className="manifesto-aside" data-fly>
           <div className="asterisk">✳</div>
           <p>Going international is more than entering a new country. It's rethinking how you find demand, create trust, build partnerships and make the numbers work.</p>
           <p className="muted">We connect the big picture with the details that decide whether a market move becomes a business result.</p>
@@ -192,31 +249,31 @@ function App() {
 
     <section className="capabilities section-pad" id="capabilities">
       <div className="section-kicker"><span>02 — WHAT WE DO</span><span>BUILT AROUND YOUR NEXT MOVE</span></div>
-      <div className="cap-head"><h2>Make the next<br /><em>move count.</em></h2><p>Focused expertise for businesses ready to grow across markets, not just across borders.</p></div>
-      <div className="service-list">{services.map(s => <article className="service-row" key={s.n}>
+      <div className="cap-head"><h2 data-fly>Make the next<br /><em>move count.</em></h2><p data-fly>Focused expertise for businesses ready to grow across markets, not just across borders.</p></div>
+      <div className="service-list">{services.map(s => <article className="service-row" data-fly key={s.n}>
         <span className="service-num">{s.n}</span><h3>{s.title}</h3><p>{s.desc}</p><div className="service-tags">{s.tags}</div><span className="service-arrow">↗</span>
       </article>)}</div>
     </section>
 
     <section className="perspective" id="perspective">
-      <div className="perspective-visual"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="crosshair cross-a" /><div className="crosshair cross-b" /><div className="perspective-center"><span>MARKET</span><strong>≠</strong><span>MAP</span></div><div className="coordinate coord-one">44°49' N<br />20°27' E</div><div className="coordinate coord-two">51°30' N<br />00°07' W</div><div className="coordinate coord-three">25°12' N<br />55°16' E</div></div>
-      <div className="perspective-copy"><div className="section-kicker"><span>03 — OUR LENS</span></div><h2>Local context.<br /><em>Global intent.</em></h2><p>Every market has its own rules, rhythms and unwritten codes. We help you see beyond the obvious, test what matters and adapt your model without losing what makes your business valuable.</p><div className="perspective-stat"><span className="stat-mark">↗</span><div><strong>Think in systems.</strong><small>Not isolated tactics. Build an expansion model that can learn, adapt and scale.</small></div></div></div>
+      <div className="perspective-visual" data-fly><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="crosshair cross-a" /><div className="crosshair cross-b" /><div className="perspective-center"><span>MARKET</span><strong>≠</strong><span>MAP</span></div><div className="coordinate coord-one">44°49' N<br />20°27' E</div><div className="coordinate coord-two">51°30' N<br />00°07' W</div><div className="coordinate coord-three">25°12' N<br />55°16' E</div></div>
+      <div className="perspective-copy" data-fly><div className="section-kicker"><span>03 — OUR LENS</span></div><h2>Local context.<br /><em>Global intent.</em></h2><p>Every market has its own rules, rhythms and unwritten codes. We help you see beyond the obvious, test what matters and adapt your model without losing what makes your business valuable.</p><div className="perspective-stat"><span className="stat-mark">↗</span><div><strong>Think in systems.</strong><small>Not isolated tactics. Build an expansion model that can learn, adapt and scale.</small></div></div></div>
     </section>
 
     <section className="method section-pad">
       <div className="section-kicker"><span>04 — HOW WE WORK</span><span>NO THEATRE. REAL PROGRESS.</span></div>
-      <h2>From first question<br />to <em>next chapter.</em></h2>
+      <h2 data-fly>From first question<br />to <em>next chapter.</em></h2>
       <div className="method-steps">
-        <div className="method-step"><span>01 / DISCOVER</span><div className="step-line"><i /></div><h3>Understand</h3><p>Clarify the ambition, constraints and economics behind the move.</p></div>
+        <div className="method-step" data-fly><span>01 / DISCOVER</span><div className="step-line"><i /></div><h3>Understand</h3><p>Clarify the ambition, constraints and economics behind the move.</p></div>
         <div className="method-step"><span>02 / DECIDE</span><div className="step-line"><i /></div><h3>Focus</h3><p>Identify the right market, the strongest entry path and the assumptions to test.</p></div>
         <div className="method-step"><span>03 / BUILD</span><div className="step-line"><i /></div><h3>Activate</h3><p>Translate strategy into action, owners, milestones and measurable outcomes.</p></div>
       </div>
     </section>
 
     <section className="contact section-pad" id="contact">
-      <div className="contact-top"><div className="section-kicker"><span>05 — THE NEXT MOVE</span><span>LET'S MAKE IT REAL</span></div><h2>Your next market<br />is a <em>conversation</em><span className="period">.</span></h2></div>
-      <div className="contact-layout"><div className="contact-aside"><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT</span><a href="mailto:hello@nifinance.solution">hello@nifinance.solution ↗</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
-        <form className="contact-form" onSubmit={submit}>
+      <div className="contact-top" data-fly><div className="section-kicker"><span>05 — THE NEXT MOVE</span><span>LET'S MAKE IT REAL</span></div><h2>Your next market<br />is a <em>conversation</em><span className="period">.</span></h2></div>
+      <div className="contact-layout"><div className="contact-aside" data-fly><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT</span><a href="mailto:hello@nifinance.solution">hello@nifinance.solution ↗</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
+        <form className="contact-form" data-fly onSubmit={submit}>
           <div className="form-grid"><label>Your name<input name="name" value={formState.name} onChange={update} placeholder="How should we address you?" required /></label><label>Work email<input type="email" name="email" value={formState.email} onChange={update} placeholder="you@company.com" required /></label></div>
           <label>Company<input name="company" value={formState.company} onChange={update} placeholder="Company name" /></label>
           <label>Target market<input name="market" value={formState.market} onChange={update} placeholder="Where are you looking to grow?" /></label>
