@@ -212,12 +212,11 @@ function App() {
   const update = (e) => setFormState(s => ({ ...s, [e.target.name]: e.target.value }));
   const submit = (e) => {
     e.preventDefault();
-    const subject = encodeURIComponent('NIFINANCE SOLUTION — international expansion');
-    const body = encodeURIComponent(
+    const message =
+      'NIFINANCE SOLUTION — international expansion\n\n' +
       'Name: ' + formState.name + '\nEmail: ' + formState.email + '\nCompany: ' + formState.company +
-      '\nTarget market: ' + formState.market + '\nChallenge: ' + formState.challenge
-    );
-    window.location.href = 'mailto:hello@nifinance.solution?subject=' + subject + '&body=' + body;
+      '\nTarget market: ' + formState.market + '\nChallenge: ' + formState.challenge;
+    window.location.href = 'https://t.me/nifinance_solution?text=' + encodeURIComponent(message);
     setSent(true);
   };
   return <main>
@@ -289,13 +288,13 @@ function App() {
 
     <section className="contact section-pad" id="contact">
       <div className="contact-top" data-fly><div className="section-kicker"><span>05 — THE NEXT MOVE</span><span>LET'S MAKE IT REAL</span></div><h2>Your next market<br />is a <em>conversation</em><span className="period">.</span></h2></div>
-      <div className="contact-layout"><div className="contact-aside" data-fly><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT</span><a href="mailto:hello@nifinance.solution">hello@nifinance.solution ↗︎</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
+      <div className="contact-layout"><div className="contact-aside" data-fly><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT ON TELEGRAM</span><a href="https://t.me/nifinance_solution" target="_blank" rel="noreferrer">@nifinance_solution ↗︎</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
         <form className="contact-form" data-fly onSubmit={submit}>
           <div className="form-grid"><label>Your name<input name="name" value={formState.name} onChange={update} placeholder="How should we address you?" required /></label><label>Work email<input type="email" name="email" value={formState.email} onChange={update} placeholder="you@company.com" required /></label></div>
           <label>Company<input name="company" value={formState.company} onChange={update} placeholder="Company name" /></label>
           <label>Target market<input name="market" value={formState.market} onChange={update} placeholder="Where are you looking to grow?" /></label>
           <label>What's the opportunity or challenge?<textarea name="challenge" value={formState.challenge} onChange={update} placeholder="A few lines are enough to start..." rows="3" /></label>
-          <div className="form-submit"><p>By submitting, you agree to be contacted about your enquiry.</p><button type="submit">{sent ? 'Open email again' : 'Start the conversation'} <span>↗︎</span></button></div>
+          <div className="form-submit"><p>By submitting, you agree to be contacted about your enquiry.</p><button type="submit">{sent ? 'Open Telegram again' : 'Continue in Telegram'} <span>↗︎</span></button></div>
         </form>
       </div>
     </section>
