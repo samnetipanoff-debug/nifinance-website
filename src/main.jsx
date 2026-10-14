@@ -32,17 +32,52 @@ function WorldEngine() {
 
       core = new THREE.Group();
       scene.add(core);
-      const sphereGeo = new THREE.IcosahedronGeometry(1.72, 4);
+      // A smooth, glossy planet surface with a separate fine triangulated shell.
+      const sphereGeo = new THREE.SphereGeometry(1.72, 96, 96);
       const shell = new THREE.Mesh(sphereGeo, new THREE.MeshPhysicalMaterial({
-        color: 0x141b17, metalness: 0.78, roughness: 0.22, transparent: true, opacity: 0.82,
-        clearcoat: 1, clearcoatRoughness: 0.12, wireframe: false
+        color: 0x18221a, metalness: 0.62, roughness: 0.19,
+        emissive: 0x203b12, emissiveIntensity: 0.28,
+        clearcoat: 1, clearcoatRoughness: 0.08, reflectivity: 0.9
       }));
       core.add(shell);
-      const wire = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({
-        color: 0xc9ff45, wireframe: true, transparent: true, opacity: 0.22
+
+      const wireGeo = new THREE.IcosahedronGeometry(1.735, 3);
+      const wire = new THREE.Mesh(wireGeo, new THREE.MeshBasicMaterial({
+        color: 0xbaff3b, wireframe: true, transparent: true, opacity: 0.095,
+        blending: THREE.AdditiveBlending, depthWrite: false
       }));
-      wire.scale.setScalar(1.006);
       core.add(wire);
+
+      // Fresnel atmosphere: a thin luminous rim gives the sphere real depth.
+      const atmosphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.91, 64, 64),
+        new THREE.ShaderMaterial({
+          uniforms: { glowColor: { value: new THREE.Color(0x9cff37) } },
+          vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            void main() {
+              vNormal = normalize(normalMatrix * normal);
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              vViewPosition = -mvPosition.xyz;
+              gl_Position = projectionMatrix * mvPosition;
+            }
+          `,
+          fragmentShader: `
+            uniform vec3 glowColor;
+            varying vec3 vNormal;
+            varying vec3 vViewPosition;
+            void main() {
+              float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewPosition)), 0.0), 2.25);
+              gl_FragColor = vec4(glowColor, fresnel * 0.42);
+            }
+          `,
+          transparent: true, blending: THREE.AdditiveBlending,
+          side: THREE.BackSide, depthWrite: false
+        })
+      );
+      atmosphere.renderOrder = 2;
+      core.add(atmosphere);
 
       const dotsGeo = new THREE.BufferGeometry();
       const positions = [];
@@ -54,8 +89,43 @@ function WorldEngine() {
         positions.push(r * s * Math.cos(theta), r * u, r * s * Math.sin(theta));
       }
       dotsGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      particles = new THREE.Points(dotsGeo, new THREE.PointsMaterial({ color: 0xd7ff77, size: 0.018, transparent: true, opacity: 0.8, sizeAttenuation: true }));
+      particles = new THREE.Points(dotsGeo, new THREE.PointsMaterial({
+        color: 0xd7ff77, size: 0.021, transparent: true, opacity: 0.9,
+        sizeAttenuation: true, blending: THREE.AdditiveBlending, depthWrite: false
+      }));
       core.add(particles);
+
+      // Fine geodesic connections around the globe, like a live market network.
+      const networkPoints = [];
+      const networkCount = 88;
+      for (let i = 0; i < networkCount; i++) {
+        const u = Math.random() * 2 - 1;
+        const theta = Math.random() * Math.PI * 2;
+        const r = 1.746;
+        const s = Math.sqrt(1 - u * u);
+        networkPoints.push(new THREE.Vector3(r * s * Math.cos(theta), r * u, r * s * Math.sin(theta)));
+      }
+      const links = [];
+      for (let i = 0; i < networkPoints.length; i++) {
+        const nearest = networkPoints
+          .map((p, j) => ({ j, d: networkPoints[i].distanceTo(p) }))
+          .filter(v => v.j !== i && v.d < 0.68)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 3);
+        nearest.forEach(({ j }) => {
+          if (j > i) links.push(
+            networkPoints[i].x, networkPoints[i].y, networkPoints[i].z,
+            networkPoints[j].x, networkPoints[j].y, networkPoints[j].z
+          );
+        });
+      }
+      const linkGeo = new THREE.BufferGeometry();
+      linkGeo.setAttribute('position', new THREE.Float32BufferAttribute(links, 3));
+      const linkMesh = new THREE.LineSegments(linkGeo, new THREE.LineBasicMaterial({
+        color: 0x8fdc3c, transparent: true, opacity: 0.24,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      }));
+      core.add(linkMesh);
 
       ringA = new THREE.Mesh(new THREE.TorusGeometry(2.22, 0.012, 8, 180), new THREE.MeshBasicMaterial({ color: 0xc9ff45, transparent: true, opacity: 0.75 }));
       ringA.rotation.set(0.82, 0.18, -0.42);
@@ -238,11 +308,6 @@ function App() {
         </div>
       </div>
       <WorldEngine />
-      <div className="neon-sign" data-fly aria-label="Open new markets">
-        <span className="neon-sign-top">NIF / FIELD SIGNAL 01</span>
-        <strong>OPEN NEW<br />MARKETS</strong>
-        <span className="neon-sign-bottom"><i /> STRATEGY IN MOTION</span>
-      </div>
       <div className="hero-index"><span>01 / 04</span><span>INDEPENDENT STRATEGY & EXECUTION</span></div>
       <div className="hero-side-note">NEW MARKETS.<br />NEW ADVANTAGE.</div>
     </section>
