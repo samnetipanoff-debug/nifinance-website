@@ -11,12 +11,14 @@ function WorldEngine() {
     let renderer, scene, camera, frame, core, ringA, ringB, particles;
     let pointerX = 0, pointerY = 0, targetX = 0, targetY = 0;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const mobile = window.matchMedia('(max-width: 700px)').matches;
+    let lastRender = 0;
     try {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(36, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 100);
       camera.position.set(0, 0, 8.8);
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !mobile, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.15 : 1.7));
       renderer.setSize(el.clientWidth, el.clientHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       el.appendChild(renderer.domElement);
@@ -59,7 +61,7 @@ function WorldEngine() {
       };
       const globeDots = [];
       const oceanDots = [];
-      const dotCount = 6800;
+      const dotCount = mobile ? 3000 : 6800;
       for (let i = 0; i < dotCount; i++) {
         const lat = Math.asin(2 * Math.random() - 1) * 180 / Math.PI;
         const lon = Math.random() * 360 - 180;
@@ -115,8 +117,11 @@ function WorldEngine() {
       el.addEventListener('pointermove', move);
       window.addEventListener('resize', resize);
       const clock = new THREE.Clock();
-      const animate = () => {
+      const animate = (now = 0) => {
         frame = requestAnimationFrame(animate);
+        // Limit mobile rendering to ~30 FPS to reduce heat and scrolling stutter.
+        if (mobile && now - lastRender < 33) return;
+        lastRender = now;
         const t = clock.getElapsedTime();
         pointerX += (targetX - pointerX) * 0.035;
         pointerY += (targetY - pointerY) * 0.035;
