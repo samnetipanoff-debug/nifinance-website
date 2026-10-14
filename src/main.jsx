@@ -253,7 +253,7 @@ function App() {
         <a href="#capabilities" onClick={() => setMenuOpen(false)}>Capabilities</a>
         <a href="#perspective" onClick={() => setMenuOpen(false)}>Perspective</a>
       </nav>
-      <a className="nav-cta" href="#contact">Start a conversation <span>↗</span></a>
+      <a className="nav-cta" href="#contact">Start a conversation <span>↗︎</span></a>
       <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation"><span /><span /></button>
     </header>
 
@@ -264,7 +264,7 @@ function App() {
         <h1 data-fly="hero">GROW<br /><span>BEYOND</span><br />BORDERS<span className="period">.</span></h1>
         <div className="hero-bottom">
           <p className="hero-intro" data-fly="hero">We help ambitious businesses turn international expansion into a clear, commercially grounded move.</p>
-          <a className="round-link" data-fly="hero" href="#approach" aria-label="Discover our approach"><span>↓</span></a>
+          <a className="round-link" data-fly="hero" href="#approach" aria-label="Discover our approach"><span>↓︎</span></a>
         </div>
       </div>
       <WorldEngine />
@@ -282,7 +282,7 @@ function App() {
           <div className="asterisk">✳</div>
           <p>Going international is more than entering a new country. It's rethinking how you find demand, create trust, build partnerships and make the numbers work.</p>
           <p className="muted">We connect the big picture with the details that decide whether a market move becomes a business result.</p>
-          <a className="text-link" href="#capabilities">Explore our capabilities <span>↗</span></a>
+          <a className="text-link" href="#capabilities">Explore our capabilities <span>↗︎</span></a>
         </div>
       </div>
       <div className="manifesto-rule"><span>FROM AMBITION</span><div /><span>TO COMMERCIAL MOMENTUM</span></div>
@@ -292,13 +292,13 @@ function App() {
       <div className="section-kicker"><span>02 — WHAT WE DO</span><span>BUILT AROUND YOUR NEXT MOVE</span></div>
       <div className="cap-head"><h2 data-fly>Make the next<br /><em>move count.</em></h2><p data-fly>Focused expertise for businesses ready to grow across markets, not just across borders.</p></div>
       <div className="service-list">{services.map(s => <article className="service-row" data-fly key={s.n}>
-        <span className="service-num">{s.n}</span><h3>{s.title}</h3><p>{s.desc}</p><div className="service-tags">{s.tags}</div><span className="service-arrow">↗</span>
+        <span className="service-num">{s.n}</span><h3>{s.title}</h3><p>{s.desc}</p><div className="service-tags">{s.tags}</div><span className="service-arrow">↗︎</span>
       </article>)}</div>
     </section>
 
     <section className="perspective" id="perspective">
       <div className="perspective-visual" data-fly><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="crosshair cross-a" /><div className="crosshair cross-b" /><div className="perspective-center"><span>MARKET</span><strong>≠</strong><span>MAP</span></div><div className="coordinate coord-one">44°49' N<br />20°27' E</div><div className="coordinate coord-two">51°30' N<br />00°07' W</div><div className="coordinate coord-three">25°12' N<br />55°16' E</div></div>
-      <div className="perspective-copy" data-fly><div className="section-kicker"><span>03 — OUR LENS</span></div><h2>Local context.<br /><em>Global intent.</em></h2><p>Every market has its own rules, rhythms and unwritten codes. We help you see beyond the obvious, test what matters and adapt your model without losing what makes your business valuable.</p><div className="perspective-stat"><span className="stat-mark">↗</span><div><strong>Think in systems.</strong><small>Not isolated tactics. Build an expansion model that can learn, adapt and scale.</small></div></div></div>
+      <div className="perspective-copy" data-fly><div className="section-kicker"><span>03 — OUR LENS</span></div><h2>Local context.<br /><em>Global intent.</em></h2><p>Every market has its own rules, rhythms and unwritten codes. We help you see beyond the obvious, test what matters and adapt your model without losing what makes your business valuable.</p><div className="perspective-stat"><span className="stat-mark">↗︎</span><div><strong>Think in systems.</strong><small>Not isolated tactics. Build an expansion model that can learn, adapt and scale.</small></div></div></div>
     </section>
 
     <section className="method section-pad">
@@ -313,18 +313,18 @@ function App() {
 
     <section className="contact section-pad" id="contact">
       <div className="contact-top" data-fly><div className="section-kicker"><span>05 — THE NEXT MOVE</span><span>LET'S MAKE IT REAL</span></div><h2>Your next market<br />is a <em>conversation</em><span className="period">.</span></h2></div>
-      <div className="contact-layout"><div className="contact-aside" data-fly><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT</span><a href="mailto:hello@nifinance.solution">hello@nifinance.solution ↗</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
+      <div className="contact-layout"><div className="contact-aside" data-fly><p>Tell us what you're building, where you want to go and what's standing in the way. We'll start with the right questions.</p><div className="contact-email"><span>DIRECT CONTACT</span><a href="mailto:hello@nifinance.solution">hello@nifinance.solution ↗︎</a></div><div className="contact-note"><span className="live-dot" /> SELECTIVE BY DESIGN. FOCUSED ON IMPACT.</div></div>
         <form className="contact-form" data-fly onSubmit={submit}>
           <div className="form-grid"><label>Your name<input name="name" value={formState.name} onChange={update} placeholder="How should we address you?" required /></label><label>Work email<input type="email" name="email" value={formState.email} onChange={update} placeholder="you@company.com" required /></label></div>
           <label>Company<input name="company" value={formState.company} onChange={update} placeholder="Company name" /></label>
           <label>Target market<input name="market" value={formState.market} onChange={update} placeholder="Where are you looking to grow?" /></label>
           <label>What's the opportunity or challenge?<textarea name="challenge" value={formState.challenge} onChange={update} placeholder="A few lines are enough to start..." rows="3" /></label>
-          <div className="form-submit"><p>By submitting, you agree to be contacted about your enquiry.</p><button type="submit">{sent ? 'Open email again' : 'Start the conversation'} <span>↗</span></button></div>
+          <div className="form-submit"><p>By submitting, you agree to be contacted about your enquiry.</p><button type="submit">{sent ? 'Open email again' : 'Start the conversation'} <span>↗︎</span></button></div>
         </form>
       </div>
     </section>
 
-    <footer className="footer"><a className="brand" href="#top"><span className="brand-mark"><i /><i /><i /></span><span>NIFINANCE<span className="brand-light"> SOLUTION</span></span></a><span className="footer-line">BUSINESS BEYOND BORDERS.</span><a href="#top" className="back-top">BACK TO TOP ↑</a><span className="copyright">© {new Date().getFullYear()} NIFINANCE SOLUTION</span></footer>
+    <footer className="footer"><a className="brand" href="#top"><span className="brand-mark"><i /><i /><i /></span><span>NIFINANCE<span className="brand-light"> SOLUTION</span></span></a><span className="footer-line">BUSINESS BEYOND BORDERS.</span><a href="#top" className="back-top">BACK TO TOP ↑︎</a><span className="copyright">© {new Date().getFullYear()} NIFINANCE SOLUTION</span></footer>
   </main>;
 }
 
