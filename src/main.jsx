@@ -32,100 +32,63 @@ function WorldEngine() {
 
       core = new THREE.Group();
       scene.add(core);
-      // A smooth, glossy planet surface with a separate fine triangulated shell.
-      const sphereGeo = new THREE.SphereGeometry(1.72, 96, 96);
-      const shell = new THREE.Mesh(sphereGeo, new THREE.MeshPhysicalMaterial({
-        color: 0x18221a, metalness: 0.62, roughness: 0.19,
-        emissive: 0x203b12, emissiveIntensity: 0.28,
-        clearcoat: 1, clearcoatRoughness: 0.08, reflectivity: 0.9
-      }));
-      core.add(shell);
-
-      const wireGeo = new THREE.IcosahedronGeometry(1.735, 3);
-      const wire = new THREE.Mesh(wireGeo, new THREE.MeshBasicMaterial({
-        color: 0xbaff3b, wireframe: true, transparent: true, opacity: 0.095,
-        blending: THREE.AdditiveBlending, depthWrite: false
-      }));
-      core.add(wire);
-
-      // Fresnel atmosphere: a thin luminous rim gives the sphere real depth.
-      const atmosphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.91, 64, 64),
-        new THREE.ShaderMaterial({
-          uniforms: { glowColor: { value: new THREE.Color(0x9cff37) } },
-          vertexShader: `
-            varying vec3 vNormal;
-            varying vec3 vViewPosition;
-            void main() {
-              vNormal = normalize(normalMatrix * normal);
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              vViewPosition = -mvPosition.xyz;
-              gl_Position = projectionMatrix * mvPosition;
-            }
-          `,
-          fragmentShader: `
-            uniform vec3 glowColor;
-            varying vec3 vNormal;
-            varying vec3 vViewPosition;
-            void main() {
-              float fresnel = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewPosition)), 0.0), 2.25);
-              gl_FragColor = vec4(glowColor, fresnel * 0.42);
-            }
-          `,
-          transparent: true, blending: THREE.AdditiveBlending,
-          side: THREE.BackSide, depthWrite: false
-        })
-      );
-      atmosphere.renderOrder = 2;
-      core.add(atmosphere);
-
-      const dotsGeo = new THREE.BufferGeometry();
-      const positions = [];
-      for (let i = 0; i < 1250; i++) {
-        const u = Math.random() * 2 - 1;
-        const theta = Math.random() * Math.PI * 2;
-        const r = 1.76 + Math.random() * 0.48;
-        const s = Math.sqrt(1 - u * u);
-        positions.push(r * s * Math.cos(theta), r * u, r * s * Math.sin(theta));
+      // Pointillist Earth: thousands of independent points form recognizable continents.
+      // No surface mesh, no connecting network lines, and no atmospheric glow.
+      const landShapes = [
+        [[-168,72],[-140,70],[-125,55],[-130,48],[-117,32],[-105,20],[-82,8],[-60,15],[-50,48],[-65,60],[-95,72],[-130,75]],
+        [[-82,12],[-70,8],[-50,-5],[-35,-20],[-48,-55],[-68,-42],[-78,-15]],
+        [[-52,82],[-20,78],[-24,60],[-45,58],[-58,68]],
+        [[-10,72],[30,72],[60,58],[90,72],[130,58],[160,60],[178,48],[145,35],[120,20],[105,5],[80,8],[65,25],[45,12],[35,-5],[15,-35],[-5,-35],[-18,-5],[-10,25],[-25,38],[-15,55]],
+        [[-18,35],[10,37],[35,20],[50,5],[40,-35],[18,-35],[0,-25],[-15,0],[-20,20]],
+        [[112,-11],[155,-10],[153,-40],[130,-45],[113,-30]],
+        [[45,-13],[51,-13],[50,-25],[44,-24]],
+        [[130,32],[145,45],[146,35],[137,30]],
+        [[-8,58],[2,59],[0,50],[-7,50]],
+        [[-180,-70],[-120,-72],[-60,-75],[0,-72],[60,-74],[120,-72],[180,-70],[180,-88],[-180,-88]]
+      ];
+      const insidePolygon = (lon, lat, polygon) => {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const [xi, yi] = polygon[i];
+          const [xj, yj] = polygon[j];
+          const crosses = ((yi > lat) !== (yj > lat)) &&
+            (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-6) + xi);
+          if (crosses) inside = !inside;
+        }
+        return inside;
+      };
+      const globeDots = [];
+      const oceanDots = [];
+      const dotCount = 6800;
+      for (let i = 0; i < dotCount; i++) {
+        const lat = Math.asin(2 * Math.random() - 1) * 180 / Math.PI;
+        const lon = Math.random() * 360 - 180;
+        const latRad = lat * Math.PI / 180;
+        const lonRad = lon * Math.PI / 180;
+        const radius = 1.73;
+        const point = [
+          radius * Math.cos(latRad) * Math.sin(lonRad),
+          radius * Math.sin(latRad),
+          radius * Math.cos(latRad) * Math.cos(lonRad)
+        ];
+        const onLand = landShapes.some(shape => insidePolygon(lon, lat, shape));
+        if (onLand) globeDots.push(...point);
+        else if (Math.random() < 0.075) oceanDots.push(...point);
       }
-      dotsGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      particles = new THREE.Points(dotsGeo, new THREE.PointsMaterial({
-        color: 0xd7ff77, size: 0.021, transparent: true, opacity: 0.9,
-        sizeAttenuation: true, blending: THREE.AdditiveBlending, depthWrite: false
+      const landGeometry = new THREE.BufferGeometry();
+      landGeometry.setAttribute('position', new THREE.Float32BufferAttribute(globeDots, 3));
+      const land = new THREE.Points(landGeometry, new THREE.PointsMaterial({
+        color: 0xc9ff45, size: 0.027, transparent: true, opacity: 0.92,
+        sizeAttenuation: true, depthWrite: false
+      }));
+      core.add(land);
+      const oceanGeometry = new THREE.BufferGeometry();
+      oceanGeometry.setAttribute('position', new THREE.Float32BufferAttribute(oceanDots, 3));
+      particles = new THREE.Points(oceanGeometry, new THREE.PointsMaterial({
+        color: 0x8a9b82, size: 0.012, transparent: true, opacity: 0.26,
+        sizeAttenuation: true, depthWrite: false
       }));
       core.add(particles);
-
-      // Fine geodesic connections around the globe, like a live market network.
-      const networkPoints = [];
-      const networkCount = 88;
-      for (let i = 0; i < networkCount; i++) {
-        const u = Math.random() * 2 - 1;
-        const theta = Math.random() * Math.PI * 2;
-        const r = 1.746;
-        const s = Math.sqrt(1 - u * u);
-        networkPoints.push(new THREE.Vector3(r * s * Math.cos(theta), r * u, r * s * Math.sin(theta)));
-      }
-      const links = [];
-      for (let i = 0; i < networkPoints.length; i++) {
-        const nearest = networkPoints
-          .map((p, j) => ({ j, d: networkPoints[i].distanceTo(p) }))
-          .filter(v => v.j !== i && v.d < 0.68)
-          .sort((a, b) => a.d - b.d)
-          .slice(0, 3);
-        nearest.forEach(({ j }) => {
-          if (j > i) links.push(
-            networkPoints[i].x, networkPoints[i].y, networkPoints[i].z,
-            networkPoints[j].x, networkPoints[j].y, networkPoints[j].z
-          );
-        });
-      }
-      const linkGeo = new THREE.BufferGeometry();
-      linkGeo.setAttribute('position', new THREE.Float32BufferAttribute(links, 3));
-      const linkMesh = new THREE.LineSegments(linkGeo, new THREE.LineBasicMaterial({
-        color: 0x8fdc3c, transparent: true, opacity: 0.24,
-        blending: THREE.AdditiveBlending, depthWrite: false
-      }));
-      core.add(linkMesh);
 
       ringA = new THREE.Mesh(new THREE.TorusGeometry(2.22, 0.012, 8, 180), new THREE.MeshBasicMaterial({ color: 0xc9ff45, transparent: true, opacity: 0.75 }));
       ringA.rotation.set(0.82, 0.18, -0.42);
@@ -137,9 +100,6 @@ function WorldEngine() {
       const orbitDot = new THREE.Mesh(new THREE.SphereGeometry(0.075, 18, 18), new THREE.MeshBasicMaterial({ color: 0xc9ff45 }));
       orbitDot.position.set(2.22, 0, 0);
       ringA.add(orbitDot);
-      const glow = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), new THREE.MeshBasicMaterial({ color: 0x8cae35, transparent: true, opacity: 0.055 }));
-      core.add(glow);
-      glow.renderOrder = -1;
 
       const resize = () => {
         if (!renderer || !el.clientWidth || !el.clientHeight) return;
