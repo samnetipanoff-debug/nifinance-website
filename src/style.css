@@ -39,3 +39,27 @@
   [data-fly]{will-change:auto}
   .hero [data-fly="hero"]{animation:none}
 }
+
+
+/* Neon field signal: a physical, illuminated sign hovering over the global sphere. */
+.neon-sign{
+  position:absolute;z-index:5;right:7.4%;top:27%;width:190px;padding:14px 16px 13px;
+  border:1px solid rgba(201,255,69,.82);background:rgba(7,10,7,.68);
+  box-shadow:0 0 0 1px rgba(201,255,69,.08),0 0 12px rgba(201,255,69,.2),0 0 34px rgba(201,255,69,.13),inset 0 0 22px rgba(201,255,69,.055);
+  transform:rotate(-4deg);pointer-events:none;backdrop-filter:blur(8px);
+  animation:neon-flicker 7s ease-in-out infinite;
+}
+.neon-sign:before,.neon-sign:after{content:"";position:absolute;width:9px;height:9px;border-color:var(--acid);border-style:solid;opacity:.95}
+.neon-sign:before{top:-4px;left:-4px;border-width:1px 0 0 1px}
+.neon-sign:after{right:-4px;bottom:-4px;border-width:0 1px 1px 0}
+.neon-sign-top,.neon-sign-bottom{display:flex;align-items:center;font:8px var(--mono);letter-spacing:.13em;color:#c6d99b}
+.neon-sign strong{display:block;font-family:var(--display);font-size:27px;font-weight:500;line-height:.9;letter-spacing:-.065em;color:#efffc4;text-shadow:0 0 4px #c9ff45,0 0 13px rgba(201,255,69,.75),0 0 30px rgba(201,255,69,.35);margin:14px 0 13px}
+.neon-sign-bottom{gap:7px;font-size:7px;color:#a8bd7b}
+.neon-sign-bottom i{width:5px;height:5px;background:var(--acid);border-radius:50%;box-shadow:0 0 9px var(--acid);display:inline-block}
+@keyframes neon-flicker{0%,18%,20%,22%,65%,67%,100%{opacity:1}19%,66%{opacity:.82}}
+.service-row:hover{box-shadow:inset 3px 0 0 var(--acid),0 0 26px rgba(201,255,69,.045)}
+.service-row:hover h3{text-shadow:0 0 18px rgba(201,255,69,.13)}
+.nav-cta:hover,.text-link:hover{ text-shadow:0 0 12px rgba(201,255,69,.35)}
+@media(max-width:1000px){.neon-sign{right:5%;top:23%;transform:rotate(-4deg) scale(.86);transform-origin:top right}}
+@media(max-width:700px){.neon-sign{right:7%;top:auto;bottom:17%;width:154px;padding:10px 11px;transform:rotate(-4deg) scale(.82);transform-origin:bottom right;opacity:.92}.neon-sign strong{font-size:22px;margin:10px 0}.neon-sign-top{font-size:6px}.neon-sign-bottom{font-size:6px}}
+@media(prefers-reduced-motion:reduce){.neon-sign{animation:none}}
