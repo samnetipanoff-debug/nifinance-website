@@ -74,6 +74,28 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
       shell = new THREE.Group();
       scene.add(shell);
+      let zoomLevel = 1;
+      const applyZoom = (value) => {
+        zoomLevel = Math.max(0.72, Math.min(1.72, value));
+        shell.scale.setScalar(zoomLevel);
+        zoomReadout.textContent = Math.round(zoomLevel * 100) + '%';
+      };
+      const zoomControls = document.createElement('div');
+      zoomControls.className = 'sphere-zoom-controls';
+      zoomControls.innerHTML = '<button type="button" aria-label="Zoom out" title="Zoom out">−</button><span>100%</span><button type="button" aria-label="Zoom in" title="Zoom in">+</button><button type="button" class="sphere-zoom-reset" aria-label="Reset zoom" title="Reset zoom">RESET</button>';
+      const zoomOut = zoomControls.querySelector('button[aria-label="Zoom out"]');
+      const zoomIn = zoomControls.querySelector('button[aria-label="Zoom in"]');
+      const zoomReadout = zoomControls.querySelector('span');
+      const zoomReset = zoomControls.querySelector('.sphere-zoom-reset');
+      zoomOut.addEventListener('click', () => applyZoom(zoomLevel - 0.12));
+      zoomIn.addEventListener('click', () => applyZoom(zoomLevel + 0.12));
+      zoomReset.addEventListener('click', () => applyZoom(1));
+      el.appendChild(zoomControls);
+      const onWheelZoom = (e) => {
+        e.preventDefault();
+        applyZoom(zoomLevel + (e.deltaY < 0 ? 0.07 : -0.07));
+      };
+      el.addEventListener('wheel', onWheelZoom, { passive: false });
       const shellRadius = 6.0;
       const dotPositions = [];
       const dotColors = [];
@@ -231,7 +253,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         }
       };
       const onPointerDown = (e) => {
-        if (e.target.closest('.sphere-node-label')) return;
+        if (e.target.closest('.sphere-node-label, .sphere-zoom-controls')) return;
         isDragging = true;
         dragMoved = false;
         pointerStartX = previousPointerX = e.clientX;
@@ -337,6 +359,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       return () => {
         cancelAnimationFrame(frame);
         window.removeEventListener('resize', resize);
+        el.removeEventListener('wheel', onWheelZoom);
+        zoomControls.remove();
         el.removeEventListener('click', onClick);
         el.removeEventListener('pointerdown', onPointerDown);
         el.removeEventListener('pointermove', onPointerMove);
