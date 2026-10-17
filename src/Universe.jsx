@@ -238,7 +238,15 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         frame = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
         // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
-        // A tiny inertial glide after release makes mouse control feel physical without auto-spinning.
+        // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
+        if (!isDragging && !reduced) {
+          shell.rotation.y += dragVelocityX;
+          shell.rotation.x += dragVelocityY;
+          dragVelocityX *= 0.92;
+          dragVelocityY *= 0.92;
+          if (Math.abs(dragVelocityX) < 0.00002) dragVelocityX = 0;
+          if (Math.abs(dragVelocityY) < 0.00002) dragVelocityY = 0;
+        }
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
         linkMeshes.forEach(({ from, to, line, material }) => {
