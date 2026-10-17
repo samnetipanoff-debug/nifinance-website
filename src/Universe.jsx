@@ -93,7 +93,50 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const shellGeo = new THREE.BufferGeometry();
       shellGeo.setAttribute('position', new THREE.Float32BufferAttribute(dotPositions, 3));
       shellGeo.setAttribute('color', new THREE.Float32BufferAttribute(dotColors, 3));
-      const shellDots = new THREE.Points(shellGeo, new THREE.PointsMaterial({ size: 0.023, vertexColors: true, transparent: true, opacity: 0.8, depthWrite: false, sizeAttenuation: true }));
+      // The particle shell has its own slow, organic motion. Displacement is tangential
+      // and very small, so the sphere stays coherent while business nodes and links remain fixed.
+      const shellDotMaterial = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uPointSize: { value: 0.023 } },
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        vertexShader: `
+          uniform float uTime;
+          uniform float uPointSize;
+          attribute vec3 color;
+          varying vec3 vColor;
+          varying float vFade;
+          void main() {
+            vec3 p = position;
+            vec3 n = normalize(position);
+            vec3 drift = vec3(
+              sin(position.y * 1.7 + uTime * 0.22) + cos(position.z * 1.1 - uTime * 0.13),
+              sin(position.z * 1.5 - uTime * 0.18) + cos(position.x * 1.3 + uTime * 0.16),
+              sin(position.x * 1.6 + uTime * 0.15) + cos(position.y * 1.4 - uTime * 0.20)
+            );
+            drift -= n * dot(drift, n);
+            p += normalize(drift + vec3(0.0001)) * (0.035 * sin(uTime * 0.24 + dot(position, vec3(0.31, 0.23, 0.27))));
+            vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            gl_PointSize = uPointSize * (500.0 / max(0.1, -mvPosition.z));
+            vColor = color;
+            vFade = smoothstep(0.0, 1.0, clamp((-mvPosition.z) / 1.5, 0.0, 1.0));
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          varying float vFade;
+          void main() {
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float circle = 1.0 - smoothstep(0.30, 0.50, length(uv));
+            if (circle < 0.02) discard;
+            gl_FragColor = vec4(vColor, 0.8 * circle * vFade);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }
+        `
+      });
+      const shellDots = new THREE.Points(shellGeo, shellDotMaterial);
       shell.add(shellDots);
 
       // Sparse latitude arcs create a spatial reference, not a decorative globe.
@@ -237,6 +280,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const animate = () => {
         frame = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
+        shellDotMaterial.uniforms.uTime.value = reduced ? t * 0.35 : t;
         // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
         // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
         if (!isDragging && !reduced) {
