@@ -78,16 +78,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const businessElements = new THREE.Group();
       shell.add(businessElements);
       let zoomLevel = 1;
+      let targetZoom = 1;
       const applyZoom = (value) => {
-        zoomLevel = Math.max(0.25, Math.min(3.0, value));
-        businessElements.scale.setScalar(zoomLevel);
-        // Subtle forward travel makes zoom feel like moving through the model, not resizing the sphere.
-        // Translate the business layer toward/away from the viewer as well as scaling it,
-        // so zoom has a subtle forward-flight feel while the particle shell stays put.
-        businessElements.position.z = (zoomLevel - 1) * 6.0;
-        businessElements.position.x = (zoomLevel - 1) * -0.22;
-        businessElements.position.y = (zoomLevel - 1) * 0.16;
-        zoomReadout.textContent = Math.round(zoomLevel * 100) + '%';
+        targetZoom = Math.max(0.25, Math.min(3.0, value));
+        zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
       zoomControls.className = 'sphere-zoom-controls';
@@ -311,6 +305,15 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         frame = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
         shellDotMaterial.uniforms.uTime.value = reduced ? t * 0.35 : t;
+        // Smoothly fly the business layer toward/away from the viewer on every zoom action.
+        // The particle shell is intentionally not transformed by this movement.
+        const zoomEase = reduced ? 0.22 : 0.075;
+        zoomLevel += (targetZoom - zoomLevel) * zoomEase;
+        if (Math.abs(targetZoom - zoomLevel) < 0.001) zoomLevel = targetZoom;
+        businessElements.scale.setScalar(zoomLevel);
+        businessElements.position.z = (zoomLevel - 1) * 6.0;
+        businessElements.position.x = (zoomLevel - 1) * -0.22;
+        businessElements.position.y = (zoomLevel - 1) * 0.16;
         // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
         // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
         if (!isDragging && !reduced) {
