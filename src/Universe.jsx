@@ -103,7 +103,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         vertexShader: `
           uniform float uTime;
           uniform float uPointSize;
-          attribute vec3 color;
           varying vec3 vColor;
           varying float vFade;
           void main() {
