@@ -74,10 +74,15 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
       shell = new THREE.Group();
       scene.add(shell);
+      // Zoom only the business model layer; the particle shell remains at its original size.
+      const businessElements = new THREE.Group();
+      shell.add(businessElements);
       let zoomLevel = 1;
       const applyZoom = (value) => {
         zoomLevel = Math.max(0.72, Math.min(1.72, value));
-        shell.scale.setScalar(zoomLevel);
+        businessElements.scale.setScalar(zoomLevel);
+        // Subtle forward travel makes zoom feel like moving through the model, not resizing the sphere.
+        businessElements.position.z = (zoomLevel - 1) * 1.1;
         zoomReadout.textContent = Math.round(zoomLevel * 100) + '%';
       };
       const zoomControls = document.createElement('div');
@@ -172,7 +177,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       });
 
       nodeGroup = new THREE.Group();
-      shell.add(nodeGroup);
+      businessElements.add(nodeGroup);
       const nodeById = {};
       nodes.forEach((node, idx) => {
         const p = new THREE.Vector3(...node.pos).normalize().multiplyScalar(shellRadius - 0.12);
@@ -207,7 +212,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       });
 
       network = new THREE.Group();
-      shell.add(network);
+      businessElements.add(network);
       const links = [
         ['procurement', 'production'], ['production', 'finance'], ['operations', 'production'],
         ['marketing', 'sales'], ['sales', 'finance'], ['marketing', 'finance'],
@@ -229,7 +234,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
       // A luminous pulse travels through the selected causal chain.
       const pulseGroup = new THREE.Group();
-      shell.add(pulseGroup);
+      businessElements.add(pulseGroup);
       const pulses = [];
       for (let i = 0; i < 3; i++) {
         const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), new THREE.MeshBasicMaterial({ color: 0xc9ff78 }));
