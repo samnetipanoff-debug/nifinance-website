@@ -79,7 +79,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       shell.add(businessElements);
       let zoomLevel = 1;
       const applyZoom = (value) => {
-        zoomLevel = Math.max(0.72, Math.min(1.72, value));
+        zoomLevel = Math.max(0.25, Math.min(3.0, value));
         businessElements.scale.setScalar(zoomLevel);
         // Subtle forward travel makes zoom feel like moving through the model, not resizing the sphere.
         businessElements.position.z = (zoomLevel - 1) * 1.1;
