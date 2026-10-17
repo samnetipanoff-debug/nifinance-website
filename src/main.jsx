@@ -304,5 +304,6 @@ function App() {
   </main>;
 }
 
-const isUniverseRoute = window.location.pathname === '/universe' || window.location.pathname === '/universe/';
-createRoot(document.getElementById('root')).render(isUniverseRoute ? <Universe /> : <App />);
+const isUniverseRoute = /^\/universe\/?$/.test(window.location.pathname);
+const RootView = isUniverseRoute ? Universe : App;
+createRoot(document.getElementById('root')).render(<RootView />);
