@@ -304,5 +304,5 @@ function App() {
   </main>;
 }
 
-const isUniverseRoute = window.location.pathname.replace(/\\/+$/, '') === '/universe';
+const isUniverseRoute = window.location.pathname === '/universe' || window.location.pathname === '/universe/';
 createRoot(document.getElementById('root')).render(isUniverseRoute ? <Universe /> : <App />);
