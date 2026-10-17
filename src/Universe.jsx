@@ -134,12 +134,12 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             vec3 p = position;
             vec3 n = normalize(position);
             vec3 drift = vec3(
-              sin(position.y * 1.7 + uTime * 0.22) + cos(position.z * 1.1 - uTime * 0.13),
-              sin(position.z * 1.5 - uTime * 0.18) + cos(position.x * 1.3 + uTime * 0.16),
-              sin(position.x * 1.6 + uTime * 0.15) + cos(position.y * 1.4 - uTime * 0.20)
+              sin(position.y * 1.7 + uTime * 0.48) + cos(position.z * 1.1 - uTime * 0.31),
+              sin(position.z * 1.5 - uTime * 0.39) + cos(position.x * 1.3 + uTime * 0.42),
+              sin(position.x * 1.6 + uTime * 0.36) + cos(position.y * 1.4 - uTime * 0.44)
             );
             drift -= n * dot(drift, n);
-            p += normalize(drift + vec3(0.0001)) * (0.035 * sin(uTime * 0.24 + dot(position, vec3(0.31, 0.23, 0.27))));
+            p += normalize(drift + vec3(0.0001)) * (0.11 * sin(uTime * 0.42 + dot(position, vec3(0.31, 0.23, 0.27))));
             vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
             gl_Position = projectionMatrix * mvPosition;
             gl_PointSize = uPointSize * (500.0 / max(0.1, -mvPosition.z));
