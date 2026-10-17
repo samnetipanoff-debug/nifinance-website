@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import './style.css';
+import Universe from './Universe.jsx';
 
 function WorldEngine() {
   const host = useRef(null);
@@ -303,4 +304,5 @@ function App() {
   </main>;
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+const isUniverseRoute = window.location.pathname.replace(/\\/+$/, '') === '/universe';
+createRoot(document.getElementById('root')).render(isUniverseRoute ? <Universe /> : <App />);
