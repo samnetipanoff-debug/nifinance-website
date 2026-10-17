@@ -48,7 +48,9 @@ function BusinessSphere({ selected, onSelect, scenario }) {
     const labels = new Map();
     const labelEls = new Map();
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
+    let isDragging = false, dragMoved = false, suppressClick = false;
+    let pointerStartX = 0, pointerStartY = 0, previousPointerX = 0, previousPointerY = 0;
+    let dragVelocityX = 0, dragVelocityY = 0;
     try {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(72, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 100);
@@ -174,6 +176,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
       const onClick = (e) => {
+        if (suppressClick) { suppressClick = false; return; }
         if (e.target.closest('.sphere-node-label')) return;
         const rect = el.getBoundingClientRect();
         pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -185,12 +188,37 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           if (found) stateRef.current.onSelect(found.id);
         }
       };
-      const onMove = (e) => {
-        const r = el.getBoundingClientRect();
-        targetX = ((e.clientX - r.left) / r.width - 0.5) * 0.28;
-        targetY = ((e.clientY - r.top) / r.height - 0.5) * 0.2;
+      const onPointerDown = (e) => {
+        if (e.target.closest('.sphere-node-label')) return;
+        isDragging = true;
+        dragMoved = false;
+        pointerStartX = previousPointerX = e.clientX;
+        pointerStartY = previousPointerY = e.clientY;
+        dragVelocityX = dragVelocityY = 0;
+        el.classList.add('is-dragging');
+        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
       };
-      const onLeave = () => { targetX = 0; targetY = 0; };
+      const onPointerMove = (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - previousPointerX;
+        const dy = e.clientY - previousPointerY;
+        if (Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 4) dragMoved = true;
+        shell.rotation.y += dx * 0.0065;
+        shell.rotation.x += dy * 0.0065;
+        shell.rotation.x = Math.max(-Math.PI * 0.46, Math.min(Math.PI * 0.46, shell.rotation.x));
+        dragVelocityX = dx * 0.002;
+        dragVelocityY = dy * 0.002;
+        previousPointerX = e.clientX;
+        previousPointerY = e.clientY;
+      };
+      const onPointerUp = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        suppressClick = dragMoved;
+        el.classList.remove('is-dragging');
+        if (el.hasPointerCapture && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      };
+      const onPointerCancel = (e) => onPointerUp(e);
       const resize = () => {
         if (!renderer || !el.clientWidth || !el.clientHeight) return;
         camera.aspect = el.clientWidth / el.clientHeight;
@@ -198,20 +226,19 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         renderer.setSize(el.clientWidth, el.clientHeight);
       };
       el.addEventListener('click', onClick);
-      el.addEventListener('pointermove', onMove);
-      el.addEventListener('pointerleave', onLeave);
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('pointermove', onPointerMove);
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', onPointerCancel);
+      el.addEventListener('lostpointercapture', onPointerUp);
       window.addEventListener('resize', resize);
       const clock = new THREE.Clock();
 
       const animate = () => {
         frame = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
-        currentX += (targetX - currentX) * 0.018;
-        currentY += (targetY - currentY) * 0.018;
-        if (!reduced) {
-          shell.rotation.y = t * 0.035 + currentX;
-          shell.rotation.x = Math.sin(t * 0.12) * 0.025 + currentY;
-        }
+        // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
+        // A tiny inertial glide after release makes mouse control feel physical without auto-spinning.
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
         linkMeshes.forEach(({ from, to, line, material }) => {
@@ -260,8 +287,11 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         cancelAnimationFrame(frame);
         window.removeEventListener('resize', resize);
         el.removeEventListener('click', onClick);
-        el.removeEventListener('pointermove', onMove);
-        el.removeEventListener('pointerleave', onLeave);
+        el.removeEventListener('pointerdown', onPointerDown);
+        el.removeEventListener('pointermove', onPointerMove);
+        el.removeEventListener('pointerup', onPointerUp);
+        el.removeEventListener('pointercancel', onPointerCancel);
+        el.removeEventListener('lostpointercapture', onPointerUp);
         labelEls.forEach(label => label.remove());
         scene.traverse(obj => {
           if (obj.geometry) obj.geometry.dispose();
