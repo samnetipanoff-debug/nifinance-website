@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import './style.css';
 import Universe from './Universe.jsx';
+import Universe2 from './Universe2.jsx';
 
 function WorldEngine() {
   const host = useRef(null);
@@ -304,6 +305,7 @@ function App() {
   </main>;
 }
 
+const isUniverse2Route = /^\/universe-2\/?$/.test(window.location.pathname);
 const isUniverseRoute = /^\/universe\/?$/.test(window.location.pathname);
-const RootView = isUniverseRoute ? Universe : App;
+const RootView = isUniverse2Route ? Universe2 : isUniverseRoute ? Universe : App;
 createRoot(document.getElementById('root')).render(<RootView />);
