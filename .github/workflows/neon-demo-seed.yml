@@ -1,0 +1,58 @@
+name: Seed Neon demo data
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-demo-seed
+  cancel-in-progress: false
+
+jobs:
+  seed-demo:
+    name: Apply Universe 2 demo dataset
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Validate database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          if [[ -z "${DATABASE_URL}" ]]; then
+            echo "::error::GitHub Actions secret DATABASE_URL is missing."
+            exit 1
+          fi
+
+      - name: Apply idempotent demo schema and seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "${DATABASE_URL}" \
+            --set ON_ERROR_STOP=1 \
+            --file supabase/demo/northstar_growth_3_months.sql
+
+      - name: Verify seeded demo data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "${DATABASE_URL}" --no-psqlrc --tuples-only --no-align \
+            --command "SELECT 'companies=' || count(*) FROM public.demo_companies WHERE slug = 'northstar-growth';"
+          psql "${DATABASE_URL}" --no-psqlrc --tuples-only --no-align \
+            --command "SELECT 'periods=' || count(*) FROM public.demo_periods p JOIN public.demo_companies c ON c.id = p.company_id WHERE c.slug = 'northstar-growth';"
+          psql "${DATABASE_URL}" --no-psqlrc --tuples-only --no-align \
+            --command "SELECT 'deals=' || count(*) FROM public.demo_deals d JOIN public.demo_companies c ON c.id = d.company_id WHERE c.slug = 'northstar-growth';"
