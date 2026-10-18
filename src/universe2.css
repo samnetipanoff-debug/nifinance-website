@@ -72,16 +72,9 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
   will-change: transform, opacity;
   transition: opacity .12s, border-color .18s, background .18s;
 }
-.business-universe .sphere-label-name {
-  font-size: calc(9px * var(--label-zoom, 1));
-}
-.business-universe .sphere-label-value {
-  font-size: calc(9px * var(--label-zoom, 1));
-}
-.business-universe .sphere-label-dot {
-  width: calc(6px * var(--label-zoom, 1));
-  height: calc(6px * var(--label-zoom, 1));
-}
+.business-universe .sphere-label-name,
+.business-universe .sphere-label-value { font-size: 9px; }
+.business-universe .sphere-label-dot { width: 6px; height: 6px; }
 .business-universe .sphere-zoom-controls {
   right: clamp(12px, 2vw, 30px);
   bottom: 42px;
