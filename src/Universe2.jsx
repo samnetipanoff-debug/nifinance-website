@@ -363,7 +363,22 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
             label.style.transform = 'translate(-50%, -50%) translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) scale(' + labelScale + ')';
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.72') : '0';
-            marketingPanel.classList.toggle('is-visible', stateRef.current.selected === 'marketing' && zoomLevel >= 1.25);
+            const marketingActive = stateRef.current.selected === 'marketing' && zoomLevel >= 1.25;
+            marketingPanel.classList.toggle('is-visible', marketingActive);
+            if (n.id === 'marketing' && marketingActive && visible) {
+              // Keep the breakdown visually attached to the Marketing node, directly beneath its label.
+              const panelWidth = Math.min(340, el.clientWidth * 0.42);
+              const panelHeight = marketingPanel.offsetHeight || 220;
+              const anchorX = (projected.x * 0.5 + 0.5) * el.clientWidth;
+              const anchorY = (-projected.y * 0.5 + 0.5) * el.clientHeight;
+              const left = Math.max(12, Math.min(el.clientWidth - panelWidth - 12, anchorX - panelWidth * 0.18));
+              const top = Math.max(62, Math.min(el.clientHeight - panelHeight * labelScale - 36, anchorY + 22 * labelScale));
+              marketingPanel.style.left = left + 'px';
+              marketingPanel.style.top = top + 'px';
+              marketingPanel.style.right = 'auto';
+              marketingPanel.style.transformOrigin = 'top left';
+              marketingPanel.style.transform = 'scale(' + labelScale + ')';
+            }
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
