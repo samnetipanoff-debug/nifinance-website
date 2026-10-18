@@ -98,16 +98,12 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const marketingPanel = document.createElement('div');
       marketingPanel.className = 'marketing-detail-panel';
       marketingPanel.innerHTML = `
-        <div class="marketing-detail-head"><span>MARKETING / DEEP VIEW</span><b>↗</b></div>
-        <h3>Marketing system</h3>
-        <p class="marketing-detail-summary">Lead volume is down 18%. Explore the drivers behind the change.</p>
         <div class="marketing-detail-grid">
-          <div class="marketing-detail-item"><span>CHANNELS</span><b>Paid search</b><strong>−22%</strong><small>Qualified leads</small></div>
-          <div class="marketing-detail-item"><span>CHANNELS</span><b>Social ads</b><strong>−11%</strong><small>Qualified leads</small></div>
-          <div class="marketing-detail-item"><span>FUNNEL</span><b>Landing page</b><strong>2.8%</strong><small>Conversion rate</small></div>
-          <div class="marketing-detail-item"><span>EFFICIENCY</span><b>Cost per lead</b><strong>+14%</strong><small>vs. baseline</small></div>
-        </div>
-        <div class="marketing-detail-footer"><i></i> 4 SUBSYSTEMS VISIBLE <span>ILLUSTRATIVE DATA</span></div>`;
+          <div class="marketing-detail-item"><b>Paid search</b><strong>−22%</strong><small>Qualified leads</small></div>
+          <div class="marketing-detail-item"><b>Social ads</b><strong>−11%</strong><small>Qualified leads</small></div>
+          <div class="marketing-detail-item"><b>Landing page</b><strong>2.8%</strong><small>Conversion rate</small></div>
+          <div class="marketing-detail-item"><b>Cost per lead</b><strong>+14%</strong><small>vs. baseline</small></div>
+        </div>`;
       el.appendChild(marketingPanel);
       const onWheelZoom = (e) => {
         e.preventDefault();
@@ -367,17 +363,19 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             marketingPanel.classList.toggle('is-visible', marketingActive);
             if (n.id === 'marketing' && marketingActive && visible) {
               // Keep the breakdown visually attached to the Marketing node, directly beneath its label.
-              const panelWidth = Math.min(340, el.clientWidth - 24);
-              marketingPanel.style.width = panelWidth + 'px';
-              marketingPanel.style.bottom = 'auto';
-              const panelHeight = marketingPanel.offsetHeight || 220;
+              // Expand the same node label downward: no detached card or side panel.
               const anchorX = (projected.x * 0.5 + 0.5) * el.clientWidth;
               const anchorY = (-projected.y * 0.5 + 0.5) * el.clientHeight;
-              const left = Math.max(12, Math.min(el.clientWidth - panelWidth - 12, anchorX - panelWidth * 0.18));
-              const top = Math.max(62, Math.min(el.clientHeight - panelHeight * labelScale - 36, anchorY + 22 * labelScale));
+              const labelWidth = label.offsetWidth;
+              const labelHeight = label.offsetHeight;
+              const panelWidth = Math.max(120, labelWidth);
+              const left = Math.max(8, Math.min(el.clientWidth - panelWidth * labelScale - 8, anchorX - (labelWidth * labelScale) / 2));
+              const top = Math.min(el.clientHeight - 32, anchorY + (labelHeight * labelScale) / 2 + 3);
+              marketingPanel.style.width = panelWidth + 'px';
               marketingPanel.style.left = left + 'px';
               marketingPanel.style.top = top + 'px';
               marketingPanel.style.right = 'auto';
+              marketingPanel.style.bottom = 'auto';
               marketingPanel.style.transformOrigin = 'top left';
               marketingPanel.style.transform = 'scale(' + labelScale + ')';
             }
