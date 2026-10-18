@@ -90,13 +90,28 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const zoomIn = zoomControls.querySelector('button[aria-label="Zoom in"]');
       const zoomReadout = zoomControls.querySelector('span');
       const zoomReset = zoomControls.querySelector('.sphere-zoom-reset');
-      zoomOut.addEventListener('click', () => applyZoom(zoomLevel - 0.12));
-      zoomIn.addEventListener('click', () => applyZoom(zoomLevel + 0.12));
+      zoomOut.addEventListener('click', () => applyZoom(targetZoom - 0.12));
+      zoomIn.addEventListener('click', () => applyZoom(targetZoom + 0.12));
       zoomReset.addEventListener('click', () => applyZoom(1));
       el.appendChild(zoomControls);
+
+      const marketingPanel = document.createElement('div');
+      marketingPanel.className = 'marketing-detail-panel';
+      marketingPanel.innerHTML = `
+        <div class="marketing-detail-head"><span>MARKETING / DEEP VIEW</span><b>↗</b></div>
+        <h3>Marketing system</h3>
+        <p class="marketing-detail-summary">Lead volume is down 18%. Explore the drivers behind the change.</p>
+        <div class="marketing-detail-grid">
+          <div class="marketing-detail-item"><span>CHANNELS</span><b>Paid search</b><strong>−22%</strong><small>Qualified leads</small></div>
+          <div class="marketing-detail-item"><span>CHANNELS</span><b>Social ads</b><strong>−11%</strong><small>Qualified leads</small></div>
+          <div class="marketing-detail-item"><span>FUNNEL</span><b>Landing page</b><strong>2.8%</strong><small>Conversion rate</small></div>
+          <div class="marketing-detail-item"><span>EFFICIENCY</span><b>Cost per lead</b><strong>+14%</strong><small>vs. baseline</small></div>
+        </div>
+        <div class="marketing-detail-footer"><i></i> 4 SUBSYSTEMS VISIBLE <span>ILLUSTRATIVE DATA</span></div>`;
+      el.appendChild(marketingPanel);
       const onWheelZoom = (e) => {
         e.preventDefault();
-        applyZoom(zoomLevel + (e.deltaY < 0 ? 0.07 : -0.07));
+        applyZoom(targetZoom + (e.deltaY < 0 ? 0.07 : -0.07));
       };
       el.addEventListener('wheel', onWheelZoom, { passive: false });
       const shellRadius = 6.0;
@@ -344,8 +359,11 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           const visible = projected.z < 1 && projected.z > -1 && worldPos.z < -0.3;
           const label = labelEls.get(n.id);
           if (label) {
-            label.style.transform = 'translate(-50%, -50%) translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px)';
+            const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
+            label.style.setProperty('--label-zoom', labelScale.toFixed(2));
+            label.style.transform = 'translate(-50%, -50%) translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) scale(' + labelScale + ')';
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.72') : '0';
+            marketingPanel.classList.toggle('is-visible', stateRef.current.selected === 'marketing' && zoomLevel >= 1.25);
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
@@ -373,6 +391,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         window.removeEventListener('resize', resize);
         el.removeEventListener('wheel', onWheelZoom);
         zoomControls.remove();
+        marketingPanel.remove();
         el.removeEventListener('click', onClick);
         el.removeEventListener('pointerdown', onPointerDown);
         el.removeEventListener('pointermove', onPointerMove);
@@ -410,49 +429,22 @@ export default function Universe2() {
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
       <div className="bu-live-state"><i /> INTERACTIVE BUSINESS MODEL <span>·</span> ILLUSTRATIVE DATA</div>
-      <button className="bu-help" onClick={() => setShowMap(v => !v)}>{showMap ? 'Hide causal map −' : 'Show causal map +'}</button>
+      <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> ZOOM INTO NODES</div>
     </div>
 
-    <section className="bu-hero">
-      <div className="bu-intro"><span className="bu-eyebrow">A BUSINESS YOU CAN STEP INSIDE</span><h1>See how one change<br /><em>moves the whole business.</em></h1><p>You're at the centre. Every node is a business driver. Every connection shows where a change travels next.</p></div>
-      <div className="bu-scenario-switch"><span>EXPLORE A SCENARIO</span><div><button className={scenarioKey === 'supplier' ? 'active' : ''} onClick={() => setScenarioKey('supplier')}>Supplier cost +3%</button><button className={scenarioKey === 'demand' ? 'active' : ''} onClick={() => setScenarioKey('demand')}>Sales funnel −12%</button></div></div>
-    </section>
+
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
       <BusinessSphere selected={selected} onSelect={setSelected} scenario={scenarioKey} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
-      <div className="bu-stage-hud bu-hud-top-left"><span>MODEL SPACE</span><b>360°</b></div>
-      <div className="bu-stage-hud bu-hud-top-right"><i /> LIVE SIMULATION</div>
-      <div className="bu-stage-hud bu-hud-bottom-left">DRAG TO ORIENT <span>·</span> SELECT A NODE TO INSPECT</div>
-      <div className="bu-stage-hud bu-hud-bottom-right">DEMO MODEL / 01</div>
+      <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 02</span><b>360°</b></div>
+      <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
+      <div className="bu-stage-hud bu-hud-bottom-left">DRAG TO ORIENT <span>·</span> SELECT MARKETING, THEN ZOOM IN</div>
+      <div className="bu-stage-hud bu-hud-bottom-right">SCROLL TO ZOOM</div>
+      <div className="bu-scenario-mini"><button className={scenarioKey === 'supplier' ? 'active' : ''} onClick={() => setScenarioKey('supplier')}>SUPPLIER +3%</button><button className={scenarioKey === 'demand' ? 'active' : ''} onClick={() => setScenarioKey('demand')}>FUNNEL −12%</button></div>
     </section>
 
-    <section className="bu-analysis">
-      <div className="bu-analysis-main">
-        <div className="bu-section-label"><span>01 / CAUSAL CHAIN</span><span>{scenario.title}</span></div>
-        <h2>{scenario.subtitle}</h2>
-        <div className="bu-causal-chain">
-          {scenario.steps.map((step, i) => {
-            const node = nodes.find(n => n.id === step.node);
-            return <React.Fragment key={step.node}>
-              <button className={'bu-chain-step ' + (selected === step.node ? 'active' : '')} onClick={() => setSelected(step.node)} style={{ '--node-color': node.color }}>
-                <span className="bu-chain-index">0{i + 1}</span><span className="bu-chain-node">{node.label}</span><strong>{step.value}</strong><small>{step.label}</small><p>{step.detail}</p>
-              </button>
-              {i < scenario.steps.length - 1 && <div className="bu-chain-arrow"><span>→</span><small>IMPACT</small></div>}
-            </React.Fragment>;
-          })}
-        </div>
-        {showMap && <div className="bu-impact-note"><span className="bu-impact-icon">↳</span><div><b>Why this matters</b><p>{scenarioKey === 'supplier' ? 'The supplier change does not stay in procurement. It propagates into production cost and then the profit forecast. Management can respond through renegotiation, alternative sourcing, price adjustment or efficiency measures.' : 'A weaker funnel does not stay inside marketing. Fewer qualified leads reduce sales opportunities and put the revenue forecast under pressure. Investigate channel quality, landing-page conversion and sales follow-up before increasing spend.'}</p></div></div>}
-      </div>
-      <aside className="bu-selected-card">
-        <span className="bu-section-label">SELECTED BUSINESS NODE</span>
-        <div className="bu-selected-heading"><span className="bu-selected-cube" style={{ '--node-color': active.color }} /><div><h3>{active.label}</h3><small>{active.metric}</small></div><strong>{active.value}</strong></div>
-        <p>{active.note}</p>
-        <div className="bu-impact-path"><span>CONNECTED IMPACT</span><b>{active.impact}</b></div>
-        <div className="bu-connected"><span>DIRECT CONNECTIONS</span><div>{active.links.map(id => { const n = nodes.find(x => x.id === id); return <button key={id} onClick={() => setSelected(id)}><i style={{ '--node-color': n.color }} />{n.label}<span>↗</span></button>; })}</div></div>
-      </aside>
-    </section>
-    <footer className="bu-footer"><span>NIFINANCE BUSINESS UNIVERSE</span><span>CONCEPT PROTOTYPE · ALL FIGURES ARE ILLUSTRATIVE</span><a href="/">← Back to NIFINANCE SOLUTION</a></footer>
+
   </main>;
 }
