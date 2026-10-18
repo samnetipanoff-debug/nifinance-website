@@ -367,7 +367,9 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             marketingPanel.classList.toggle('is-visible', marketingActive);
             if (n.id === 'marketing' && marketingActive && visible) {
               // Keep the breakdown visually attached to the Marketing node, directly beneath its label.
-              const panelWidth = Math.min(340, el.clientWidth * 0.42);
+              const panelWidth = Math.min(340, el.clientWidth - 24);
+              marketingPanel.style.width = panelWidth + 'px';
+              marketingPanel.style.bottom = 'auto';
               const panelHeight = marketingPanel.offsetHeight || 220;
               const anchorX = (projected.x * 0.5 + 0.5) * el.clientWidth;
               const anchorY = (-projected.y * 0.5 + 0.5) * el.clientHeight;
