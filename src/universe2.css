@@ -103,85 +103,55 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
 .marketing-detail-panel {
   position: absolute;
   z-index: 9;
-  right: clamp(18px, 4vw, 58px);
-  top: 50%;
-  width: min(360px, 34vw);
-  transform: translateY(-50%) translateX(18px);
-  padding: 18px;
-  background: linear-gradient(145deg, #0c160ff2, #050a07f0);
-  border: 1px solid #71dfff60;
-  box-shadow: 0 0 45px #71dfff14, 0 18px 70px #0008;
-  backdrop-filter: blur(18px);
+  padding: 4px 0 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity .28s ease, transform .35s ease, visibility .28s;
+  transform-origin: top left;
+  transition: opacity .22s ease, visibility .22s;
 }
 .marketing-detail-panel.is-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(-50%) translateX(0);
 }
-.marketing-detail-head {
-  display: flex;
-  justify-content: space-between;
-  color: #71dfff;
-  font: 8px 'DM Mono', monospace;
-  letter-spacing: .12em;
-}
-.marketing-detail-head b { font-size: 15px; font-weight: 400; }
-.marketing-detail-panel h3 {
-  margin: 12px 0 6px;
-  font: 500 22px 'Space Grotesk', sans-serif;
-  letter-spacing: -.04em;
-  color: #e9f5ef;
-}
-.marketing-detail-summary {
-  margin: 0 0 14px;
-  color: #91a59a;
-  font-size: 10px;
-  line-height: 1.7;
-}
-.marketing-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.marketing-detail-item {
+.marketing-detail-grid {
   display: flex;
   flex-direction: column;
-  min-height: 91px;
-  padding: 11px;
-  border: 1px solid #c9e4d317;
-  background: #ffffff04;
+  gap: 0;
+  border-left: 1px solid #71dfff55;
+  margin-left: 5px;
+  padding-left: 9px;
 }
-.marketing-detail-item span {
-  color: #718a7c;
-  font: 7px 'DM Mono', monospace;
-  letter-spacing: .1em;
+.marketing-detail-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  min-height: 0;
+  padding: 6px 2px;
+  border: 0;
+  border-bottom: 1px solid #c9e4d31a;
+  background: transparent;
 }
 .marketing-detail-item b {
   color: #d9e8de;
-  font: 10px 'DM Mono', monospace;
-  margin-top: 8px;
+  font: 9px 'DM Mono', monospace;
+  font-weight: 400;
 }
 .marketing-detail-item strong {
   color: #71dfff;
-  font: 500 20px 'Space Grotesk', sans-serif;
-  margin-top: 5px;
+  font: 500 13px 'Space Grotesk', sans-serif;
 }
-.marketing-detail-item small { color: #7e9487; font-size: 8px; margin-top: 3px; }
-.marketing-detail-footer {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 13px;
-  color: #89a295;
-  font: 7px 'DM Mono', monospace;
-  letter-spacing: .07em;
+.marketing-detail-item small {
+  grid-column: 1 / -1;
+  color: #7e9487;
+  font-size: 8px;
+  margin-top: 2px;
 }
-.marketing-detail-footer i {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #71dfff; box-shadow: 0 0 9px #71dfff;
-}
-.marketing-detail-footer span { margin-left: auto; color: #607469; }
-
 @media (max-width: 700px) {
   .business-universe .bu-topbar { padding: 0 11px; flex-basis: 54px; height: 54px; min-height: 54px; }
   .business-universe .bu-brand { font-size: 8px; }
@@ -197,20 +167,10 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
   .business-universe .bu-hud-bottom-left { bottom: 12px; left: 10px; max-width: 56%; }
   .business-universe .bu-hud-bottom-right { bottom: 12px; right: 10px; }
   .business-universe .sphere-zoom-controls { bottom: 36px; right: 9px; }
-  .marketing-detail-panel {
-    top: auto;
-    bottom: 76px;
-    left: 10px;
-    right: 10px;
-    width: auto;
-    padding: 12px;
-    transform: translateY(12px);
-  }
-  .marketing-detail-panel.is-visible { transform: translateY(0); }
-  .marketing-detail-panel h3 { font-size: 17px; margin-top: 7px; }
-  .marketing-detail-summary { margin-bottom: 9px; font-size: 9px; }
-  .marketing-detail-item { min-height: 72px; padding: 8px; }
-  .marketing-detail-item b { margin-top: 5px; font-size: 9px; }
-  .marketing-detail-item strong { font-size: 16px; }
+  .marketing-detail-panel { padding-top: 3px; }
+  .marketing-detail-item { padding: 5px 2px; }
+  .marketing-detail-item b { font-size: 8px; }
+  .marketing-detail-item strong { font-size: 12px; }
+  .marketing-detail-item small { font-size: 7px; }
   .marketing-detail-footer { font-size: 6px; margin-top: 8px; }
 }
