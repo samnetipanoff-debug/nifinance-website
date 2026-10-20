@@ -348,7 +348,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           if (label) {
             const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
-            label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(1)';
+            label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.72') : '0';
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('active', active);
@@ -454,46 +454,30 @@ export default function Universe2() {
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 02</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
-      <div className="bu-stage-hud bu-hud-bottom-left">DRAG TO ORIENT <span>·</span> SELECT A NODE, THEN ZOOM IN</div>
-      <div className="bu-stage-hud bu-hud-bottom-right">SCROLL TO ZOOM</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
     </section>
 
-    <section className="bu-live-dashboard" aria-label="Live Neon data">
-      <div className="bu-dashboard-heading">
-        <div>
-          <span className="bu-dashboard-eyebrow"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> LIVE BUSINESS DATA</span>
-          <h2>Northstar Growth <span>{neonStatus === 'connected' ? '· Connected to Neon' : neonStatus === 'error' ? '· Connection issue' : '· Connecting…'}</span></h2>
+    <section className="bu-analysis" aria-label="Business direction and relationships">
+      <div className="bu-analysis-main">
+        <div className="bu-section-label"><span>SELECTED DIRECTION / {active.label.toUpperCase()}</span><span>{neonStatus === "connected" ? "LIVE DATA · NEON" : neonStatus === "error" ? "LIVE DATA UNAVAILABLE" : "LOADING DIRECTION DATA"}</span></div>
+        <h2>{active.label}: drivers, outcomes and dependencies</h2>
+        <div className="bu-direction-summary">
+          <div className="bu-direction-kpi"><span>{active.metric}</span><strong>{active.value}</strong><small>Direction indicator · Jan–Mar</small></div>
+          <div className="bu-direction-description"><p>{active.note}</p><div className="bu-impact-note"><span className="bu-impact-icon">↗</span><div><b>BUSINESS RELATIONSHIP</b><p>{active.impact}</p></div></div></div>
         </div>
-        <button className="bu-data-toggle" type="button" onClick={() => setShowAllMetrics(v => !v)} disabled={neonStatus !== 'connected'}>
-          {showAllMetrics ? 'Hide details −' : 'View all metrics +'}
-        </button>
+        <div className="bu-section-label bu-relations-heading"><span>CONNECTED DIRECTIONS</span><span>SELECT A DIRECTION TO TRACE THE LINK</span></div>
+        <div className="bu-related-directions">
+          {active.links.map(id => { const related = nodes.find(n => n.id === id); return related ? <button key={related.id} type="button" className="bu-related-direction" onClick={() => setSelected(related.id)}><i style={{background: related.color}} /><span>{related.label}</span><b>↗</b></button> : null; })}
+        </div>
+        {neonStatus === "error" && <p className="bu-data-message" role="status">Neon data is temporarily unavailable: {neonError}. Direction relationships remain available.</p>}
       </div>
-      {neonStatus === 'error' && <p className="bu-data-message" role="status">Database data could not be loaded: {neonError}. The interactive model remains available.</p>}
-      {neonStatus === 'loading' && <p className="bu-data-message" role="status">Loading business metrics…</p>}
-      {neonStatus === 'connected' && latestMonth && <>
-        <div className="bu-live-metrics">
-          {[
-            ['Revenue', eur(latestMonth.recognized_revenue), growthPct(firstMonth?.recognized_revenue, latestMonth.recognized_revenue) + ' Jan → Mar'],
-            ['Operating profit', eur(latestMonth.operating_profit), `${Number(latestMonth.operating_margin_pct || 0).toFixed(1)}% margin`],
-            ['Marketing spend', eur(latestMonth.marketing_spend), growthPct(firstMonth?.marketing_spend, latestMonth.marketing_spend) + ' Jan → Mar'],
-            ['Qualified leads', Number(latestMonth.qualified_leads || 0).toLocaleString(), growthPct(firstMonth?.qualified_leads, latestMonth.qualified_leads) + ' Jan → Mar']
-          ].map(([label, value, note]) => <article className="bu-live-metric" key={label}>
-            <span>{label}</span><strong>{value}</strong><small>{note}</small>
-          </article>)}
-        </div>
-        {showAllMetrics && <div className="bu-live-metrics bu-live-metrics-extra">
-          {[
-            ['Sales opportunities', Number(latestMonth.opportunities || 0).toLocaleString(), 'Latest month'],
-            ['Customer receipts', eur(latestMonth.receipts), 'Cash received in latest month'],
-            ['Monthly payroll', eur(neonData.team?.monthly_payroll), `${Number(neonData.team?.size || 0)} team members`],
-            ['Delivery cost range', neonData.service_lines?.length ? `${Math.min(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}–${Math.max(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}%` : '—', 'By service line']
-          ].map(([label, value, note]) => <article className="bu-live-metric" key={label}>
-            <span>{label}</span><strong>{value}</strong><small>{note}</small>
-          </article>)}
-        </div>}
-        <p className="bu-dashboard-footnote">Demo figures · Latest reporting period: {latestMonth.month_start ? new Date(latestMonth.month_start).toLocaleDateString('en-GB', {month:'short', year:'numeric'}) : 'latest available'}</p>
-      </>}
+      <aside className="bu-selected-card">
+        <div className="bu-section-label">CAUSE → EFFECT</div>
+        <div className="bu-selected-heading"><span className="bu-selected-cube" style={{borderColor: active.color, background: active.color + "22"}} /><div><h3>{active.label}</h3><small>BUSINESS DRIVER</small></div><strong style={{color: active.color}}>{active.value}</strong></div>
+        <p>{active.note}</p>
+        <div className="bu-impact-path"><span>HOW IT CONNECTS</span><b>{active.impact}</b></div>
+        <div className="bu-connected"><span>RELATED NODES</span><div>{active.links.map(id => { const related = nodes.find(n => n.id === id); return related ? <button key={related.id} type="button" onClick={() => setSelected(related.id)}><i style={{background: related.color}} />{related.label}</button> : null; })}</div></div>
+      </aside>
     </section>
 
   </main>;
