@@ -407,3 +407,28 @@ body:has(.business-universe3),
 .bu-drill-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; border-top:1px solid #c9ff7828; }
 .bu-drill-foot button { padding:9px 10px; background:#c9ff7810; border:1px solid #c9ff7840; color:var(--acid)!important; font:8px 'DM Mono',monospace!important; }
 @media(max-width:760px) { .bu-drill-panel { min-width:240px; max-width:calc(100% - 12px); max-height:calc(100% - 64px); } .bu-drill-head { padding:11px; } .bu-drill-context { padding:9px 11px; } .bu-drill-row { padding:10px 11px; } .bu-drill-foot { padding:9px 11px; } }
+
+
+/* Resize handle for floating source-data windows. */
+.bu-drill-panel { box-sizing: border-box; }
+.bu-drill-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  z-index: 2;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.bu-drill-resize::before {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #c9ff7880;
+  border-bottom: 2px solid #c9ff7880;
+}
+.bu-drill-resize:hover::before { border-color: #c9ff78; }
