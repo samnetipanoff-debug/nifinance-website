@@ -12,7 +12,7 @@ const ROLES = ['customer', 'supplier', 'contractor', 'tax_authority', 'bank', 'e
 const send = (res, status, body) => res.status(status).json(body);
 
 function parseModelJson(content) {
-  const text = String(content || '').trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+  const text = String(content || '').trim().replace(/^\u0060{3}(?:json)?\s*/i, '').replace(/\s*\u0060{3}$/, '');
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('AI provider returned an invalid response');
