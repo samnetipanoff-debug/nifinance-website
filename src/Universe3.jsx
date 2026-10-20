@@ -198,47 +198,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         group.lookAt(new THREE.Vector3(0, 0, 0));
         const col = new THREE.Color(node.color);
 
-        // A subtly curved glass panel follows the sphere instead of reading as a flat card.
-        // It sits behind the node; the HTML label remains crisp and readable above it.
-        const panelWidth = 1.62;
-        const panelHeight = 0.94;
-        const panelSegmentsX = 24;
-        const panelSegmentsY = 12;
-        const panelPositions = [];
-        const panelIndices = [];
-        for (let iy = 0; iy <= panelSegmentsY; iy++) {
-          const v = iy / panelSegmentsY;
-          const y = (v - 0.5) * panelHeight;
-          for (let ix = 0; ix <= panelSegmentsX; ix++) {
-            const u = ix / panelSegmentsX;
-            const x = (u - 0.5) * panelWidth;
-            // The edges recede gently, giving the panel a wrap-around spherical profile.
-            const z = -0.22 * Math.pow(x / (panelWidth * 0.5), 2) - 0.08 * Math.pow(y / (panelHeight * 0.5), 2);
-            panelPositions.push(x, y, z - 0.24);
-          }
-        }
-        for (let iy = 0; iy < panelSegmentsY; iy++) {
-          for (let ix = 0; ix < panelSegmentsX; ix++) {
-            const a = iy * (panelSegmentsX + 1) + ix;
-            const b = a + 1;
-            const c = a + panelSegmentsX + 1;
-            const d = c + 1;
-            panelIndices.push(a, c, b, b, c, d);
-          }
-        }
-        const panelGeometry = new THREE.BufferGeometry();
-        panelGeometry.setAttribute('position', new THREE.Float32BufferAttribute(panelPositions, 3));
-        panelGeometry.setIndex(panelIndices);
-        panelGeometry.computeVertexNormals();
-        const panel = new THREE.Mesh(
-          panelGeometry,
-          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.055, side: THREE.DoubleSide, depthWrite: false })
-        );
-        const panelEdges = new THREE.LineSegments(
-          new THREE.EdgesGeometry(panelGeometry, 0.18),
-          new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.22 })
-        );
-        group.add(panel, panelEdges);
 
         const cube = new THREE.Mesh(
           new THREE.BoxGeometry(0.19, 0.19, 0.19),
@@ -251,7 +210,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false }));
         group.add(halo, frame, cube);
         nodeGroup.add(group);
-        const entry = { id: node.id, group, cube, frame, halo, panel, panelEdges, anchor: p.clone() };
+        const entry = { id: node.id, group, cube, frame, halo, anchor: p.clone() };
         meshes.push(entry);
         nodeById[node.id] = entry;
         const label = document.createElement('button');
