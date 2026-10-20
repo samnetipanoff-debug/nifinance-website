@@ -140,3 +140,30 @@
   .bu-live-metric strong { font-size:20px; }
   .bu-live-metric>span { font-size:7px; }
 }
+
+/* Direction-level analytics: metrics stay attached to the selected business driver. */
+.business-universe .bu-analysis { padding-top: 24px; }
+.bu-direction-summary { display:grid; grid-template-columns:minmax(160px,.52fr) minmax(0,1.48fr); gap:14px; margin-top:18px; }
+.bu-direction-kpi { display:flex; flex-direction:column; justify-content:center; min-height:145px; padding:20px; border:1px solid var(--line); border-top:2px solid var(--acid); background:linear-gradient(145deg,#101810d9,#080d09d9); }
+.bu-direction-kpi span { color:#8fa08a; font:8px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
+.bu-direction-kpi strong { margin:12px 0 8px; color:var(--acid); font:500 clamp(24px,3vw,38px)/1.1 'Space Grotesk',sans-serif; overflow-wrap:anywhere; }
+.bu-direction-kpi small { color:#83947e; font-size:9px; line-height:1.5; }
+.bu-direction-description { min-width:0; padding:15px 17px; border:1px solid var(--line); background:#0b110c99; }
+.bu-direction-description>p { margin:0; color:#a0b09a; font-size:11px; line-height:1.8; }
+.bu-relations-heading { margin-top:25px; }
+.bu-related-directions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.bu-related-direction { display:flex; align-items:center; gap:9px; padding:10px 12px; border:1px solid var(--line); background:#0b110c; color:#bdcbb8!important; font:9px 'DM Mono',monospace!important; }
+.bu-related-direction:hover { border-color:#c9ff7866; background:#101a11; }
+.bu-related-direction i { width:7px; height:7px; border-radius:1px; transform:rotate(45deg); flex:none; }
+.bu-related-direction b { margin-left:8px; color:var(--acid); font-weight:400; }
+.business-universe .bu-hud-bottom-left, .business-universe .bu-hud-bottom-right { display:none; }
+.business-universe .sphere-zoom-controls { bottom:16px; }
+@media(max-width:650px) {
+  .business-universe .bu-direction-summary { grid-template-columns:1fr; gap:8px; }
+  .business-universe .bu-direction-kpi { min-height:105px; padding:14px; }
+  .business-universe .bu-direction-kpi strong { margin:8px 0 5px; font-size:28px; }
+  .business-universe .bu-direction-description { padding:12px; }
+  .business-universe .bu-related-directions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .business-universe .bu-related-direction { padding:9px 7px; gap:6px; font-size:8px!important; }
+  .business-universe .sphere-zoom-controls { bottom:12px; }
+}
