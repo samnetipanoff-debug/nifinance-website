@@ -155,6 +155,8 @@ export default function DataCenter() {
   const [preview, setPreview] = useState([]);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
   const [tab, setTab] = useState('transactions');
   const [filter, setFilter] = useState('all');
   const [manual, setManual] = useState({ date: new Date().toISOString().slice(0,10), counterparty: '', description: '', amount: '', direction: 'expense', category: 'Needs review' });
@@ -290,6 +292,57 @@ export default function DataCenter() {
     } catch (e) { setError(e.message || 'Could not read this file.'); }
     event.target.value = '';
   };
+  const classifyPreviewWithAI = async () => {
+    if (!preview.length || aiBusy) return;
+    const candidates = preview.filter(row => !row.isDuplicate);
+    if (!candidates.length) { setAiMessage('No new transactions to classify.'); return; }
+    if (!window.confirm('AI classification sends the counterparty name, payment description, amount, currency and direction of up to 100 new transactions to the configured AI provider. Do not continue with sensitive data until you have reviewed the provider and privacy settings. Proceed?')) return;
+    setAiBusy(true);
+    setAiMessage('');
+    setError('');
+    try {
+      const response = await fetch('/api/data-center-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-Id': workspaceCredentials?.workspaceId || '',
+          'X-Workspace-Token': workspaceCredentials?.token || ''
+        },
+        body: JSON.stringify({
+          transactions: candidates.slice(0, 100).map(row => ({
+            id: row.id,
+            counterparty: row.counterparty,
+            description: row.description,
+            amount: row.amount,
+            currency: row.currency,
+            direction: row.direction,
+            category: row.category,
+            role: row.role
+          }))
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'AI classification failed');
+      const suggestions = new Map((result.items || []).map(item => [item.id, item]));
+      setPreview(old => old.map(row => {
+        const suggestion = suggestions.get(row.id);
+        if (!suggestion || row.isDuplicate) return row;
+        return {
+          ...row,
+          category: suggestion.category || 'Needs review',
+          role: suggestion.role || 'unknown',
+          confidence: 'AI',
+          status: 'review',
+          aiReason: suggestion.reason || ''
+        };
+      }));
+      setAiMessage(`AI suggested classifications for ${suggestions.size} of ${candidates.length} new rows. Please review them before importing.${candidates.length > 100 ? ' Only the first 100 new rows were processed; import in smaller batches for the rest.' : ''}`);
+    } catch (e) {
+      setError(e.message || 'AI classification failed.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
   const fingerprintOf = row => row.fingerprint || [row.date, norm(row.counterparty), Number(row.amount), norm(row.description), String(row.reference || '').trim()].join('|');
   const duplicateCount = preview.filter(t => t.isDuplicate).length;
   const newPreviewCount = preview.length - duplicateCount;
@@ -356,7 +409,7 @@ export default function DataCenter() {
         {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT CSV</button><input ref={inputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={onFile}/></div></div>
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
-          {preview.length>0&&<div className="dc-preview"><div><b>IMPORT PREVIEW / {fileName}</b><span>{preview.length} rows detected · {newPreviewCount} new · {duplicateCount} duplicates will be skipped · {preview.filter(t=>t.status==='review'&&!t.isDuplicate).length} need review</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setPreview([])}>CANCEL</button><button className="dc-btn primary" onClick={commitImport} disabled={newPreviewCount===0}>IMPORT {newPreviewCount} NEW ROWS</button></div><div className="dc-preview-table"><table><thead><tr><th>Date</th><th>Counterparty</th><th>Amount</th><th>Suggested category</th><th>Confidence</th><th>Import check</th></tr></thead><tbody>{preview.slice(0,8).map(t=><tr key={t.id}><td>{t.date}</td><td>{t.counterparty}</td><td className={t.amount>0?'positive':'negative'}>{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{t.category}</td><td><span className={'dc-confidence '+t.confidence.toLowerCase()}>{t.confidence}</span></td><td><span className={'dc-confidence '+(t.isDuplicate?'low':'high')}>{t.isDuplicate?'DUPLICATE':'NEW'}</span></td></tr>)}</tbody></table>{preview.length>8&&<small>Showing 8 of {preview.length} rows</small>}</div></div>}
+          {preview.length>0&&<div className="dc-preview"><div><b>IMPORT PREVIEW / {fileName}</b><span>{preview.length} rows detected · {newPreviewCount} new · {duplicateCount} duplicates will be skipped · {preview.filter(t=>t.status==='review'&&!t.isDuplicate).length} need review</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setPreview([])}>CANCEL</button><button className="dc-btn secondary" onClick={classifyPreviewWithAI} disabled={aiBusy||newPreviewCount===0}>{aiBusy?'AI CLASSIFYING…':'✦ AI CLASSIFY'}</button><button className="dc-btn primary" onClick={commitImport} disabled={newPreviewCount===0}>IMPORT {newPreviewCount} NEW ROWS</button></div>{aiMessage&&<div className="dc-ai-note">{aiMessage}</div>}<div className="dc-preview-table"><table><thead><tr><th>Date</th><th>Counterparty</th><th>Amount</th><th>Suggested category</th><th>Confidence</th><th>Import check</th></tr></thead><tbody>{preview.slice(0,8).map(t=><tr key={t.id}><td>{t.date}</td><td>{t.counterparty}</td><td className={t.amount>0?'positive':'negative'}>{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{t.category}{t.aiReason&&<small className="dc-ai-reason">{t.aiReason}</small>}</td><td><span className={'dc-confidence '+String(t.confidence).toLowerCase()}>{t.confidence}</span></td><td><span className={'dc-confidence '+(t.isDuplicate?'low':'high')}>{t.isDuplicate?'DUPLICATE':'NEW'}</span></td></tr>)}</tbody></table>{preview.length>8&&<small>Showing 8 of {preview.length} rows</small>}</div></div>}
           {(saved.imports||[]).length>0&&<div className="dc-import-history"><div className="dc-section-tag">IMPORT HISTORY / LAST 5</div>{(saved.imports||[]).slice(0,5).map(item=><div className="dc-import-row" key={item.id}><div><b>{item.sourceName||'Imported file'}</b><small>{item.importedAt?new Date(item.importedAt).toLocaleString():''}</small></div><span>{item.importedCount} added</span><span>{item.skippedCount} skipped</span></div>)}</div>}
           <div className="dc-table-wrap">{filtered.length===0?<div className="dc-empty"><div>↳</div><h3>{transactions.length?'No operations match this filter':'Your ledger starts with a file.'}</h3><p>Upload a bank CSV statement to preview detected columns, classify transactions and create counterparty records.</p><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>IMPORT FIRST CSV</button></div>:<table className="dc-ledger"><thead><tr><th>DATE / SOURCE</th><th>COUNTERPARTY</th><th>TYPE</th><th>AMOUNT</th><th>CATEGORY</th><th>CONFIDENCE</th><th>ACTION</th></tr></thead><tbody>{filtered.slice().reverse().map(t=><tr key={t.id}><td><b>{t.date||'—'}</b><small>{t.source}</small></td><td><b>{t.counterparty}</b><small>{t.description}</small></td><td><span className={'dc-direction '+(t.amount>0?'income':'expense')}>{t.amount>0?'INCOME':'OUTFLOW'}</span><small>{ROLE_LABELS[t.role]||'Unconfirmed'}</small></td><td className={'dc-amount '+(t.amount>0?'positive':'negative')}>{t.amount>0?'+':''}{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})} <small>{t.currency}</small></td><td><select value={t.category} onChange={e=>updateTransaction(t.id,{category:e.target.value},false)}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select><select value={t.role} onChange={e=>updateTransaction(t.id,{role:e.target.value},false)}>{Object.entries(ROLE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td><span className={'dc-confidence '+String(t.confidence).toLowerCase()}>{t.confidence}</span>{t.status==='review'&&<small className="dc-review-label">Review needed</small>}</td><td><button className="dc-mini-action" title="Confirm this classification" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},false)}>CONFIRM</button><button className="dc-mini-action learn" title="Save this rule for future transactions from this counterparty" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},true)}>SAVE RULE</button></td></tr>)}</tbody></table>}</div>
         </>}
