@@ -196,6 +196,58 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 })
         );
         const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false }));
+        // Each business driver gets an inward-facing holographic dashboard.
+        // The camera is at the centre of the sphere, so the panel faces the user inside it.
+        const panelCanvas = document.createElement('canvas');
+        panelCanvas.width = 512;
+        panelCanvas.height = 320;
+        const ctx = panelCanvas.getContext('2d');
+        ctx.fillStyle = 'rgba(5, 12, 9, 0.94)';
+        ctx.fillRect(0, 0, 512, 320);
+        ctx.strokeStyle = node.color + '99';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(8, 8, 496, 304);
+        ctx.fillStyle = node.color;
+        ctx.font = '600 22px Arial';
+        ctx.fillText(node.label.toUpperCase(), 24, 42);
+        ctx.fillStyle = '#91a58a';
+        ctx.font = '16px Arial';
+        ctx.fillText(node.metric.toUpperCase(), 24, 69);
+        ctx.fillStyle = '#edf6e8';
+        ctx.font = 'bold 42px Arial';
+        ctx.fillText(node.value, 24, 125);
+        ctx.strokeStyle = node.color + '55';
+        ctx.lineWidth = 1;
+        for (let gx = 24; gx < 490; gx += 44) { ctx.beginPath(); ctx.moveTo(gx, 150); ctx.lineTo(gx, 282); ctx.stroke(); }
+        for (let gy = 172; gy < 290; gy += 29) { ctx.beginPath(); ctx.moveTo(24, gy); ctx.lineTo(488, gy); ctx.stroke(); }
+        const chart = [0.28, 0.36, 0.31, 0.48, 0.43, 0.58, 0.52, 0.69, 0.63, 0.82, 0.76, 0.91];
+        ctx.beginPath();
+        chart.forEach((v, i) => {
+          const x = 28 + i * 41;
+          const y = 282 - v * 120;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = node.color;
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        chart.forEach((v, i) => {
+          ctx.beginPath();
+          ctx.arc(28 + i * 41, 282 - v * 120, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = node.color;
+          ctx.fill();
+        });
+        const panelTexture = new THREE.CanvasTexture(panelCanvas);
+        panelTexture.colorSpace = THREE.SRGBColorSpace;
+        const panel = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.22, 0.76),
+          new THREE.MeshBasicMaterial({ map: panelTexture, transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false })
+        );
+        panel.position.z = 0.58;
+        panel.position.y = -0.22;
+        group.add(panel);
         group.add(halo, frame, cube);
         nodeGroup.add(group);
         const entry = { id: node.id, group, cube, frame, halo, anchor: p.clone() };
