@@ -230,6 +230,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             const openDetail = (event) => {
               event.preventDefault();
               event.stopPropagation();
+              event.stopImmediatePropagation?.();
               stateRef.current.onDrilldown({
                 nodeId: node.id,
                 label: keyText,
@@ -283,10 +284,11 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         label.addEventListener('pointercancel', finishLabelDrag);
         label.addEventListener('click', (event) => {
           if (suppressLabelClick) { suppressLabelClick = false; return; }
-          const detailRow = event.target.closest('.sphere-direction-details-row');
-          if (detailRow) {
+          // A metric row is a separate drilldown control. Never let its click
+          // reach the card-level expand/collapse action.
+          if (event.target.closest('.sphere-direction-details-row')) {
+            event.preventDefault();
             event.stopPropagation();
-            stateRef.current.onDrilldown({ nodeId: node.id, label: detailRow.querySelector('span')?.textContent || node.label, value: detailRow.querySelector('b')?.textContent || '' });
             return;
           }
           stateRef.current.onSelect(node.id);
