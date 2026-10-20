@@ -125,7 +125,7 @@ function classify(row, rules) {
   const certain = Boolean(rule) || category !== 'Needs review' && (role === 'tax_authority' || role === 'bank' || role === 'own_account' || /tax|bank fee|internal transfer|refund/i.test(category));
   return { ...row, category, role, confidence: rule ? 'Rule' : certain ? 'High' : category === 'Needs review' ? 'Low' : 'Suggested', status: rule || certain ? 'classified' : 'review' };
 }
-function readRows(text, rules, fileName) {
+function readRows(text, rules, fileName, mapping = null) {
   const table = parseCSV(String(text).replace(/^\\uFEFF/, ''));
   if (table.length < 2) throw new Error('The file does not contain a header and data rows.');
 
@@ -162,20 +162,22 @@ function readRows(text, rules, fileName) {
   const amountNamedI = fieldIndex(headers, headerAliases.amount);
   // Universal fallback: infer unknown/localized headers from the actual cell values.
   // Never override a clear header match with a heuristic guess.
-  const dateI = dateNamedI >= 0 ? dateNamedI : inferColumn(headers, rows, 'date');
-  const amountI = amountNamedI >= 0 ? amountNamedI : inferColumn(headers, rows, 'amount', [dateI, debitI, creditI].filter(i => i >= 0));
-  const nameI = fieldIndex(headers, headerAliases.name);
-  const descI = fieldIndex(headers, headerAliases.description);
-  const refI = fieldIndex(headers, headerAliases.reference);
-  const currencyI = fieldIndex(headers, headerAliases.currency);
-  if (dateI < 0 || (amountI < 0 && debitI < 0 && creditI < 0)) {
+  const dateI = Number.isInteger(mapping?.date) ? mapping.date : (dateNamedI >= 0 ? dateNamedI : inferColumn(headers, rows, 'date'));
+  const amountI = Number.isInteger(mapping?.amount) ? mapping.amount : (amountNamedI >= 0 ? amountNamedI : inferColumn(headers, rows, 'amount', [dateI, debitI, creditI].filter(i => i >= 0)));
+  const mappedDebitI = Number.isInteger(mapping?.debit) ? mapping.debit : debitI;
+  const mappedCreditI = Number.isInteger(mapping?.credit) ? mapping.credit : creditI;
+  const nameI = Number.isInteger(mapping?.counterparty) ? mapping.counterparty : fieldIndex(headers, headerAliases.name);
+  const descI = Number.isInteger(mapping?.description) ? mapping.description : fieldIndex(headers, headerAliases.description);
+  const refI = Number.isInteger(mapping?.reference) ? mapping.reference : fieldIndex(headers, headerAliases.reference);
+  const currencyI = Number.isInteger(mapping?.currency) ? mapping.currency : fieldIndex(headers, headerAliases.currency);
+  if (dateI < 0 || (amountI < 0 && mappedDebitI < 0 && mappedCreditI < 0)) {
     const found = headers.filter(Boolean).slice(0, 20).join(', ');
     throw new Error('Could not confidently map the required date and amount fields. The importer checks header names and sample cell patterns, but this file needs column mapping before import. Detected columns: ' + (found || 'none') + '. No rows were imported.');
   }
   return rows.map((cells, i) => {
     const get = idx => idx < 0 ? '' : (cells[idx] || '');
-    const debit = debitI >= 0 ? Math.abs(parseAmount(get(debitI))) : 0;
-    const credit = creditI >= 0 ? Math.abs(parseAmount(get(creditI))) : 0;
+    const debit = mappedDebitI >= 0 ? Math.abs(parseAmount(get(mappedDebitI))) : 0;
+    const credit = mappedCreditI >= 0 ? Math.abs(parseAmount(get(mappedCreditI))) : 0;
     let amount = amountI >= 0 ? parseAmount(get(amountI)) : credit - debit;
     const description = get(descI) || (nameI >= 0 ? get(nameI) : '');
     const counterparty = get(nameI) || description || 'Unknown counterparty';
@@ -200,6 +202,7 @@ export default function DataCenter() {
   const [cloudMessage, setCloudMessage] = useState('');
   const [workspaceCredentials, setWorkspaceCredentials] = useState(null);
   const [preview, setPreview] = useState([]);
+  const [mappingDraft, setMappingDraft] = useState(null);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('transactions');
@@ -323,17 +326,49 @@ export default function DataCenter() {
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const onFile = async event => {
     const file = event.target.files?.[0]; if (!file) return;
-    setError(''); setPreview([]); setFileName(file.name);
+    setError(''); setPreview([]); setMappingDraft(null); setFileName(file.name);
     try {
       const text = await file.text();
-      const rows = readRows(text, rules, file.name);
-      const seen = new Set(transactions.map(fingerprintOf));
-      setPreview(rows.map(row => {
-        const fingerprint = fingerprintOf(row);
-        const isDuplicate = seen.has(fingerprint);
-        seen.add(fingerprint);
-        return { ...row, fingerprint, isDuplicate };
-      }));
+      try {
+        const rows = readRows(text, rules, file.name);
+        const seen = new Set(transactions.map(fingerprintOf));
+        setPreview(rows.map(row => {
+          const fingerprint = fingerprintOf(row);
+          const isDuplicate = seen.has(fingerprint);
+          seen.add(fingerprint);
+          return { ...row, fingerprint, isDuplicate };
+        }));
+      } catch (parseError) {
+        // Keep the file in memory and offer explicit column mapping instead of stopping at
+        // a header-name error. No transaction is committed until the user reviews preview.
+        const table = parseCSV(text.replace(/^\uFEFF/, ''));
+        const headerIndex = table.findIndex((row, index) => index < Math.min(table.length - 1, 30) &&
+          row.filter(cell => /[A-Za-zА-Яа-яÀ-ÿ]/.test(String(cell))).length >= 2 &&
+          row.some(cell => looksLikeDate(cell)) === false);
+        if (headerIndex >= 0 && table.length > headerIndex + 1) {
+          const headers = table[headerIndex].map((h, i) => String(h || '').trim() || ('Column ' + (i + 1)));
+          const rows = table.slice(headerIndex + 1);
+          const dateGuess = inferColumn(headers, rows, 'date');
+          const amountGuess = inferColumn(headers, rows, 'amount', [dateGuess].filter(i => i >= 0));
+          const findGuess = (terms) => headers.findIndex(h => terms.some(term => norm(h) === norm(term) || norm(h).includes(norm(term))));
+          setMappingDraft({
+            text, headers, headerIndex,
+            mapping: {
+              date: fieldIndex(headers, ['date','datum','дата','дата операции']) >= 0 ? fieldIndex(headers, ['date','datum','дата','дата операции']) : dateGuess,
+              amount: fieldIndex(headers, ['amount','iznos','сумма','износ']) >= 0 ? fieldIndex(headers, ['amount','iznos','сумма','износ']) : amountGuess,
+              debit: findGuess(['debit','duguje','дебет','списание']),
+              credit: findGuess(['credit','potražuje','кредит','зачисление']),
+              counterparty: findGuess(['counterparty','beneficiary','payer','naziv','контрагент','получатель','плательщик']),
+              description: findGuess(['description','purpose','details','описание','назначение','svrha']),
+              reference: findGuess(['reference','transaction id','номер операции','poziv na broj']),
+              currency: findGuess(['currency','valuta','валюта'])
+            }
+          });
+          setError('Automatic recognition was not confident enough. Map the columns below; nothing has been imported yet.');
+        } else {
+          setError(parseError.message || 'Could not read this file.');
+        }
+      }
     } catch (e) { setError(e.message || 'Could not read this file.'); }
     event.target.value = '';
   };
