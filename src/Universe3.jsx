@@ -564,7 +564,32 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
-  const [detailSelection, setDetailSelection] = useState(null);
+  const [detailWindows, setDetailWindows] = useState([]);
+  const nextDetailId = useRef(1);
+  const dragDetailRef = useRef(null);
+  const openDetailWindow = selection => {
+    const id = nextDetailId.current++;
+    setDetailWindows(previous => {
+      const stage = document.querySelector('.bu-stage-wrap');
+      const width = Math.min(380, Math.max(280, (stage?.clientWidth || window.innerWidth) * 0.32));
+      const height = Math.min(420, Math.max(260, (stage?.clientHeight || window.innerHeight) * 0.58));
+      const maxX = Math.max(8, (stage?.clientWidth || window.innerWidth) - width - 12);
+      const maxY = Math.max(8, (stage?.clientHeight || window.innerHeight) - 100);
+      // Spiral through staggered slots; new windows prefer open space rather than stacking.
+      const slot = previous.length;
+      const candidates = [];
+      for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) candidates.push({ x: 14 + col * Math.min(48, width * 0.16), y: 74 + row * 48 });
+      let position = candidates[slot % candidates.length];
+      for (const candidate of candidates) {
+        const x = Math.min(maxX, candidate.x), y = Math.min(maxY, candidate.y);
+        const overlaps = previous.some(w => x < w.x + width && x + width > w.x && y < w.y + 180 && y + height > w.y);
+        if (!overlaps) { position = { x, y }; break; }
+      }
+      return [...previous, { id, selection, x: Math.min(maxX, position.x), y: Math.min(maxY, position.y), width, height }];
+    });
+  };
+  const closeDetailWindow = id => setDetailWindows(previous => previous.filter(window => window.id !== id));
+  const moveDetailWindow = (id, x, y) => setDetailWindows(previous => previous.map(window => window.id === id ? { ...window, x, y } : window));
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -601,7 +626,7 @@ export default function Universe2() {
     customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
   };
   const active = nodes.find(n => n.id === selected) || nodes[0];
-  const selectedDetailRows = (() => {
+  const getDetailRows = detailSelection => {
     if (!detailSelection || !neonData) return [];
     const month = latestMonth?.month_start;
     const money = value => eur(value);
@@ -622,7 +647,7 @@ export default function Universe2() {
       return (neonData.service_lines || []).map(x => ({ primary: x.name, secondary: 'Delivery cost assumption', value: `${x.delivery_cost_pct}%`, note: 'Illustrative service-line delivery cost percentage used in the Northstar Growth model.' }));
     }
     return [];
-  })();
+  };
   const scenario = scenarios[scenarioKey];
   const directionData = (() => {
     if (neonStatus !== 'connected' || !latestMonth) return { value: active.value, metric: active.metric, note: active.note };
@@ -656,17 +681,36 @@ export default function Universe2() {
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={setDetailSelection} scenario={scenarioKey} liveMetrics={liveMetrics} />
+      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
-      {detailSelection && <aside className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`}>
-        <div className="bu-drill-head"><div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div><button type="button" aria-label="Close details" onClick={() => setDetailSelection(null)}>×</button></div>
-        <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
-        <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
-        <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => setDetailSelection(null)}>BACK TO UNIVERSE ↗</button></div>
-      </aside>}
+      {detailWindows.map(window => {
+        const detailSelection = window.selection;
+        const selectedDetailRows = getDetailRows(detailSelection);
+        return <aside key={window.id} className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`} style={{ left: window.x, top: window.y, width: window.width, height: window.height, right: 'auto', bottom: 'auto' }}>
+          <div className="bu-drill-head" onPointerDown={event => {
+            if (event.target.closest('button')) return;
+            event.preventDefault();
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            dragDetailRef.current = { id: window.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: window.x, y: window.y };
+          }} onPointerMove={event => {
+            const drag = dragDetailRef.current;
+            if (!drag || drag.id !== window.id || drag.pointerId !== event.pointerId) return;
+            const stage = event.currentTarget.closest('.bu-stage-wrap');
+            const maxX = Math.max(0, (stage?.clientWidth || window.innerWidth) - window.width - 8);
+            const maxY = Math.max(0, (stage?.clientHeight || window.innerHeight) - 80);
+            moveDetailWindow(window.id, Math.max(0, Math.min(maxX, drag.x + event.clientX - drag.startX)), Math.max(0, Math.min(maxY, drag.y + event.clientY - drag.startY)));
+          }} onPointerUp={() => { dragDetailRef.current = null; }} onPointerCancel={() => { dragDetailRef.current = null; }}>
+            <div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div>
+            <button type="button" aria-label="Close details" onClick={() => closeDetailWindow(window.id)}>×</button>
+          </div>
+          <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
+          <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
+          <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(window.id)}>CLOSE WINDOW ×</button></div>
+        </aside>;
+      })}
     </section>
 
     <section className="bu-analysis" aria-label="Business direction and relationships">
