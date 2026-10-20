@@ -3,12 +3,12 @@ import { createHash } from 'node:crypto';
 
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const send = (res, status, body) => res.status(status).json(body);
-const allowedDelimiters = [',', ';', '\\t', '|'];
+const allowedDelimiters = [',', ';', '\t', '|'];
 const fieldKeys = ['date', 'amount', 'debit', 'credit', 'counterparty', 'description', 'reference', 'currency'];
 
 function cleanMapping(value) {
   if (!value || typeof value !== 'object') return null;
-  const delimiter = value.delimiter === '\\t' || allowedDelimiters.includes(value.delimiter) ? value.delimiter : null;
+  const rawDelimiter = value.delimiter;\n  const delimiter = rawDelimiter === 'tab' || rawDelimiter === '\\\\t' ? '\\t' : rawDelimiter === 'comma' ? ',' : rawDelimiter === 'semicolon' ? ';' : rawDelimiter === 'pipe' ? '|' : allowedDelimiters.includes(rawDelimiter) ? rawDelimiter : null;
   const headerRow = Number(value.headerRow);
   if (!Number.isInteger(headerRow) || headerRow < 0 || headerRow > 29 || !delimiter) return null;
   const mapping = { headerRow, delimiter };
