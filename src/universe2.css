@@ -29,25 +29,15 @@
 @media(prefers-reduced-motion:reduce){.business-universe *{animation:none!important;transition:none!important}}
 
 
-/* Universe 2 immersive mode: the whole experience stays inside one viewport. */
-html:has(.business-universe), body:has(.business-universe), #root:has(.business-universe) {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
+/* Universe 2: keep the sphere immersive without locking the page or hiding its data. */
 .business-universe {
-  height: 100dvh;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
-.business-universe .bu-topbar {
-  flex: 0 0 58px;
-  height: 58px;
-  min-height: 58px;
-}
+.business-universe .bu-topbar { flex: 0 0 58px; height: 58px; min-height: 58px; }
 .business-universe .bu-header-hint {
   color: #8ea18a;
   font: 8px 'DM Mono', monospace;
@@ -56,10 +46,10 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
 }
 .business-universe .bu-header-hint span { color: var(--acid); margin: 0 7px; }
 .business-universe .bu-stage-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
-  max-height: none;
+  flex: none;
+  min-height: 560px;
+  height: min(72vh, 760px);
+  max-height: 760px;
   position: relative;
   border-top: 0;
   border-bottom: 0;
@@ -100,64 +90,37 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
   color: var(--acid) !important;
   background: #c9ff7812;
 }
-.marketing-detail-panel {
-  position: absolute;
-  z-index: 9;
-  padding: 4px 0 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform-origin: top left;
-  transition: opacity .22s ease, visibility .22s;
+
+/* Compact live data dashboard, separated from the interactive sphere. */
+.bu-live-dashboard {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 22px 22px 42px;
+  color: var(--text);
 }
-.marketing-detail-panel.is-visible {
-  opacity: 1;
-  visibility: visible;
-}
-.marketing-detail-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border-left: 1px solid #71dfff55;
-  margin-left: 5px;
-  padding-left: 9px;
-}
-.marketing-detail-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  column-gap: 8px;
-  min-height: 0;
-  padding: 6px 2px;
-  border: 0;
-  border-bottom: 1px solid #c9e4d31a;
-  background: transparent;
-}
-.marketing-detail-item b {
-  color: #d9e8de;
-  font: 9px 'DM Mono', monospace;
-  font-weight: 400;
-}
-.marketing-detail-item strong {
-  color: #71dfff;
-  font: 500 13px 'Space Grotesk', sans-serif;
-}
-.marketing-detail-item small {
-  grid-column: 1 / -1;
-  color: #7e9487;
-  font-size: 8px;
-  margin-top: 2px;
-}
+.bu-dashboard-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:14px; }
+.bu-dashboard-eyebrow { display:flex; align-items:center; gap:8px; font:8px 'DM Mono',monospace; letter-spacing:.14em; color:#8fa386; }
+.bu-dashboard-eyebrow i { width:6px; height:6px; border-radius:50%; background:#ffbf69; display:inline-block; }
+.bu-dashboard-eyebrow i.is-connected { background:var(--acid); box-shadow:0 0 10px #c9ff78a0; }
+.bu-dashboard-eyebrow i.is-error { background:#ff8c70; }
+.bu-dashboard-heading h2 { margin:7px 0 0; font:500 18px 'Space Grotesk',sans-serif; letter-spacing:-.03em; }
+.bu-dashboard-heading h2 span { color:#7f927a; font:9px 'DM Mono',monospace; letter-spacing:0; }
+.bu-data-toggle { border:1px solid #c9ff7840; background:#c9ff780c; color:var(--acid)!important; padding:9px 12px; font:9px 'DM Mono',monospace!important; white-space:nowrap; }
+.bu-data-toggle:disabled { opacity:.4; cursor:default; }
+.bu-live-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.bu-live-metric { min-width:0; padding:14px 15px; border:1px solid var(--line); border-radius:8px; background:linear-gradient(145deg,#101810d9,#080d09d9); }
+.bu-live-metric>span { display:block; color:#8fa08a; font:8px 'DM Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
+.bu-live-metric strong { display:block; margin:10px 0 6px; color:#e8f3df; font:500 clamp(18px,2vw,25px)/1.15 'Space Grotesk',sans-serif; overflow-wrap:anywhere; }
+.bu-live-metric small { display:block; color:#83947e; font-size:9px; line-height:1.5; }
+.bu-live-metrics-extra { margin-top:9px; }
+.bu-dashboard-footnote,.bu-data-message { margin:12px 0 0; color:#778873; font:9px 'DM Mono',monospace; line-height:1.7; }
+.bu-data-message { color:#ffb5a4; }
 @media (max-width: 700px) {
   .business-universe .bu-topbar { padding: 0 11px; flex-basis: 54px; height: 54px; min-height: 54px; }
   .business-universe .bu-brand { font-size: 8px; }
   .business-universe .bu-brand b { display: block; margin: 2px 0 0; font-size: 7px; }
   .business-universe .bu-header-hint { max-width: 110px; text-align: right; white-space: normal; line-height: 1.6; font-size: 7px; }
-  .business-universe .bu-stage-wrap { min-height: 0; }
+  .business-universe .bu-stage-wrap { min-height: 500px; height: 72vh; }
   .business-universe .bu-center-user { width: 70px; height: 70px; }
   .business-universe .bu-user-core { width: 50px; height: 50px; }
   .business-universe .bu-scenario-mini { top: 38px; left: 9px; gap: 4px; }
@@ -167,10 +130,14 @@ html:has(.business-universe), body:has(.business-universe), #root:has(.business-
   .business-universe .bu-hud-bottom-left { bottom: 12px; left: 10px; max-width: 56%; }
   .business-universe .bu-hud-bottom-right { bottom: 12px; right: 10px; }
   .business-universe .sphere-zoom-controls { bottom: 36px; right: 9px; }
-  .marketing-detail-panel { padding-top: 3px; }
-  .marketing-detail-item { padding: 5px 2px; }
-  .marketing-detail-item b { font-size: 8px; }
-  .marketing-detail-item strong { font-size: 12px; }
-  .marketing-detail-item small { font-size: 7px; }
-  .marketing-detail-footer { font-size: 6px; margin-top: 8px; }
+  .bu-live-dashboard { padding: 18px 12px 30px; }
+  .bu-dashboard-heading { align-items:flex-start; gap:10px; }
+  .bu-dashboard-heading h2 { font-size:15px; }
+  .bu-dashboard-heading h2 span { display:block; margin-top:4px; }
+  .bu-data-toggle { padding:8px; font-size:8px!important; }
+  .bu-live-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+  .bu-live-metric { padding:12px; }
+  .bu-live-metric strong { font-size:20px; }
+  .bu-live-metric>span { font-size:7px; }
+}
 }
