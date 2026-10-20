@@ -199,18 +199,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         const col = new THREE.Color(node.color);
 
 
-        const cube = new THREE.Mesh(
-          new THREE.BoxGeometry(0.19, 0.19, 0.19),
-          new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.25, metalness: 0.22, roughness: 0.3 })
-        );
-        const frame = new THREE.LineSegments(
-          new THREE.EdgesGeometry(new THREE.BoxGeometry(0.32, 0.32, 0.32)),
-          new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 })
-        );
         const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false }));
-        group.add(halo, frame, cube);
+        group.add(halo);
         nodeGroup.add(group);
-        const entry = { id: node.id, group, cube, frame, halo, anchor: p.clone() };
+        const entry = { id: node.id, group, halo, anchor: p.clone() };
         meshes.push(entry);
         nodeById[node.id] = entry;
         const label = document.createElement('button');
@@ -278,16 +270,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const pointer = new THREE.Vector2();
       const onClick = (e) => {
         if (suppressClick) { suppressClick = false; return; }
-        if (e.target.closest('.sphere-node-label')) return;
-        const rect = el.getBoundingClientRect();
-        pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hit = raycaster.intersectObjects(meshes.map(n => n.cube), false)[0];
-        if (hit) {
-          const found = meshes.find(n => n.cube === hit.object);
-          if (found) stateRef.current.onSelect(found.id);
-        }
+        // Nodes are selected through their always-visible HTML labels.
       };
       const onPointerDown = (e) => {
         if (e.target.closest('button, .sphere-node-label, .sphere-zoom-controls')) return;
@@ -372,7 +355,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           const pulse = 1 + Math.sin(t * 2 + i) * 0.05;
           n.group.scale.setScalar(pulse * (active ? 1.35 : onPath ? 1.13 : 1));
           n.halo.material.opacity = active ? 0.19 : onPath ? 0.12 : 0.055;
-          n.frame.material.opacity = active ? 1 : onPath ? 0.95 : 0.52;
           const worldPos = n.group.getWorldPosition(new THREE.Vector3());
           const projected = worldPos.clone().project(camera);
           const visible = projected.z < 1 && projected.z > -1 && worldPos.z < -0.3;
