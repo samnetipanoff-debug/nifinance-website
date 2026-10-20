@@ -83,18 +83,49 @@ function classify(row, rules) {
   return { ...row, category, role, confidence: rule ? 'Rule' : certain ? 'High' : category === 'Needs review' ? 'Low' : 'Suggested', status: rule || certain ? 'classified' : 'review' };
 }
 function readRows(text, rules, fileName) {
-  const table = parseCSV(text);
+  const table = parseCSV(String(text).replace(/^\\uFEFF/, ''));
   if (table.length < 2) throw new Error('The file does not contain a header and data rows.');
-  const headers = table[0];
-  const dateI = fieldIndex(headers, ['date', 'transaction date', 'booking date', 'value date', 'датa', 'дата', 'datum']);
-  const amountI = fieldIndex(headers, ['amount', 'transaction amount', 'iznos', 'износ', 'sum', 'сумма']);
-  const debitI = fieldIndex(headers, ['debit', 'outgoing', 'withdrawal', 'duguje', 'расход', 'списание']);
-  const creditI = fieldIndex(headers, ['credit', 'incoming', 'deposit', 'potrazuje', 'доход', 'поступление']);
-  const nameI = fieldIndex(headers, ['counterparty', 'beneficiary', 'payer', 'merchant', 'partner', 'payee', 'противоположная сторона', 'контрагент', 'прималац', 'назив']);
-  const descI = fieldIndex(headers, ['description', 'purpose', 'details', 'payment purpose', 'narrative', 'описание', 'назначение', 'сврха']);
-  const refI = fieldIndex(headers, ['reference', 'transaction id', 'document number', 'id', 'poziv na broj', 'референс']);
-  if (dateI < 0 || (amountI < 0 && debitI < 0 && creditI < 0)) throw new Error('Could not confidently identify date and amount columns. Use a CSV with date and amount, or debit/credit columns.');
-  return table.slice(1).map((cells, i) => {
+
+  // Bank exports often place account details or report metadata above the real CSV header.
+  const headerAliases = {
+    date: ['date', 'transaction date', 'booking date', 'posting date', 'value date', 'operation date', 'transaction datetime', 'датa', 'дата', 'дата операции', 'дата проводки', 'дата валютирования', 'дата валюты', 'датум', 'datum transakcije', 'datum knjiženja', 'datum valute', 'datum placanja', 'datum plaćanja', 'datum obrade'],
+    amount: ['amount', 'transaction amount', 'operation amount', 'sum', 'total amount', 'iznos', 'iznos transakcije', 'iznos u valuti', 'износ', 'сумма', 'сумма операции', 'сумма транзакции', 'сумма платежа', 'promet'],
+    debit: ['debit', 'debit amount', 'debit turnover', 'outgoing', 'withdrawal', 'paid out', 'duguje', 'zaduženje', 'zaduzenje', 'promet na teret', 'na teret', 'расход', 'списание', 'дебет', 'списано', 'исходящий платеж', 'izlaz', 'teret'],
+    credit: ['credit', 'credit amount', 'credit turnover', 'incoming', 'deposit', 'paid in', 'potrazuje', 'potražuje', 'odobrenje', 'promet u korist', 'u korist', 'приход', 'поступление', 'зачисление', 'кредит', 'зачислено', 'входящий платеж', 'priliv', 'ulaz'],
+    name: ['counterparty', 'beneficiary', 'payer', 'merchant', 'partner', 'payee', 'recipient', 'sender', 'account name', 'naziv nalogodavca', 'naziv primaoca', 'naziv primatelja', 'naziv', 'platilac', 'primalac', 'противоположная сторона', 'контрагент', 'плательщик', 'получатель', 'отправитель', 'название контрагента'],
+    description: ['description', 'purpose', 'details', 'payment purpose', 'narrative', 'transaction details', 'reference description', 'описание', 'назначение', 'назначение платежа', 'детали операции', 'сврха', 'сврха плаћања', 'opis', 'opis transakcije', 'svrha placanja', 'svrha plaćanja'],
+    reference: ['reference', 'transaction id', 'transaction number', 'document number', 'payment id', 'id transakcije', 'poziv na broj', 'референс', 'номер операции', 'номер транзакции', 'идентификатор операции'],
+    currency: ['currency', 'valuta', 'валюта', 'валута трансакције']
+  };
+  const headerScore = cells => {
+    const normalized = cells.map(v => norm(String(v).replace(/^\\uFEFF/, '')));
+    const has = aliases => normalized.some(h => aliases.some(a => h === norm(a) || h.includes(norm(a))));
+    return (has(headerAliases.date) ? 3 : 0) + (has(headerAliases.amount) ? 3 : 0) +
+      ((has(headerAliases.debit) || has(headerAliases.credit)) ? 3 : 0) +
+      (has(headerAliases.description) ? 1 : 0) + (has(headerAliases.name) ? 1 : 0);
+  };
+  let headerRowIndex = 0;
+  let bestScore = headerScore(table[0]);
+  for (let i = 1; i < Math.min(table.length - 1, 20); i++) {
+    const score = headerScore(table[i]);
+    if (score > bestScore) { bestScore = score; headerRowIndex = i; }
+    if (score >= 6) break;
+  }
+  const headers = table[headerRowIndex].map(v => String(v).replace(/^\\uFEFF/, '').trim());
+  const rows = table.slice(headerRowIndex + 1);
+  const dateI = fieldIndex(headers, headerAliases.date);
+  const amountI = fieldIndex(headers, headerAliases.amount);
+  const debitI = fieldIndex(headers, headerAliases.debit);
+  const creditI = fieldIndex(headers, headerAliases.credit);
+  const nameI = fieldIndex(headers, headerAliases.name);
+  const descI = fieldIndex(headers, headerAliases.description);
+  const refI = fieldIndex(headers, headerAliases.reference);
+  const currencyI = fieldIndex(headers, headerAliases.currency);
+  if (dateI < 0 || (amountI < 0 && debitI < 0 && creditI < 0)) {
+    const found = headers.filter(Boolean).slice(0, 20).join(', ');
+    throw new Error('Could not identify the date and amount columns. Detected headers: ' + (found || 'none') + '. Supported examples: Date/Datum/Дата операции and Amount/Iznos/Сумма, or Debit/Duguje/Дебет plus Credit/Potražuje/Кредит. If the bank export uses different names, send me just the CSV header row (no account or transaction data).');
+  }
+  return rows.map((cells, i) => {
     const get = idx => idx < 0 ? '' : (cells[idx] || '');
     const debit = debitI >= 0 ? Math.abs(parseAmount(get(debitI))) : 0;
     const credit = creditI >= 0 ? Math.abs(parseAmount(get(creditI))) : 0;
@@ -103,7 +134,12 @@ function readRows(text, rules, fileName) {
     const counterparty = get(nameI) || description || 'Unknown counterparty';
     const direction = amount > 0 ? 'income' : amount < 0 ? 'expense' : credit > 0 ? 'income' : 'expense';
     if (amountI < 0) amount = credit > 0 ? credit : -debit;
-    const base = { id: 'imp-' + Date.now() + '-' + i, date: get(dateI), amount, currency: /€|eur/i.test(cells.join(' ')) ? 'EUR' : '—', counterparty, description, reference: get(refI), source: fileName, status: 'review', category: '', role: '', direction, original: cells };
+    const currencyText = currencyI >= 0 ? get(currencyI) : cells.join(' ');
+    const base = {
+      id: 'imp-' + Date.now() + '-' + i, date: get(dateI), amount,
+      currency: /€|eur/i.test(currencyText) ? 'EUR' : /\\brsd\\b|дин|rsd/i.test(currencyText) ? 'RSD' : /\\busd\\b|\\$/i.test(currencyText) ? 'USD' : '—',
+      counterparty, description, reference: get(refI), source: fileName, status: 'review', category: '', role: '', direction, original: cells
+    };
     return classify(base, rules);
   }).filter(r => r.date || r.amount || r.description);
 }
