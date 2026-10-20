@@ -46,10 +46,10 @@ const scenarios = {
   }
 };
 
-function BusinessSphere({ selected, onSelect, scenario }) {
+function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scenario }) {
   const host = useRef(null);
-  const stateRef = useRef({ selected, scenario, onSelect });
-  useEffect(() => { stateRef.current = { selected, scenario, onSelect }; }, [selected, scenario, onSelect]);
+  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand });
+  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand]);
 
   useEffect(() => {
     const el = host.current;
@@ -93,7 +93,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const applyZoom = (value) => {
         targetZoom = Math.max(0.25, Math.min(3.0, value));
         const universe = el.closest('.business-universe3');
-        if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 1.35);
+        if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 0.8);
         zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
@@ -230,7 +230,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           label.appendChild(details);
         }
         label.style.setProperty('--node-color', node.color);
-        label.addEventListener('click', () => stateRef.current.onSelect(node.id));
+        label.addEventListener('click', () => { stateRef.current.onSelect(node.id); stateRef.current.onToggleExpand(node.id); });
         el.appendChild(label);
         labelEls.set(node.id, label);
       });
@@ -351,6 +351,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         });
         meshes.forEach((n, i) => {
           const active = n.id === stateRef.current.selected;
+          const expanded = stateRef.current.expandedIds.has(n.id);
           const onPath = pathSet.has(n.id);
           const pulse = 1 + Math.sin(t * 2 + i) * 0.05;
           n.group.scale.setScalar(pulse * (active ? 1.35 : onPath ? 1.13 : 1));
@@ -364,11 +365,11 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
             label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
             // Node names and headline metrics are always visible at every zoom level.
-            // Detailed breakdowns open only on the selected node when zoomed in.
-            const showMetrics = zoomLevel >= 1.22;
+            // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
+            const showMetrics = zoomLevel >= 0.8;
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.82') : '0';
             label.style.pointerEvents = visible ? 'auto' : 'none';
-            label.classList.toggle('details-open', active && showMetrics);
+            label.classList.toggle('details-open', expanded && showMetrics);
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
           }
@@ -419,6 +420,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const toggleExpanded = id => setExpandedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
   const [neonData, setNeonData] = useState(null);
@@ -484,7 +487,7 @@ export default function Universe2() {
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} onSelect={setSelected} scenario={scenarioKey} />
+      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} scenario={scenarioKey} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 02</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
