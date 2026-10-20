@@ -58,6 +58,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
     const meshes = [];
     const labels = new Map();
     const labelEls = new Map();
+    const labelOffsets = new Map();
+    let labelDrag = null;
+    let suppressLabelClick = false;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let isDragging = false, dragMoved = false, suppressClick = false;
     let pointerStartX = 0, pointerStartY = 0, previousPointerX = 0, previousPointerY = 0;
@@ -230,7 +233,38 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
           label.appendChild(details);
         }
         label.style.setProperty('--node-color', node.color);
-        label.addEventListener('click', () => { stateRef.current.onSelect(node.id); stateRef.current.onToggleExpand(node.id); });
+        labelOffsets.set(node.id, { x: 0, y: 0 });
+        label.addEventListener('pointerdown', (event) => {
+          if (event.button !== 0) return;
+          labelDrag = { id: node.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
+          suppressLabelClick = false;
+          label.setPointerCapture?.(event.pointerId);
+        });
+        label.addEventListener('pointermove', (event) => {
+          if (!labelDrag || labelDrag.id !== node.id || labelDrag.pointerId !== event.pointerId) return;
+          const dx = event.clientX - labelDrag.startX;
+          const dy = event.clientY - labelDrag.startY;
+          if (Math.abs(dx) + Math.abs(dy) > 4) labelDrag.moved = true;
+          if (labelDrag.moved) {
+            const offset = labelOffsets.get(node.id) || { x: 0, y: 0 };
+            offset.x += event.movementX;
+            offset.y += event.movementY;
+            labelOffsets.set(node.id, offset);
+            suppressLabelClick = true;
+          }
+        });
+        const finishLabelDrag = (event) => {
+          if (!labelDrag || labelDrag.id !== node.id || labelDrag.pointerId !== event.pointerId) return;
+          if (labelDrag.moved) suppressLabelClick = true;
+          labelDrag = null;
+        };
+        label.addEventListener('pointerup', finishLabelDrag);
+        label.addEventListener('pointercancel', finishLabelDrag);
+        label.addEventListener('click', () => {
+          if (suppressLabelClick) { suppressLabelClick = false; return; }
+          stateRef.current.onSelect(node.id);
+          stateRef.current.onToggleExpand(node.id);
+        });
         el.appendChild(label);
         labelEls.set(node.id, label);
       });
@@ -363,7 +397,8 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
           if (label) {
             const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
-            label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
+            const offset = labelOffsets.get(n.id) || { x: 0, y: 0 };
+            label.style.transform = 'translate(' + (((projected.x * 0.5 + 0.5) * el.clientWidth) + offset.x) + 'px, ' + (((-projected.y * 0.5 + 0.5) * el.clientHeight) + offset.y) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
             // Node names and headline metrics are always visible at every zoom level.
             // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
             const showMetrics = zoomLevel >= 0.8;
