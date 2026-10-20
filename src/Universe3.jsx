@@ -733,7 +733,8 @@ export default function Universe2() {
               : step.node === 'marketing' ? (firstMonth && latestMonth ? firstMonth.qualified_leads + ' → ' + latestMonth.qualified_leads : step.value)
               : step.node === 'sales' ? (firstMonth && latestMonth ? firstMonth.opportunities + ' → ' + latestMonth.opportunities : step.value)
               : step.node === 'finance' ? (firstMonth && latestMonth ? eur(firstMonth.recognized_revenue) + ' → ' + eur(latestMonth.recognized_revenue) : step.value)
-              : step.node === 'customers' ? (firstMonth && latestMonth ? eur(firstMonth.receipts) + ' → ' + eur(latestMonth.receipts) : step.value);
+              : step.node === 'customers' ? (firstMonth && latestMonth ? eur(firstMonth.receipts) + ' → ' + eur(latestMonth.receipts) : step.value)
+              : step.value;
             return <React.Fragment key={step.node}>
               <button type="button" className={'bu-causal-step ' + (selected === step.node ? 'selected' : '')} onClick={() => setSelected(step.node)} style={{'--causal-color':node.color}}>
                 <span className="bu-causal-step-top"><i>{String(index + 1).padStart(2, '0')}</i><b>{node.label}</b><em>{index === 0 ? 'DRIVER' : index === scenario.steps.length - 1 ? 'OUTCOME' : 'LINKED METRIC'}</em></span>
