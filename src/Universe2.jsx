@@ -96,16 +96,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       zoomReset.addEventListener('click', () => applyZoom(1));
       el.appendChild(zoomControls);
 
-      const marketingPanel = document.createElement('div');
-      marketingPanel.className = 'marketing-detail-panel';
-      marketingPanel.innerHTML = `
-        <div class="marketing-detail-grid">
-          <div class="marketing-detail-item"><b>Google Search Ads</b><strong>34 → 50</strong><small>Qualified leads · Jan → Mar</small></div>
-          <div class="marketing-detail-item"><b>Meta Ads</b><strong>25 → 39</strong><small>Qualified leads · Jan → Mar</small></div>
-          <div class="marketing-detail-item"><b>Opportunities</b><strong>52 → 83</strong><small>All channels · Jan → Mar</small></div>
-          <div class="marketing-detail-item"><b>Cost / qualified lead</b><strong>€55.93 → €43.64</strong><small>All channels · Jan → Mar</small></div>
-        </div>`;
-      el.appendChild(marketingPanel);
       const onWheelZoom = (e) => {
         e.preventDefault();
         applyZoom(targetZoom + (e.deltaY < 0 ? 0.07 : -0.07));
@@ -268,7 +258,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         }
       };
       const onPointerDown = (e) => {
-        if (e.target.closest('.sphere-node-label, .sphere-zoom-controls')) return;
+        if (e.target.closest('button, .sphere-node-label, .sphere-zoom-controls')) return;
         isDragging = true;
         dragMoved = false;
         pointerStartX = previousPointerX = e.clientX;
@@ -358,28 +348,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           if (label) {
             const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
-            label.style.transform = 'translate(-50%, -50%) translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) scale(' + labelScale + ')';
+            label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(1)';
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.72') : '0';
-            const marketingActive = stateRef.current.selected === 'marketing' && zoomLevel >= 1.25;
-            marketingPanel.classList.toggle('is-visible', marketingActive);
-            if (n.id === 'marketing' && marketingActive && visible) {
-              // Keep the breakdown visually attached to the Marketing node, directly beneath its label.
-              // Expand the same node label downward: no detached card or side panel.
-              const anchorX = (projected.x * 0.5 + 0.5) * el.clientWidth;
-              const anchorY = (-projected.y * 0.5 + 0.5) * el.clientHeight;
-              const labelWidth = label.offsetWidth;
-              const labelHeight = label.offsetHeight;
-              const panelWidth = Math.max(120, labelWidth);
-              const left = Math.max(8, Math.min(el.clientWidth - panelWidth * labelScale - 8, anchorX - (labelWidth * labelScale) / 2));
-              const top = Math.min(el.clientHeight - 32, anchorY + (labelHeight * labelScale) / 2 + 3);
-              marketingPanel.style.width = panelWidth + 'px';
-              marketingPanel.style.left = left + 'px';
-              marketingPanel.style.top = top + 'px';
-              marketingPanel.style.right = 'auto';
-              marketingPanel.style.bottom = 'auto';
-              marketingPanel.style.transformOrigin = 'top left';
-              marketingPanel.style.transform = 'scale(' + labelScale + ')';
-            }
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
@@ -407,7 +377,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         window.removeEventListener('resize', resize);
         el.removeEventListener('wheel', onWheelZoom);
         zoomControls.remove();
-        marketingPanel.remove();
         el.removeEventListener('click', onClick);
         el.removeEventListener('pointerdown', onPointerDown);
         el.removeEventListener('pointermove', onPointerMove);
@@ -437,6 +406,7 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
+  const [showAllMetrics, setShowAllMetrics] = useState(false);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -489,30 +459,41 @@ export default function Universe2() {
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
     </section>
 
-    <section aria-label="Live Neon data" style={{maxWidth: 1180, margin: '0 auto', padding: '28px 22px 56px', color: '#e8f3df'}}>
-      <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase'}}>
-        <span style={{display: 'inline-block', width: 8, height: 8, borderRadius: 99, background: neonStatus === 'connected' ? '#9dff8c' : neonStatus === 'error' ? '#ff8c70' : '#ffbf69', boxShadow: '0 0 12px currentColor'}} />
-        {neonStatus === 'connected' ? 'Live data · Neon PostgreSQL' : neonStatus === 'error' ? 'Neon data unavailable' : 'Connecting to Neon…'}
-        {neonData?.fetched_at && <span style={{opacity: .55, letterSpacing: 0, textTransform: 'none'}}>Updated {new Date(neonData.fetched_at).toLocaleString()}</span>}
+    <section className="bu-live-dashboard" aria-label="Live Neon data">
+      <div className="bu-dashboard-heading">
+        <div>
+          <span className="bu-dashboard-eyebrow"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> LIVE BUSINESS DATA</span>
+          <h2>Northstar Growth <span>{neonStatus === 'connected' ? '· Connected to Neon' : neonStatus === 'error' ? '· Connection issue' : '· Connecting…'}</span></h2>
+        </div>
+        <button className="bu-data-toggle" type="button" onClick={() => setShowAllMetrics(v => !v)} disabled={neonStatus !== 'connected'}>
+          {showAllMetrics ? 'Hide details −' : 'View all metrics +'}
+        </button>
       </div>
-      {neonStatus === 'error' && <p role="status" style={{color: '#ffb5a4', fontSize: 13}}>Live database data could not be loaded: {neonError}. The model above is still showing its demo labels.</p>}
-      {neonStatus === 'loading' && <p role="status" style={{opacity: .7, fontSize: 13}}>Loading Northstar Growth metrics from the database…</p>}
-      {neonStatus === 'connected' && latestMonth && <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12}}>
-        {[
-          ['Recognized revenue', eur(latestMonth.recognized_revenue), growthPct(firstMonth?.recognized_revenue, latestMonth.recognized_revenue) + ' Jan → Mar'],
-          ['Operating profit', eur(latestMonth.operating_profit), `${Number(latestMonth.operating_margin_pct || 0).toFixed(1)}% margin`],
-          ['Marketing spend', eur(latestMonth.marketing_spend), growthPct(firstMonth?.marketing_spend, latestMonth.marketing_spend) + ' Jan → Mar'],
-          ['Qualified leads', Number(latestMonth.qualified_leads || 0).toLocaleString(), growthPct(firstMonth?.qualified_leads, latestMonth.qualified_leads) + ' Jan → Mar'],
-          ['Sales opportunities', Number(latestMonth.opportunities || 0).toLocaleString(), growthPct(firstMonth?.opportunities, latestMonth.opportunities) + ' Jan → Mar'],
-          ['Customer receipts', eur(latestMonth.receipts), 'Cash received in latest month'],
-          ['Monthly payroll', eur(neonData.team?.monthly_payroll), `${Number(neonData.team?.size || 0)} team members`],
-          ['Delivery cost range', neonData.service_lines?.length ? `${Math.min(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}–${Math.max(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}%` : '—', 'By service line']
-        ].map(([label, value, note]) => <div key={label} style={{padding: '17px 18px', border: '1px solid rgba(201,255,120,.17)', borderRadius: 14, background: 'rgba(11,20,17,.68)', minHeight: 92}}>
-          <div style={{fontSize: 10, opacity: .64, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 11}}>{label}</div>
-          <div style={{fontSize: 23, fontWeight: 550, lineHeight: 1.15, marginBottom: 8}}>{value}</div>
-          <div style={{fontSize: 11, opacity: .65}}>{note}</div>
-        </div>)}
-      </div>}
+      {neonStatus === 'error' && <p className="bu-data-message" role="status">Database data could not be loaded: {neonError}. The interactive model remains available.</p>}
+      {neonStatus === 'loading' && <p className="bu-data-message" role="status">Loading business metrics…</p>}
+      {neonStatus === 'connected' && latestMonth && <>
+        <div className="bu-live-metrics">
+          {[
+            ['Revenue', eur(latestMonth.recognized_revenue), growthPct(firstMonth?.recognized_revenue, latestMonth.recognized_revenue) + ' Jan → Mar'],
+            ['Operating profit', eur(latestMonth.operating_profit), `${Number(latestMonth.operating_margin_pct || 0).toFixed(1)}% margin`],
+            ['Marketing spend', eur(latestMonth.marketing_spend), growthPct(firstMonth?.marketing_spend, latestMonth.marketing_spend) + ' Jan → Mar'],
+            ['Qualified leads', Number(latestMonth.qualified_leads || 0).toLocaleString(), growthPct(firstMonth?.qualified_leads, latestMonth.qualified_leads) + ' Jan → Mar']
+          ].map(([label, value, note]) => <article className="bu-live-metric" key={label}>
+            <span>{label}</span><strong>{value}</strong><small>{note}</small>
+          </article>)}
+        </div>
+        {showAllMetrics && <div className="bu-live-metrics bu-live-metrics-extra">
+          {[
+            ['Sales opportunities', Number(latestMonth.opportunities || 0).toLocaleString(), 'Latest month'],
+            ['Customer receipts', eur(latestMonth.receipts), 'Cash received in latest month'],
+            ['Monthly payroll', eur(neonData.team?.monthly_payroll), `${Number(neonData.team?.size || 0)} team members`],
+            ['Delivery cost range', neonData.service_lines?.length ? `${Math.min(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}–${Math.max(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}%` : '—', 'By service line']
+          ].map(([label, value, note]) => <article className="bu-live-metric" key={label}>
+            <span>{label}</span><strong>{value}</strong><small>{note}</small>
+          </article>)}
+        </div>}
+        <p className="bu-dashboard-footnote">Demo figures · Latest reporting period: {latestMonth.month_start ? new Date(latestMonth.month_start).toLocaleDateString('en-GB', {month:'short', year:'numeric'}) : 'latest available'}</p>
+      </>}
     </section>
 
   </main>;
