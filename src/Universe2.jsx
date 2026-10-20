@@ -3,34 +3,35 @@ import * as THREE from 'three';
 import './universe2.css';
 
 const nodes = [
-  { id: 'procurement', label: 'Procurement', metric: 'Supplier cost', value: '+3.0%', color: '#ffbf69', pos: [-2.1, 1.8, -4.7], note: 'A supplier price change increases the direct cost of production.', impact: 'Unit cost +3.0% → gross margin pressure → EBITDA ↓', links: ['production', 'finance'] },
-  { id: 'production', label: 'Production', metric: 'Cost per unit', value: '+2.4%', color: '#ff8c70', pos: [1.1, 1.35, -5.0], note: 'Higher input prices are flowing through the production plan.', impact: 'Input costs rise → cost per unit rises → margin narrows', links: ['procurement', 'finance'] },
-  { id: 'marketing', label: 'Marketing', metric: 'Qualified leads', value: '−18%', color: '#71dfff', pos: [-4.5, -0.3, -2.8], note: 'Fewer qualified leads enter the funnel. Check channel mix, audience and landing-page conversion.', impact: 'Lead volume ↓ → pipeline ↓ → revenue forecast at risk', links: ['sales', 'finance'] },
-  { id: 'sales', label: 'Sales funnel', metric: 'Conversion', value: '−12%', color: '#b9a0ff', pos: [-1.6, -2.0, -4.8], note: 'The decline starts between qualified lead and first sales meeting.', impact: 'Conversion ↓ → fewer opportunities → revenue ↓', links: ['marketing', 'finance'] },
-  { id: 'operations', label: 'Operations', metric: 'Capacity used', value: '86%', color: '#9dff8c', pos: [3.6, -1.0, -3.8], note: 'Production capacity is elevated. Cost pressure may compound if the plan is not adjusted.', impact: 'Capacity pressure → overtime risk → operating cost ↑', links: ['production', 'finance'] },
-  { id: 'finance', label: 'Profit & cash', metric: 'EBITDA forecast', value: '−4.6%', color: '#e8f3df', pos: [3.1, 2.4, -3.4], note: 'Combined effects are reflected in the illustrative profit forecast. Follow the connected paths to see the drivers.', impact: 'Cost ↑ + revenue pressure → EBITDA ↓ → cash conversion slows', links: ['procurement', 'production', 'marketing', 'sales', 'operations'] },
-  { id: 'customers', label: 'Customers', metric: 'Retention', value: '91.8%', color: '#f3e66d', pos: [0.1, 3.8, -3.5], note: 'Customer experience influences repeat purchase, retention and the stability of future revenue.', impact: 'Experience → retention → recurring revenue', links: ['sales', 'finance'] }
+  { id: 'procurement', label: 'Acquisition', metric: 'Marketing spend', value: '+19.5%', color: '#ffbf69', pos: [-2.1, 1.8, -4.7], note: 'Total acquisition and channel-related spend rises from €6,320 in January to €7,550 in March.', impact: 'Spend ↑ → qualified leads ↑ → check cost per qualified lead', links: ['marketing', 'finance'] },
+  { id: 'production', label: 'Delivery', metric: 'Service delivery cost', value: '25–48%', color: '#ff8c70', pos: [1.1, 1.35, -5.0], note: 'Delivery cost assumptions vary by service line: strategy 25%, performance marketing 32%, SEO 38%, and websites 48%.', impact: 'Service mix → delivery cost → operating margin', links: ['sales', 'finance'] },
+  { id: 'marketing', label: 'Marketing', metric: 'Qualified leads', value: '+53.1%', color: '#71dfff', pos: [-4.5, -0.3, -2.8], note: 'Qualified leads increase from 113 in January to 173 in March. Channel-level figures help explain where demand comes from.', impact: 'Channel spend → qualified leads → opportunities → won deals', links: ['sales', 'procurement', 'finance'] },
+  { id: 'sales', label: 'Sales funnel', metric: 'Opportunities', value: '+59.6%', color: '#b9a0ff', pos: [-1.6, -2.0, -4.8], note: 'Opportunities rise from 52 in January to 83 in March, while six deals are marked won in each month.', impact: 'More opportunities + deal value → recognized revenue', links: ['marketing', 'customers', 'finance'] },
+  { id: 'operations', label: 'Team & operations', metric: 'Monthly payroll', value: '€22.6k', color: '#9dff8c', pos: [3.6, -1.0, -3.8], note: 'The operating model includes eight team members and €22,600 in monthly payroll costs.', impact: 'Team capacity + payroll → delivery capacity and fixed cost base', links: ['production', 'finance'] },
+  { id: 'finance', label: 'Profit & cash', metric: 'Recognized revenue', value: '+28.9%', color: '#e8f3df', pos: [3.1, 2.4, -3.4], note: 'Won-deal revenue increases from €45,000 in January to €58,000 in March. Profit is calculated separately from operating expenses.', impact: 'Won deals → recognized revenue − operating expenses → operating profit', links: ['procurement', 'production', 'marketing', 'sales', 'operations', 'customers'] },
+  { id: 'customers', label: 'Customers', metric: 'Won deals / month', value: '6', color: '#f3e66d', pos: [0.1, 3.8, -3.5], note: 'The demo tracks six won deals per month across client accounts including Adria Home, GreenBasket, Nova Dental, BluePeak SaaS, UrbanFit and Finwise.', impact: 'Client mix + service mix → contract value and delivery margin', links: ['sales', 'finance'] }
 ];
 
 const scenarios = {
-  supplier: {
-    title: 'Supplier price increase',
-    subtitle: 'A new supplier raises input prices by 3%.',
-    path: ['procurement', 'production', 'finance'],
+  growth: {
+    title: 'Acquisition efficiency improves',
+    subtitle: 'Qualified leads rise while cost per qualified lead falls.',
+    path: ['procurement', 'marketing', 'sales', 'finance'],
     steps: [
-      { node: 'procurement', label: 'Supplier price', value: '+3.0%', detail: 'New contract price is higher than the previous baseline.' },
-      { node: 'production', label: 'Production cost', value: '+2.4%', detail: 'Direct cost per unit rises as the new price enters the production plan.' },
-      { node: 'finance', label: 'EBITDA forecast', value: '−4.6%', detail: 'If pricing and efficiency stay unchanged, margin and profit come under pressure.' }
+      { node: 'procurement', label: 'Channel spend', value: '€6.32k → €7.55k', detail: 'Monthly channel-related spend increases by 19.5% from January to March.' },
+      { node: 'marketing', label: 'Qualified leads', value: '113 → 173', detail: 'Qualified leads grow by 53.1%, faster than channel-related spend.' },
+      { node: 'sales', label: 'Opportunities', value: '52 → 83', detail: 'Recorded opportunities increase by 59.6% over the same period.' },
+      { node: 'finance', label: 'Won-deal revenue', value: '€45k → €58k', detail: 'Revenue from won deals rises by 28.9%. These are demo figures, not a forecast.' }
     ]
   },
-  demand: {
-    title: 'Sales funnel slows',
-    subtitle: 'Qualified leads fall and fewer opportunities reach sales.',
-    path: ['marketing', 'sales', 'finance'],
+  cash: {
+    title: 'Revenue is not the same as cash',
+    subtitle: 'Compare won-deal revenue with recorded customer receipts.',
+    path: ['sales', 'customers', 'finance'],
     steps: [
-      { node: 'marketing', label: 'Qualified leads', value: '−18%', detail: 'Fewer suitable prospects enter the funnel.' },
-      { node: 'sales', label: 'Conversion', value: '−12%', detail: 'Fewer leads become active opportunities and proposals.' },
-      { node: 'finance', label: 'Revenue forecast', value: 'At risk', detail: 'Pipeline coverage falls and the revenue plan may need to be revised.' }
+      { node: 'sales', label: 'Won-deal revenue', value: '€45k → €58k', detail: 'Revenue is recognized from deals marked won in each month.' },
+      { node: 'customers', label: 'Recorded receipts', value: '€17.5k → €23.2k', detail: 'The seed records customer receipts separately from recognized revenue.' },
+      { node: 'finance', label: 'Management insight', value: 'Track the gap', detail: 'Receipts in this demo are only selected cash movements; do not treat them as a complete receivables ledger or cash forecast.' }
     ]
   }
 };
@@ -99,10 +100,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       marketingPanel.className = 'marketing-detail-panel';
       marketingPanel.innerHTML = `
         <div class="marketing-detail-grid">
-          <div class="marketing-detail-item"><b>Paid search</b><strong>−22%</strong><small>Qualified leads</small></div>
-          <div class="marketing-detail-item"><b>Social ads</b><strong>−11%</strong><small>Qualified leads</small></div>
-          <div class="marketing-detail-item"><b>Landing page</b><strong>2.8%</strong><small>Conversion rate</small></div>
-          <div class="marketing-detail-item"><b>Cost per lead</b><strong>+14%</strong><small>vs. baseline</small></div>
+          <div class="marketing-detail-item"><b>Google Search Ads</b><strong>34 → 50</strong><small>Qualified leads · Jan → Mar</small></div>
+          <div class="marketing-detail-item"><b>Meta Ads</b><strong>25 → 39</strong><small>Qualified leads · Jan → Mar</small></div>
+          <div class="marketing-detail-item"><b>Opportunities</b><strong>52 → 83</strong><small>All channels · Jan → Mar</small></div>
+          <div class="marketing-detail-item"><b>Cost / qualified lead</b><strong>€55.93 → €43.64</strong><small>All channels · Jan → Mar</small></div>
         </div>`;
       el.appendChild(marketingPanel);
       const onWheelZoom = (e) => {
@@ -431,7 +432,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
-  const [scenarioKey, setScenarioKey] = useState('supplier');
+  const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
   const active = nodes.find(n => n.id === selected) || nodes[0];
   const scenario = scenarios[scenarioKey];
@@ -443,8 +444,8 @@ export default function Universe2() {
   return <main className="business-universe">
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
-      <div className="bu-live-state"><i /> INTERACTIVE BUSINESS MODEL <span>·</span> ILLUSTRATIVE DATA</div>
-      <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> ZOOM INTO NODES</div>
+      <div className="bu-live-state"><i /> NORTHSTAR GROWTH <span>·</span> DEMO BUSINESS DATA</div>
+      <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
 
 
@@ -455,9 +456,9 @@ export default function Universe2() {
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 02</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
-      <div className="bu-stage-hud bu-hud-bottom-left">DRAG TO ORIENT <span>·</span> SELECT MARKETING, THEN ZOOM IN</div>
+      <div className="bu-stage-hud bu-hud-bottom-left">DRAG TO ORIENT <span>·</span> SELECT A NODE, THEN ZOOM IN</div>
       <div className="bu-stage-hud bu-hud-bottom-right">SCROLL TO ZOOM</div>
-      <div className="bu-scenario-mini"><button className={scenarioKey === 'supplier' ? 'active' : ''} onClick={() => setScenarioKey('supplier')}>SUPPLIER +3%</button><button className={scenarioKey === 'demand' ? 'active' : ''} onClick={() => setScenarioKey('demand')}>FUNNEL −12%</button></div>
+      <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
     </section>
 
 
