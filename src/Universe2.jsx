@@ -352,8 +352,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
             label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
-            label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.72') : '0';
-            label.style.pointerEvents = visible ? 'auto' : 'none';
+            // Keep the scene clean at overview scale; reveal attached metric cards only when zoomed in.
+            const showMetrics = zoomLevel >= 1.22;
+            label.style.opacity = visible && showMetrics ? (active ? '1' : onPath ? '0.96' : '0.82') : '0';
+            label.style.pointerEvents = visible && showMetrics ? 'auto' : 'none';
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
           }
