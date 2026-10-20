@@ -498,43 +498,7 @@ export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const toggleExpanded = id => setExpandedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
-  const firstMonth = demoData?.months?.[0];
-  const latestMonth = demoData?.months?.[demoData.months.length - 1];
-  const money = value => new Intl.NumberFormat('en-IE', { style: 'currency', currency: demoData?.currency || 'EUR', maximumFractionDigits: 0 }).format(Number(value || 0));
-  const growth = (first, last) => Number(first) ? (((Number(last) - Number(first)) / Number(first)) * 100).toFixed(1) + '%' : '—';
-  const latestChannels = (demoData?.channels || []).filter(row => latestMonth && row.month_start === latestMonth.month_start);
-  const liveMetrics = dataStatus !== 'connected' || !firstMonth || !latestMonth ? null : {
-    procurement: { metric: 'Marketing spend change', value: growth(firstMonth.marketing_spend, latestMonth.marketing_spend), title: 'CHANNEL SPEND', rows: latestChannels.slice().sort((a,b) => b.spend-a.spend).slice(0,4).map(x => [x.channel, money(x.spend)]) },
-    production: { metric: 'Delivery cost by service', value: demoData.service_lines?.length ? Math.min(...demoData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '–' + Math.max(...demoData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '%' : '—', title: 'DELIVERY COST', rows: (demoData.service_lines || []).map(x => [x.name, Number(x.delivery_cost_pct).toFixed(0) + '%']) },
-    marketing: { metric: 'Qualified leads change', value: growth(firstMonth.qualified_leads, latestMonth.qualified_leads), title: 'LEADS BY CHANNEL', rows: latestChannels.slice().sort((a,b) => b.qualified_leads-a.qualified_leads).slice(0,4).map(x => [x.channel, String(x.qualified_leads)]) },
-    sales: { metric: 'Opportunities change', value: growth(firstMonth.opportunities, latestMonth.opportunities), title: 'SALES FUNNEL', rows: [['Qualified leads', String(latestMonth.qualified_leads)], ['Opportunities', String(latestMonth.opportunities)], ['Deals won', String(latestMonth.deals_won)], ['Revenue won', money(latestMonth.recognized_revenue)]] },
-    operations: { metric: 'Monthly payroll', value: money(demoData.team?.monthly_payroll), title: 'TEAM & OPERATIONS', rows: [['Team members', String(demoData.team?.size || 0)], ['Monthly payroll', money(demoData.team?.monthly_payroll)]] },
-    finance: { metric: 'Revenue change', value: growth(firstMonth.recognized_revenue, latestMonth.recognized_revenue), title: 'LATEST MONTH', rows: [['Revenue', money(latestMonth.recognized_revenue)], ['Operating costs', money(latestMonth.operating_expenses)], ['Operating profit', money(latestMonth.operating_profit)], ['Margin', Number(latestMonth.operating_margin_pct || 0).toFixed(1) + '%']] },
-    customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', money(latestMonth.receipts)], ['Attributed revenue', money(latestMonth.attributed_revenue)]] }
-  };
   const [scenarioKey, setScenarioKey] = useState('growth');
-  const [demoData, setDemoData] = useState(null);
-  const [dataStatus, setDataStatus] = useState('loading');
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/universe2-data', { cache: 'no-store' })
-      .then(async response => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.error || ('Request failed (' + response.status + ')'));
-        return payload;
-      })
-      .then(payload => {
-        if (cancelled) return;
-        setDemoData(payload);
-        setDataStatus('connected');
-      })
-      .catch(error => {
-        if (cancelled) return;
-        setDataStatus('error');
-        console.error('Universe 3 demo data failed to load:', error);
-      });
-    return () => { cancelled = true; };
-  }, []);
   const [showMap, setShowMap] = useState(true);
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
@@ -565,6 +529,16 @@ export default function Universe2() {
   const firstMonth = neonData?.months?.[0];
   const eur = value => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value || 0));
   const growthPct = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
+  const latestChannels = (neonData?.channels || []).filter(row => latestMonth && row.month_start === latestMonth.month_start);
+  const liveMetrics = neonStatus !== 'connected' || !firstMonth || !latestMonth ? null : {
+    procurement: { metric: 'Marketing spend change', value: growthPct(firstMonth.marketing_spend, latestMonth.marketing_spend), title: 'CHANNEL SPEND', rows: latestChannels.slice().sort((a,b) => b.spend-a.spend).slice(0,4).map(x => [x.channel, eur(x.spend)]) },
+    production: { metric: 'Delivery cost by service', value: neonData.service_lines?.length ? Math.min(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '–' + Math.max(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '%' : '—', title: 'DELIVERY COST', rows: (neonData.service_lines || []).map(x => [x.name, Number(x.delivery_cost_pct).toFixed(0) + '%']) },
+    marketing: { metric: 'Qualified leads change', value: growthPct(firstMonth.qualified_leads, latestMonth.qualified_leads), title: 'LEADS BY CHANNEL', rows: latestChannels.slice().sort((a,b) => b.qualified_leads-a.qualified_leads).slice(0,4).map(x => [x.channel, String(x.qualified_leads)]) },
+    sales: { metric: 'Opportunities change', value: growthPct(firstMonth.opportunities, latestMonth.opportunities), title: 'SALES FUNNEL', rows: [['Qualified leads', String(latestMonth.qualified_leads)], ['Opportunities', String(latestMonth.opportunities)], ['Deals won', String(latestMonth.deals_won)], ['Won-deal revenue', eur(latestMonth.recognized_revenue)]] },
+    operations: { metric: 'Monthly payroll', value: eur(neonData.team?.monthly_payroll), title: 'TEAM & OPERATIONS', rows: [['Team members', String(neonData.team?.size || 0)], ['Monthly payroll', eur(neonData.team?.monthly_payroll)]] },
+    finance: { metric: 'Revenue change', value: growthPct(firstMonth.recognized_revenue, latestMonth.recognized_revenue), title: 'LATEST MONTH', rows: [['Revenue', eur(latestMonth.recognized_revenue)], ['Operating costs', eur(latestMonth.operating_expenses)], ['Operating profit', eur(latestMonth.operating_profit)], ['Margin', Number(latestMonth.operating_margin_pct || 0).toFixed(1) + '%']] },
+    customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
+  };
   const active = nodes.find(n => n.id === selected) || nodes[0];
   const scenario = scenarios[scenarioKey];
   const directionData = (() => {
@@ -591,7 +565,7 @@ export default function Universe2() {
   return <main className="business-universe3">
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
-      <div className="bu-live-state"><i className={dataStatus === 'connected' ? 'is-connected' : dataStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {dataStatus === 'connected' ? 'DEMO DATA · NEON LIVE' : dataStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
+      <div className="bu-live-state"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {neonStatus === 'connected' ? 'DEMO DATA · NEON LIVE' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
       <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
 
