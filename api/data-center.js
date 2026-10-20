@@ -268,12 +268,31 @@ export default async function handler(req, res) {
     if (!Array.isArray(payload.transactions) || !Array.isArray(payload.rules)) {
       return send(res, 400, { error: 'Payload must contain transactions and rules arrays' });
     }
-    const serialized = JSON.stringify({ transactions: payload.transactions, rules: payload.rules });
+    if (payload.imports !== undefined && !Array.isArray(payload.imports)) {
+      return send(res, 400, { error: 'Payload imports must be an array' });
+    }
+    const normalizedPayload = { transactions: payload.transactions, rules: payload.rules, imports: Array.isArray(payload.imports) ? payload.imports : [] };
+    const serialized = JSON.stringify(normalizedPayload);
     if (Buffer.byteLength(serialized, 'utf8') > MAX_PAYLOAD_BYTES) {
       return send(res, 413, { error: 'Workspace data exceeds the 5 MB prototype limit' });
     }
 
-    await syncNormalizedData(sql, workspaceId, payload);
+    await syncNormalizedData(sql, workspaceId, normalizedPayload);
+    for (const item of normalizedPayload.imports) {
+      const importId = String(item.id || '');
+      if (!importId) continue;
+      const sourceName = String(item.sourceName || 'Imported file').slice(0, 500);
+      const importedCount = Math.max(0, Math.trunc(Number(item.importedCount) || 0));
+      const skippedCount = Math.max(0, Math.trunc(Number(item.skippedCount) || 0));
+      const metadata = JSON.stringify({ ...item, importId });
+      await sql`INSERT INTO public.dc_imports
+        (workspace_id, source_name, imported_count, skipped_count, status, metadata)
+        SELECT ${workspaceId}::uuid, ${sourceName}, ${importedCount}, ${skippedCount}, ${String(item.status || 'completed')}, ${metadata}::jsonb
+        WHERE NOT EXISTS (
+          SELECT 1 FROM public.dc_imports
+          WHERE workspace_id = ${workspaceId}::uuid AND metadata->>'importId' = ${importId}
+        )`;
+    }
     await sql`UPDATE public.dc_workspaces
       SET payload = ${serialized}::jsonb, updated_at = NOW()
       WHERE workspace_id = ${workspaceId}::uuid`;
