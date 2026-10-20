@@ -241,3 +241,75 @@ body:has(.business-universe),
   .business-universe .bu-direction-description > p { line-height: 1.35; }
   .business-universe .bu-selected-card > p { margin: 7px 0; }
 }
+
+
+/* Node-attached metric cards: information belongs directly under its sphere node. */
+.business-universe .bu-analysis { display: none !important; }
+.business-universe .sphere-node-label {
+  width: 156px;
+  max-width: 156px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 9px 10px 8px;
+  border: 1px solid color-mix(in srgb, var(--node-color), transparent 48%);
+  border-radius: 5px;
+  background: linear-gradient(145deg, rgba(7,15,11,.96), rgba(3,8,6,.91));
+  box-shadow: 0 5px 22px rgba(0,0,0,.28), inset 0 0 18px color-mix(in srgb, var(--node-color), transparent 94%);
+  color: #eaf3e5;
+  text-align: left;
+  white-space: normal;
+  backdrop-filter: blur(8px);
+}
+.business-universe .sphere-label-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.business-universe .sphere-label-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  margin: 0;
+  background: var(--node-color);
+  box-shadow: 0 0 8px var(--node-color);
+}
+.business-universe .sphere-label-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 600 10px/1.2 'DM Mono', monospace;
+  letter-spacing: .015em;
+  color: var(--node-color);
+}
+.business-universe .sphere-label-metric {
+  display: block;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--node-color), transparent 82%);
+  color: #8ea18a;
+  font: 8px/1.35 'DM Mono', monospace;
+  letter-spacing: .025em;
+}
+.business-universe .sphere-label-value {
+  display: block;
+  align-self: flex-start;
+  font: 500 19px/1.05 'Space Grotesk', sans-serif;
+  letter-spacing: -.04em;
+  color: #edf6e8;
+}
+.business-universe .sphere-node-label.active {
+  border-color: var(--node-color);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--node-color), transparent 78%), inset 0 0 18px color-mix(in srgb, var(--node-color), transparent 91%);
+}
+.business-universe .sphere-node-label.on-path { border-color: color-mix(in srgb, var(--node-color), transparent 35%); }
+.business-universe .bu-scenario-mini { z-index: 8; }
+.business-universe .sphere-zoom-controls { z-index: 8; }
+@media (max-width: 760px) {
+  .business-universe .sphere-node-label { width: 124px; max-width: 124px; padding: 7px; gap: 4px; }
+  .business-universe .sphere-label-name { font-size: 8px; }
+  .business-universe .sphere-label-metric { font-size: 7px; }
+  .business-universe .sphere-label-value { font-size: 16px; }
+}
