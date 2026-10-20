@@ -434,6 +434,34 @@ export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
+  const [neonData, setNeonData] = useState(null);
+  const [neonStatus, setNeonStatus] = useState('loading');
+  const [neonError, setNeonError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/universe2-data', { cache: 'no-store' })
+      .then(async response => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+        return payload;
+      })
+      .then(payload => {
+        if (cancelled) return;
+        setNeonData(payload);
+        setNeonStatus('connected');
+        setNeonError('');
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setNeonStatus('error');
+        setNeonError(error.message || 'Unable to load Neon data');
+      });
+    return () => { cancelled = true; };
+  }, []);
+  const latestMonth = neonData?.months?.[neonData.months.length - 1];
+  const firstMonth = neonData?.months?.[0];
+  const eur = value => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value || 0));
+  const growthPct = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
   const active = nodes.find(n => n.id === selected) || nodes[0];
   const scenario = scenarios[scenarioKey];
   useEffect(() => {
@@ -461,6 +489,31 @@ export default function Universe2() {
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
     </section>
 
+    <section aria-label="Live Neon data" style={{maxWidth: 1180, margin: '0 auto', padding: '28px 22px 56px', color: '#e8f3df'}}>
+      <div style={{display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase'}}>
+        <span style={{display: 'inline-block', width: 8, height: 8, borderRadius: 99, background: neonStatus === 'connected' ? '#9dff8c' : neonStatus === 'error' ? '#ff8c70' : '#ffbf69', boxShadow: '0 0 12px currentColor'}} />
+        {neonStatus === 'connected' ? 'Live data · Neon PostgreSQL' : neonStatus === 'error' ? 'Neon data unavailable' : 'Connecting to Neon…'}
+        {neonData?.fetched_at && <span style={{opacity: .55, letterSpacing: 0, textTransform: 'none'}}>Updated {new Date(neonData.fetched_at).toLocaleString()}</span>}
+      </div>
+      {neonStatus === 'error' && <p role="status" style={{color: '#ffb5a4', fontSize: 13}}>Live database data could not be loaded: {neonError}. The model above is still showing its demo labels.</p>}
+      {neonStatus === 'loading' && <p role="status" style={{opacity: .7, fontSize: 13}}>Loading Northstar Growth metrics from the database…</p>}
+      {neonStatus === 'connected' && latestMonth && <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12}}>
+        {[
+          ['Recognized revenue', eur(latestMonth.recognized_revenue), growthPct(firstMonth?.recognized_revenue, latestMonth.recognized_revenue) + ' Jan → Mar'],
+          ['Operating profit', eur(latestMonth.operating_profit), `${Number(latestMonth.operating_margin_pct || 0).toFixed(1)}% margin`],
+          ['Marketing spend', eur(latestMonth.marketing_spend), growthPct(firstMonth?.marketing_spend, latestMonth.marketing_spend) + ' Jan → Mar'],
+          ['Qualified leads', Number(latestMonth.qualified_leads || 0).toLocaleString(), growthPct(firstMonth?.qualified_leads, latestMonth.qualified_leads) + ' Jan → Mar'],
+          ['Sales opportunities', Number(latestMonth.opportunities || 0).toLocaleString(), growthPct(firstMonth?.opportunities, latestMonth.opportunities) + ' Jan → Mar'],
+          ['Customer receipts', eur(latestMonth.receipts), 'Cash received in latest month'],
+          ['Monthly payroll', eur(neonData.team?.monthly_payroll), `${Number(neonData.team?.size || 0)} team members`],
+          ['Delivery cost range', neonData.service_lines?.length ? `${Math.min(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}–${Math.max(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}%` : '—', 'By service line']
+        ].map(([label, value, note]) => <div key={label} style={{padding: '17px 18px', border: '1px solid rgba(201,255,120,.17)', borderRadius: 14, background: 'rgba(11,20,17,.68)', minHeight: 92}}>
+          <div style={{fontSize: 10, opacity: .64, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 11}}>{label}</div>
+          <div style={{fontSize: 23, fontWeight: 550, lineHeight: 1.15, marginBottom: 8}}>{value}</div>
+          <div style={{fontSize: 11, opacity: .65}}>{note}</div>
+        </div>)}
+      </div>}
+    </section>
 
   </main>;
 }
