@@ -226,7 +226,21 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             row.setAttribute('aria-label', `Inspect ${keyText}`);
             const key = document.createElement('span'); key.textContent = keyText;
             const value = document.createElement('b'); value.textContent = valueText;
-            row.append(key, value); details.appendChild(row);
+            row.append(key, value);
+            const openDetail = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              stateRef.current.onDrilldown({
+                nodeId: node.id,
+                label: keyText,
+                value: valueText
+              });
+            };
+            row.addEventListener('click', openDetail);
+            row.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter' || event.key === ' ') openDetail(event);
+            });
+            details.appendChild(row);
           });
           label.appendChild(details);
         }
@@ -279,9 +293,14 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
           stateRef.current.onToggleExpand(node.id);
         });
         label.addEventListener('keydown', (event) => {
-          if ((event.key === 'Enter' || event.key === ' ') && event.target.classList.contains('sphere-direction-details-row')) {
+          if (event.target.closest('.sphere-direction-details-row')) {
+            event.stopPropagation();
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            stateRef.current.onDrilldown({ nodeId: node.id, label: event.target.querySelector('span')?.textContent || node.label, value: event.target.querySelector('b')?.textContent || '' });
+            stateRef.current.onSelect(node.id);
+            stateRef.current.onToggleExpand(node.id);
           }
         });
         el.appendChild(label);
