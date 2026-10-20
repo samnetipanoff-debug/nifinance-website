@@ -20,9 +20,26 @@ const parseAmount = (v = '') => {
   return Number(s.replace(/[^0-9.\-]/g, '')) || 0;
 };
 function parseCSV(text) {
-  const first = text.split(/\r?\n/, 1)[0] || '';
-  const candidates = [',', ';', '\t'];
-  const delimiter = candidates.sort((a,b) => first.split(b).length - first.split(a).length)[0];
+  // Choose a delimiter by consistency across several non-empty lines, not by the first
+  // line alone: exports may start with a title, account metadata, or a quoted note.
+  const sampleLines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim()).slice(0, 12);
+  const candidates = [',', ';', '\t', '|'];
+  const scoreDelimiter = delimiter => {
+    const counts = sampleLines.map(line => {
+      let quoted = false, count = 0;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"' && line[i + 1] === '"' && quoted) { i++; continue; }
+        if (line[i] === '"') quoted = !quoted;
+        else if (line[i] === delimiter && !quoted) count++;
+      }
+      return count;
+    }).filter(n => n > 0);
+    if (!counts.length) return 0;
+    const max = Math.max(...counts);
+    const consistent = counts.filter(n => n === max).length / counts.length;
+    return max * consistent + Math.min(counts.length, 8) * 0.05;
+  };
+  const delimiter = candidates.sort((a,b) => scoreDelimiter(b) - scoreDelimiter(a))[0];
   const rows = [];
   let row = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -43,7 +60,33 @@ function parseCSV(text) {
 }
 function fieldIndex(headers, variants) {
   const normalized = headers.map(norm);
-  return normalized.findIndex(h => variants.some(v => h === norm(v) || h.includes(norm(v))));
+  // Exact matches first; substring matches are a fallback to avoid matching generic
+  // words such as "date" inside unrelated metadata columns.
+  const exact = normalized.findIndex(h => variants.some(v => h === norm(v)));
+  return exact >= 0 ? exact : normalized.findIndex(h => variants.some(v => h.length > 2 && h.includes(norm(v))));
+}
+function looksLikeDate(value) {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  return /^(?:\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/.test(s) ||
+    /^\d{1,2}\s+[A-Za-zА-Яа-яÀ-ÿ]{3,}\s+\d{2,4}$/.test(s);
+}
+function looksLikeAmount(value) {
+  const s = String(value || '').trim();
+  if (!s || looksLikeDate(s)) return false;
+  const cleaned = s.replace(/[€$£₽\s'’]/g, '').replace(/[()]/g, '');
+  return /^[-+]?(?:\d{1,3}(?:[., ]\d{3})+|\d+)?(?:[.,]\d{1,4})?$/.test(cleaned) && /\d/.test(cleaned);
+}
+function inferColumn(headers, rows, kind, excluded = []) {
+  const sample = rows.slice(0, 40);
+  const scores = headers.map((header, index) => {
+    if (excluded.includes(index)) return { index, score: -1 };
+    const values = sample.map(row => row[index] || '').filter(v => String(v).trim());
+    if (!values.length) return { index, score: -1 };
+    const matches = values.filter(kind === 'date' ? looksLikeDate : looksLikeAmount).length;
+    return { index, score: matches / values.length };
+  }).sort((a,b) => b.score - a.score);
+  return scores[0]?.score >= (kind === 'date' ? 0.55 : 0.7) && scores[0].score > (scores[1]?.score || 0) + 0.05 ? scores[0].index : -1;
 }
 function guessCategory(description, counterparty, direction, amount) {
   const t = norm([description, counterparty].join(' '));
@@ -113,17 +156,21 @@ function readRows(text, rules, fileName) {
   }
   const headers = table[headerRowIndex].map(v => String(v).replace(/^\\uFEFF/, '').trim());
   const rows = table.slice(headerRowIndex + 1);
-  const dateI = fieldIndex(headers, headerAliases.date);
-  const amountI = fieldIndex(headers, headerAliases.amount);
   const debitI = fieldIndex(headers, headerAliases.debit);
   const creditI = fieldIndex(headers, headerAliases.credit);
+  const dateNamedI = fieldIndex(headers, headerAliases.date);
+  const amountNamedI = fieldIndex(headers, headerAliases.amount);
+  // Universal fallback: infer unknown/localized headers from the actual cell values.
+  // Never override a clear header match with a heuristic guess.
+  const dateI = dateNamedI >= 0 ? dateNamedI : inferColumn(headers, rows, 'date');
+  const amountI = amountNamedI >= 0 ? amountNamedI : inferColumn(headers, rows, 'amount', [dateI, debitI, creditI].filter(i => i >= 0));
   const nameI = fieldIndex(headers, headerAliases.name);
   const descI = fieldIndex(headers, headerAliases.description);
   const refI = fieldIndex(headers, headerAliases.reference);
   const currencyI = fieldIndex(headers, headerAliases.currency);
   if (dateI < 0 || (amountI < 0 && debitI < 0 && creditI < 0)) {
     const found = headers.filter(Boolean).slice(0, 20).join(', ');
-    throw new Error('Could not identify the date and amount columns. Detected headers: ' + (found || 'none') + '. Supported examples: Date/Datum/Дата операции and Amount/Iznos/Сумма, or Debit/Duguje/Дебет plus Credit/Potražuje/Кредит. If the bank export uses different names, send me just the CSV header row (no account or transaction data).');
+    throw new Error('Could not confidently map the required date and amount fields. The importer checks header names and sample cell patterns, but this file needs column mapping before import. Detected columns: ' + (found || 'none') + '. No rows were imported.');
   }
   return rows.map((cells, i) => {
     const get = idx => idx < 0 ? '' : (cells[idx] || '');
