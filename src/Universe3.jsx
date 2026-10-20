@@ -46,10 +46,10 @@ const scenarios = {
   }
 };
 
-function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scenario, liveMetrics }) {
+function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDrilldown, scenario, liveMetrics }) {
   const host = useRef(null);
-  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, liveMetrics });
-  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, liveMetrics }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, liveMetrics]);
+  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics });
+  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics]);
 
   useEffect(() => {
     const el = host.current;
@@ -221,6 +221,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
           breakdown.rows.forEach(([keyText, valueText]) => {
             const row = document.createElement('span');
             row.className = 'sphere-direction-details-row';
+            row.tabIndex = 0;
+            row.setAttribute('role', 'button');
+            row.setAttribute('aria-label', `Inspect ${keyText}`);
             const key = document.createElement('span'); key.textContent = keyText;
             const value = document.createElement('b'); value.textContent = valueText;
             row.append(key, value); details.appendChild(row);
@@ -264,10 +267,22 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
         };
         label.addEventListener('pointerup', finishLabelDrag);
         label.addEventListener('pointercancel', finishLabelDrag);
-        label.addEventListener('click', () => {
+        label.addEventListener('click', (event) => {
           if (suppressLabelClick) { suppressLabelClick = false; return; }
+          const detailRow = event.target.closest('.sphere-direction-details-row');
+          if (detailRow) {
+            event.stopPropagation();
+            stateRef.current.onDrilldown({ nodeId: node.id, label: detailRow.querySelector('span')?.textContent || node.label, value: detailRow.querySelector('b')?.textContent || '' });
+            return;
+          }
           stateRef.current.onSelect(node.id);
           stateRef.current.onToggleExpand(node.id);
+        });
+        label.addEventListener('keydown', (event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && event.target.classList.contains('sphere-direction-details-row')) {
+            event.preventDefault();
+            stateRef.current.onDrilldown({ nodeId: node.id, label: event.target.querySelector('span')?.textContent || node.label, value: event.target.querySelector('b')?.textContent || '' });
+          }
         });
         el.appendChild(label);
         labelEls.set(node.id, label);
@@ -426,6 +441,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
                   live.rows.forEach(([keyText, valueText]) => {
                     const row = document.createElement('span');
                     row.className = 'sphere-direction-details-row';
+                    row.tabIndex = 0;
+                    row.setAttribute('role', 'button');
+                    row.setAttribute('aria-label', `Inspect ${keyText}`);
                     const key = document.createElement('span'); key.textContent = keyText;
                     const value = document.createElement('b'); value.textContent = valueText;
                     row.append(key, value); details.appendChild(row);
@@ -503,7 +521,7 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
-  const [showAllMetrics, setShowAllMetrics] = useState(false);
+  const [detailSelection, setDetailSelection] = useState(null);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -531,15 +549,37 @@ export default function Universe2() {
   const growthPct = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
   const latestChannels = (neonData?.channels || []).filter(row => latestMonth && row.month_start === latestMonth.month_start);
   const liveMetrics = neonStatus !== 'connected' || !firstMonth || !latestMonth ? null : {
-    procurement: { metric: 'Marketing spend change', value: growthPct(firstMonth.marketing_spend, latestMonth.marketing_spend), title: 'CHANNEL SPEND', rows: latestChannels.slice().sort((a,b) => b.spend-a.spend).slice(0,4).map(x => [x.channel, eur(x.spend)]) },
+    procurement: { metric: 'Marketing spend change', value: growthPct(firstMonth.marketing_spend, latestMonth.marketing_spend), title: 'CHANNEL SPEND', rows: latestChannels.slice().sort((a,b) => b.spend-a.spend).map(x => [x.channel, eur(x.spend)]) },
     production: { metric: 'Delivery cost by service', value: neonData.service_lines?.length ? Math.min(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '–' + Math.max(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '%' : '—', title: 'DELIVERY COST', rows: (neonData.service_lines || []).map(x => [x.name, Number(x.delivery_cost_pct).toFixed(0) + '%']) },
-    marketing: { metric: 'Qualified leads change', value: growthPct(firstMonth.qualified_leads, latestMonth.qualified_leads), title: 'LEADS BY CHANNEL', rows: latestChannels.slice().sort((a,b) => b.qualified_leads-a.qualified_leads).slice(0,4).map(x => [x.channel, String(x.qualified_leads)]) },
+    marketing: { metric: 'Qualified leads change', value: growthPct(firstMonth.qualified_leads, latestMonth.qualified_leads), title: 'LEADS BY CHANNEL', rows: latestChannels.slice().sort((a,b) => b.qualified_leads-a.qualified_leads).map(x => [x.channel, String(x.qualified_leads)]) },
     sales: { metric: 'Opportunities change', value: growthPct(firstMonth.opportunities, latestMonth.opportunities), title: 'SALES FUNNEL', rows: [['Qualified leads', String(latestMonth.qualified_leads)], ['Opportunities', String(latestMonth.opportunities)], ['Deals won', String(latestMonth.deals_won)], ['Won-deal revenue', eur(latestMonth.recognized_revenue)]] },
     operations: { metric: 'Monthly payroll', value: eur(neonData.team?.monthly_payroll), title: 'TEAM & OPERATIONS', rows: [['Team members', String(neonData.team?.size || 0)], ['Monthly payroll', eur(neonData.team?.monthly_payroll)]] },
     finance: { metric: 'Revenue change', value: growthPct(firstMonth.recognized_revenue, latestMonth.recognized_revenue), title: 'LATEST MONTH', rows: [['Revenue', eur(latestMonth.recognized_revenue)], ['Operating costs', eur(latestMonth.operating_expenses)], ['Operating profit', eur(latestMonth.operating_profit)], ['Margin', Number(latestMonth.operating_margin_pct || 0).toFixed(1) + '%']] },
     customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
   };
   const active = nodes.find(n => n.id === selected) || nodes[0];
+  const selectedDetailRows = (() => {
+    if (!detailSelection || !neonData) return [];
+    const month = latestMonth?.month_start;
+    const money = value => eur(value);
+    const monthLabel = value => { const d = new Date(`${value}T00:00:00Z`); return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); };
+    if (detailSelection.nodeId === 'procurement' || detailSelection.nodeId === 'marketing') {
+      return (neonData.channels || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'procurement' || x.spend > 0)).map(x => ({ primary: x.channel, secondary: monthLabel(x.month_start), value: detailSelection.nodeId === 'procurement' ? money(x.spend) : `${x.qualified_leads} qualified leads`, note: `${x.impressions.toLocaleString('en-GB')} impressions · ${x.clicks.toLocaleString('en-GB')} clicks · ${x.leads} leads · ${x.opportunities} opportunities · ${x.deals_won} wins · CPL ${money(x.cost_per_lead)} · CPQL ${money(x.cost_per_qualified_lead)}` }));
+    }
+    if (detailSelection.nodeId === 'sales' || detailSelection.nodeId === 'customers') {
+      return (neonData.deals || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'customers' || x.stage === 'won')).map(x => ({ primary: x.client, secondary: `${x.deal} · ${x.stage.toUpperCase()}`, value: money(x.value), note: `${x.date} · ${x.service_line} · ${x.channel} · ${x.payment_terms_days}-day payment terms` }));
+    }
+    if (detailSelection.nodeId === 'finance') {
+      return (neonData.transactions || []).filter(x => x.month_start === month).map(x => ({ primary: x.category, secondary: `${x.direction.toUpperCase()} · ${x.status}`, value: money(x.amount), note: `${x.date} · ${x.counterparty} · ${x.description}${x.related_client ? ` · ${x.related_client}` : ''}` }));
+    }
+    if (detailSelection.nodeId === 'operations') {
+      return (neonData.employees || []).map(x => ({ primary: x.name, secondary: `${x.role} · ${x.department}`, value: money(x.monthly_cost), note: `Employment status: ${x.status}` }));
+    }
+    if (detailSelection.nodeId === 'production') {
+      return (neonData.service_lines || []).map(x => ({ primary: x.name, secondary: 'Delivery cost assumption', value: `${x.delivery_cost_pct}%`, note: 'Illustrative service-line delivery cost percentage used in the Northstar Growth model.' }));
+    }
+    return [];
+  })();
   const scenario = scenarios[scenarioKey];
   const directionData = (() => {
     if (neonStatus !== 'connected' || !latestMonth) return { value: active.value, metric: active.metric, note: active.note };
@@ -565,7 +605,7 @@ export default function Universe2() {
   return <main className="business-universe3">
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
-      <div className="bu-live-state"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {neonStatus === 'connected' ? 'DEMO DATA · NEON LIVE' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
+      <div className="bu-live-state"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {neonStatus === 'connected' ? 'DEMO DATA · NEON CONNECTED' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
       <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
 
@@ -573,11 +613,17 @@ export default function Universe2() {
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} scenario={scenarioKey} liveMetrics={liveMetrics} />
+      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={setDetailSelection} scenario={scenarioKey} liveMetrics={liveMetrics} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
+      {detailSelection && <aside className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`}>
+        <div className="bu-drill-head"><div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div><button type="button" aria-label="Close details" onClick={() => setDetailSelection(null)}>×</button></div>
+        <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
+        <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
+        <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => setDetailSelection(null)}>BACK TO UNIVERSE ↗</button></div>
+      </aside>}
     </section>
 
     <section className="bu-analysis" aria-label="Business direction and relationships">
