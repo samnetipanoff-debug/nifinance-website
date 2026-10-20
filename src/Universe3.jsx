@@ -203,9 +203,10 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         const entry = { id: node.id, group, anchor: p.clone() };
         meshes.push(entry);
         nodeById[node.id] = entry;
-        const label = document.createElement('button');
+        const label = document.createElement('div');
         label.className = 'sphere-node-label';
-        label.type = 'button';
+        label.setAttribute('role', 'group');
+        label.tabIndex = 0;
         label.innerHTML = '<span class="sphere-label-heading"><i class="sphere-label-dot"></i><span class="sphere-label-name"></span></span><span class="sphere-label-metric"></span><b class="sphere-label-value"></b>';
         label.querySelector('.sphere-label-name').textContent = node.label;
         label.querySelector('.sphere-label-metric').textContent = node.metric;
@@ -219,7 +220,8 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
           heading.textContent = breakdown.title;
           details.appendChild(heading);
           breakdown.rows.forEach(([keyText, valueText]) => {
-            const row = document.createElement('span');
+            const row = document.createElement('button');
+            row.type = 'button';
             row.className = 'sphere-direction-details-row';
             row.tabIndex = 0;
             row.setAttribute('role', 'button');
@@ -248,6 +250,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         label.style.setProperty('--node-color', node.color);
         labelOffsets.set(node.id, { x: 0, y: 0 });
         label.addEventListener('pointerdown', (event) => {
+          // Do not capture the pointer for nested metric controls: capture retargets
+          // pointer/click events to the parent card and triggers its collapse handler.
+          if (event.target.closest('.sphere-direction-details-row')) return;
           if (event.button !== 0) return;
           labelDrag = { id: node.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
           suppressLabelClick = false;
