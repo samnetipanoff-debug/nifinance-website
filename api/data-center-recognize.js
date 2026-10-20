@@ -8,7 +8,8 @@ const fieldKeys = ['date', 'amount', 'debit', 'credit', 'counterparty', 'descrip
 
 function cleanMapping(value) {
   if (!value || typeof value !== 'object') return null;
-  const rawDelimiter = value.delimiter;\n  const delimiter = rawDelimiter === 'tab' || rawDelimiter === '\\\\t' ? '\\t' : rawDelimiter === 'comma' ? ',' : rawDelimiter === 'semicolon' ? ';' : rawDelimiter === 'pipe' ? '|' : allowedDelimiters.includes(rawDelimiter) ? rawDelimiter : null;
+  const rawDelimiter = value.delimiter;
+  const delimiter = rawDelimiter === 'tab' || rawDelimiter === '\\t' ? '\t' : rawDelimiter === 'comma' ? ',' : rawDelimiter === 'semicolon' ? ';' : rawDelimiter === 'pipe' ? '|' : allowedDelimiters.includes(rawDelimiter) ? rawDelimiter : null;
   const headerRow = Number(value.headerRow);
   if (!Number.isInteger(headerRow) || headerRow < 0 || headerRow > 29 || !delimiter) return null;
   const mapping = { headerRow, delimiter };
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
 
     let parsed = data?.choices?.[0]?.message?.content;
     if (typeof parsed === 'string') {
-      parsed = parsed.trim().replace(/^\`\`\`(?:json)?\\s*/i, '').replace(/\\s*\`\`\`$/, '');
+      parsed = parsed.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
       try { parsed = JSON.parse(parsed); } catch { parsed = null; }
     }
     const mapping = cleanMapping(parsed);
