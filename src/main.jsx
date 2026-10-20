@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import './style.css';
 import Universe from './Universe.jsx';
 import Universe2 from './Universe2.jsx';
+import Universe3 from './Universe3.jsx';
 
 function WorldEngine() {
   const host = useRef(null);
@@ -305,7 +306,8 @@ function App() {
   </main>;
 }
 
+const isUniverse3Route = /^\/universe-3\/?$/.test(window.location.pathname);
 const isUniverse2Route = /^\/universe-2\/?$/.test(window.location.pathname);
 const isUniverseRoute = /^\/universe\/?$/.test(window.location.pathname);
-const RootView = isUniverse2Route ? Universe2 : isUniverseRoute ? Universe : App;
+const RootView = isUniverse3Route ? Universe3 : isUniverse2Route ? Universe2 : isUniverseRoute ? Universe : App;
 createRoot(document.getElementById('root')).render(<RootView />);
