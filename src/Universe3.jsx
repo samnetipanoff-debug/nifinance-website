@@ -465,14 +465,31 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
                   heading.textContent = live.title;
                   details.appendChild(heading);
                   live.rows.forEach(([keyText, valueText]) => {
-                    const row = document.createElement('span');
+                    // Live data refreshes the rows after the initial DOM is built.
+                    // Keep these rows real, wired buttons so drilldown works with Neon data too.
+                    const row = document.createElement('button');
+                    row.type = 'button';
                     row.className = 'sphere-direction-details-row';
                     row.tabIndex = 0;
-                    row.setAttribute('role', 'button');
                     row.setAttribute('aria-label', `Inspect ${keyText}`);
                     const key = document.createElement('span'); key.textContent = keyText;
                     const value = document.createElement('b'); value.textContent = valueText;
-                    row.append(key, value); details.appendChild(row);
+                    row.append(key, value);
+                    const openDetail = (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      event.stopImmediatePropagation?.();
+                      stateRef.current.onDrilldown({
+                        nodeId: n.id,
+                        label: keyText,
+                        value: valueText
+                      });
+                    };
+                    row.addEventListener('click', openDetail);
+                    row.addEventListener('keydown', (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') openDetail(event);
+                    });
+                    details.appendChild(row);
                   });
                 }
               }
