@@ -19,6 +19,14 @@
     {
       "source": "/universe-2/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/universe-3",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/universe-3/",
+      "destination": "/index.html"
     }
   ]
 }
