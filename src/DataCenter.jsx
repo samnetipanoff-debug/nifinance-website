@@ -112,6 +112,10 @@ function loadSaved() {
 }
 export default function DataCenter() {
   const [saved, setSaved] = useState(loadSaved);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState('connecting');
+  const [cloudMessage, setCloudMessage] = useState('');
+  const [workspaceCredentials, setWorkspaceCredentials] = useState(null);
   const [preview, setPreview] = useState([]);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
@@ -134,6 +138,105 @@ export default function DataCenter() {
   }, [transactions]);
   const reviewCount = transactions.filter(t => t.status === 'review').length;
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch {} }, [saved]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const connect = async () => {
+      const localSnapshot = loadSaved();
+      let credentials = null;
+      try {
+        credentials = JSON.parse(localStorage.getItem('nifinance-data-center-credentials-v1') || 'null');
+      } catch {}
+      const headers = credentials ? {
+        'Content-Type': 'application/json',
+        'X-Workspace-Id': credentials.workspaceId,
+        'X-Workspace-Token': credentials.token
+      } : { 'Content-Type': 'application/json' };
+      try {
+        if (!credentials?.workspaceId || !credentials?.token) {
+          const createdResponse = await fetch('/api/data-center', {
+            method: 'POST', headers, body: JSON.stringify({ action: 'create' })
+          });
+          const created = await createdResponse.json();
+          if (!createdResponse.ok) throw new Error(created.error || 'Could not create a cloud workspace');
+          credentials = { workspaceId: created.workspaceId, token: created.token };
+          localStorage.setItem('nifinance-data-center-credentials-v1', JSON.stringify(credentials));
+          if (cancelled) return;
+          setWorkspaceCredentials(credentials);
+          const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
+          if (hasLocalData) {
+            const migrated = await fetch('/api/data-center', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Workspace-Id': credentials.workspaceId, 'X-Workspace-Token': credentials.token },
+              body: JSON.stringify({ action: 'save', payload: localSnapshot })
+            });
+            if (!migrated.ok) throw new Error('Cloud workspace was created, but existing browser data could not be migrated.');
+            setSaved(localSnapshot);
+          } else {
+            setSaved(created.payload || { transactions: [], rules: [] });
+          }
+        } else {
+          const response = await fetch('/api/data-center', { headers });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Could not load cloud workspace');
+          const cloudPayload = result.payload || { transactions: [], rules: [] };
+          const hasCloudData = (cloudPayload.transactions || []).length || (cloudPayload.rules || []).length;
+          const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
+          if (!hasCloudData && hasLocalData) {
+            const migrated = await fetch('/api/data-center', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ action: 'save', payload: localSnapshot })
+            });
+            if (!migrated.ok) throw new Error('Existing browser data could not be migrated to the cloud.');
+            setSaved(localSnapshot);
+          } else {
+            setSaved(cloudPayload);
+          }
+          if (cancelled) return;
+          setWorkspaceCredentials(credentials);
+        }
+        if (cancelled) return;
+        setCloudStatus('connected');
+        setCloudMessage('Changes sync to Neon PostgreSQL.');
+        setCloudReady(true);
+      } catch (e) {
+        if (cancelled) return;
+        setCloudStatus('offline');
+        setCloudMessage(e.message || 'Cloud storage is unavailable. Data remains in this browser.');
+        setCloudReady(false);
+      }
+    };
+    connect();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cloudReady || !workspaceCredentials) return;
+    const timer = setTimeout(async () => {
+      setCloudStatus('saving');
+      try {
+        const response = await fetch('/api/data-center', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Workspace-Id': workspaceCredentials.workspaceId,
+            'X-Workspace-Token': workspaceCredentials.token
+          },
+          body: JSON.stringify({ action: 'save', payload: saved })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Cloud save failed');
+        setCloudStatus('connected');
+        setCloudMessage('All changes saved to Neon PostgreSQL.');
+      } catch (e) {
+        setCloudStatus('offline');
+        setCloudMessage((e.message || 'Cloud save failed') + ' Data is still cached in this browser.');
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [saved, cloudReady, workspaceCredentials]);
+
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const onFile = async event => {
     const file = event.target.files?.[0]; if (!file) return;
@@ -175,10 +278,10 @@ export default function DataCenter() {
     const a = document.createElement('a'); a.href = url; a.download = 'nifinance-classified-transactions.csv'; a.click(); URL.revokeObjectURL(url);
   };
   return <main className="dc-page">
-    <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className="dc-status"><span /> DATA CENTER / PROTOTYPE</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
+    <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className={"dc-status " + cloudStatus}><span /> {cloudStatus === "connected" ? "NEON SYNC / SAVED" : cloudStatus === "saving" ? "NEON SYNC / SAVING" : cloudStatus === "connecting" ? "CONNECTING TO NEON" : "LOCAL CACHE / OFFLINE"}</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
     <section className="dc-hero"><div><div className="dc-eyebrow">DATA INFRASTRUCTURE / 01</div><h1>From raw data<br/><em>to business meaning.</em></h1><p>Import financial transactions. Identify counterparties. Build a consistent management view — with uncertain decisions kept visible.</p></div><div className="dc-hero-orb"><span /><i /><b>DATA<br/>INTELLIGENCE</b></div></section>
     <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>Stored in this browser</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
-    <section className="dc-workspace">
+    {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage} Check that DATABASE_URL is configured in Vercel. Avoid importing sensitive financial data until cloud storage is connected.</span></div>}\n    {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['counterparties','02','Counterparties'],['rules','03','Classification rules'],['manual','04','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
         {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT CSV</button><input ref={inputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={onFile}/></div></div>
@@ -189,9 +292,9 @@ export default function DataCenter() {
         </>}
         {tab === 'counterparties' && <><div className="dc-panel-head"><div><div className="dc-section-tag">MASTER DATA / DIRECTORY</div><h2>Counterparty directory</h2><p>Built automatically from imported transactions. Roles can overlap.</p></div><span className="dc-count">{counterparties.length} RECORDS</span></div>{!counterparties.length?<div className="dc-empty"><h3>No counterparties yet</h3><p>Import a CSV statement. The system will create directory candidates from transaction names.</p></div>:<div className="dc-counterparty-grid">{counterparties.map(c=><article className="dc-counterparty" key={c.key}><div className="dc-counterparty-top"><span className="dc-avatar">{(c.name[0]||'?').toUpperCase()}</span><span className="dc-confidence suggested">{c.count} OPS</span></div><h3>{c.name}</h3><div className="dc-role-list">{c.roles.map(r=><span key={r}>{ROLE_LABELS[r]||r}</span>)}</div><div className="dc-counterparty-stats"><div><small>RECEIVED</small><b className="positive">{c.incoming.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div><div><small>PAID</small><b className="negative">{c.outgoing.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div></div><small className="dc-category-list">{c.categories.join(' · ')}</small></article>)}</div>}</>}
         {tab === 'rules' && <><div className="dc-panel-head"><div><div className="dc-section-tag">LEARNING / DECISION HISTORY</div><h2>Classification rules</h2><p>Rules saved from your confirmed decisions are applied to future imports.</p></div><span className="dc-count">{rules.length} RULES</span></div>{!rules.length?<div className="dc-empty"><h3>No saved rules yet</h3><p>In Transactions, adjust a category and role, then choose SAVE RULE. Matching future transactions will reuse that decision.</p><button className="dc-btn secondary" onClick={()=>setTab('transactions')}>OPEN TRANSACTIONS ↗</button></div>:<div className="dc-table-wrap"><table className="dc-ledger"><thead><tr><th>COUNTERPARTY MATCH</th><th>ROLE</th><th>CATEGORY</th><th>LAST UPDATED</th><th></th></tr></thead><tbody>{rules.map(r=><tr key={r.key}><td><b>{r.counterparty}</b><small>Exact normalized name match</small></td><td>{ROLE_LABELS[r.role]||r.role}</td><td>{r.category}</td><td>{new Date(r.updatedAt).toLocaleDateString()}</td><td><button className="dc-mini-action" onClick={()=>setSaved(s=>({...s,rules:s.rules.filter(x=>x.key!==r.key)}))}>DELETE RULE</button></td></tr>)}</tbody></table></div>}</>}
-        {tab === 'manual' && <><div className="dc-panel-head"><div><div className="dc-section-tag">MANUAL ENTRY / LEDGER</div><h2>Add an operation</h2><p>Enter a transaction not present in a source file.</p></div></div><form className="dc-manual-form" onSubmit={addManual}><label>Operation date<input type="date" value={manual.date} onChange={e=>setManual(s=>({...s,date:e.target.value}))} required/></label><label>Direction<select value={manual.direction} onChange={e=>setManual(s=>({...s,direction:e.target.value}))}><option value="expense">Expense / outgoing</option><option value="income">Income / incoming</option></select></label><label>Counterparty<input value={manual.counterparty} onChange={e=>setManual(s=>({...s,counterparty:e.target.value}))} placeholder="Company or person" required/></label><label>Amount<input type="number" step="0.01" min="0.01" value={manual.amount} onChange={e=>setManual(s=>({...s,amount:e.target.value}))} placeholder="0.00" required/></label><label className="wide">Description / payment purpose<input value={manual.description} onChange={e=>setManual(s=>({...s,description:e.target.value}))} placeholder="Invoice, tax, service, transfer…"/></label><label className="wide">Category<select value={manual.category} onChange={e=>setManual(s=>({...s,category:e.target.value}))}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label><div className="dc-manual-foot"><p>Manual entries are stored locally in this prototype and are not sent to a server.</p><button className="dc-btn primary" type="submit">＋ ADD OPERATION</button></div></form></>}
+        {tab === 'manual' && <><div className="dc-panel-head"><div><div className="dc-section-tag">MANUAL ENTRY / LEDGER</div><h2>Add an operation</h2><p>Enter a transaction not present in a source file.</p></div></div><form className="dc-manual-form" onSubmit={addManual}><label>Operation date<input type="date" value={manual.date} onChange={e=>setManual(s=>({...s,date:e.target.value}))} required/></label><label>Direction<select value={manual.direction} onChange={e=>setManual(s=>({...s,direction:e.target.value}))}><option value="expense">Expense / outgoing</option><option value="income">Income / incoming</option></select></label><label>Counterparty<input value={manual.counterparty} onChange={e=>setManual(s=>({...s,counterparty:e.target.value}))} placeholder="Company or person" required/></label><label>Amount<input type="number" step="0.01" min="0.01" value={manual.amount} onChange={e=>setManual(s=>({...s,amount:e.target.value}))} placeholder="0.00" required/></label><label className="wide">Description / payment purpose<input value={manual.description} onChange={e=>setManual(s=>({...s,description:e.target.value}))} placeholder="Invoice, tax, service, transfer…"/></label><label className="wide">Category<select value={manual.category} onChange={e=>setManual(s=>({...s,category:e.target.value}))}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></label><div className="dc-manual-foot"><p>Manual entries sync to your workspace when cloud storage is connected; a browser cache is also kept.</p><button className="dc-btn primary" type="submit">＋ ADD OPERATION</button></div></form></>}
       </div>
     </section>
-    <footer className="dc-footer"><span>NIFINANCE SOLUTION / DATA CENTER</span><span>RAW SOURCE → NORMALIZED RECORD → VERIFIED DECISION</span><span>LOCAL PROTOTYPE · NO BANK CONNECTION</span></footer>
+    <footer className="dc-footer"><span>NIFINANCE SOLUTION / DATA CENTER</span><span>RAW SOURCE → NORMALIZED RECORD → VERIFIED DECISION</span><span>NEON WORKSPACE · NO BANK CONNECTION</span></footer>
   </main>;
 }
