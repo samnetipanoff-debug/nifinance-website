@@ -89,7 +89,7 @@ function readRows(text, rules, fileName) {
   // Bank exports often place account details or report metadata above the real CSV header.
   const headerAliases = {
     date: ['date', 'transaction date', 'booking date', 'posting date', 'value date', 'operation date', 'transaction datetime', 'датa', 'дата', 'дата операции', 'дата проводки', 'дата валютирования', 'дата валюты', 'датум', 'datum transakcije', 'datum knjiženja', 'datum valute', 'datum placanja', 'datum plaćanja', 'datum obrade'],
-    amount: ['amount', 'transaction amount', 'operation amount', 'sum', 'total amount', 'iznos', 'iznos transakcije', 'iznos u valuti', 'износ', 'сумма', 'сумма операции', 'сумма транзакции', 'сумма платежа', 'promet'],
+    amount: ['amount', 'transaction amount', 'operation amount', 'sum', 'total amount', 'iznos', 'iznos transakcije', 'iznos u valuti', 'износ', 'сумма', 'сумма операции', 'сумма транзакции', 'сумма платежа'],
     debit: ['debit', 'debit amount', 'debit turnover', 'outgoing', 'withdrawal', 'paid out', 'duguje', 'zaduženje', 'zaduzenje', 'promet na teret', 'na teret', 'расход', 'списание', 'дебет', 'списано', 'исходящий платеж', 'izlaz', 'teret'],
     credit: ['credit', 'credit amount', 'credit turnover', 'incoming', 'deposit', 'paid in', 'potrazuje', 'potražuje', 'odobrenje', 'promet u korist', 'u korist', 'приход', 'поступление', 'зачисление', 'кредит', 'зачислено', 'входящий платеж', 'priliv', 'ulaz'],
     name: ['counterparty', 'beneficiary', 'payer', 'merchant', 'partner', 'payee', 'recipient', 'sender', 'account name', 'naziv nalogodavca', 'naziv primaoca', 'naziv primatelja', 'naziv', 'platilac', 'primalac', 'противоположная сторона', 'контрагент', 'плательщик', 'получатель', 'отправитель', 'название контрагента'],
