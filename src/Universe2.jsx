@@ -82,6 +82,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       let targetZoom = 1;
       const applyZoom = (value) => {
         targetZoom = Math.max(0.25, Math.min(3.0, value));
+        const universe = el.closest('.business-universe');
+        if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 1.35);
         zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
