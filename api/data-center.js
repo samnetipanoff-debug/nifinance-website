@@ -149,7 +149,7 @@ async function syncNormalizedData(sql, workspaceId, payload) {
       VALUES (${workspaceId}::uuid, ${key}, ${item.name}, ${[...item.roles]})
       ON CONFLICT (workspace_id, normalized_name) DO UPDATE SET
         display_name = EXCLUDED.display_name,
-        roles = (SELECT ARRAY(SELECT DISTINCT unnest(public.dc_counterparties.roles || EXCLUDED.roles))),
+        roles = ARRAY(SELECT DISTINCT role FROM unnest(public.dc_counterparties.roles || EXCLUDED.roles) AS u(role)),
         updated_at = NOW()
       RETURNING id`;
     counterparties.set(key, rows[0].id);
