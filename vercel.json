@@ -5,6 +5,14 @@
   "installCommand": "npm install",
   "rewrites": [
     {
+      "source": "/data-center",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/data-center/",
+      "destination": "/index.html"
+    },
+    {
       "source": "/universe",
       "destination": "/index.html"
     },

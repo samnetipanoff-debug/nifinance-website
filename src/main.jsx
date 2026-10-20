@@ -5,6 +5,7 @@ import './style.css';
 import Universe from './Universe.jsx';
 import Universe2 from './Universe2.jsx';
 import Universe3 from './Universe3.jsx';
+import DataCenter from './DataCenter.jsx';
 
 function WorldEngine() {
   const host = useRef(null);
@@ -306,8 +307,9 @@ function App() {
   </main>;
 }
 
+const isDataCenterRoute = /^\/data-center\/?$/.test(window.location.pathname);
 const isUniverse3Route = /^\/universe-3\/?$/.test(window.location.pathname);
 const isUniverse2Route = /^\/universe-2\/?$/.test(window.location.pathname);
 const isUniverseRoute = /^\/universe\/?$/.test(window.location.pathname);
-const RootView = isUniverse3Route ? Universe3 : isUniverse2Route ? Universe2 : isUniverseRoute ? Universe : App;
+const RootView = isDataCenterRoute ? DataCenter : isUniverse3Route ? Universe3 : isUniverse2Route ? Universe2 : isUniverseRoute ? Universe : App;
 createRoot(document.getElementById('root')).render(<RootView />);
