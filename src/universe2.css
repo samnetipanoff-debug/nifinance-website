@@ -313,3 +313,49 @@ body:has(.business-universe),
   .business-universe .sphere-label-metric { font-size: 7px; }
   .business-universe .sphere-label-value { font-size: 16px; }
 }
+
+/* Compact direction details appear beneath the existing title and headline metric on zoom. */
+.business-universe .sphere-direction-details {
+  display: none;
+  margin-top: 5px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--node-color), transparent 72%);
+  gap: 4px;
+}
+.business-universe .sphere-node-label.details-open .sphere-direction-details {
+  display: flex;
+  flex-direction: column;
+}
+.business-universe .sphere-direction-details-title {
+  margin-bottom: 2px;
+  color: var(--node-color);
+  font: 600 7px/1.2 'DM Mono', monospace;
+  letter-spacing: .08em;
+}
+.business-universe .sphere-direction-details-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: #9eafa0;
+  font: 8px/1.25 'DM Mono', monospace;
+}
+.business-universe .sphere-direction-details-row b {
+  flex: 0 0 auto;
+  color: #edf6e8;
+  font-weight: 500;
+  text-align: right;
+}
+.business-universe .sphere-node-label.details-open {
+  width: 174px;
+  max-width: 174px;
+  z-index: 10;
+  background: linear-gradient(145deg, rgba(5,13,9,.98), rgba(2,7,5,.97));
+}
+@media (max-width: 760px) {
+  .business-universe .sphere-node-label.details-open {
+    width: 150px;
+    max-width: 150px;
+  }
+  .business-universe .sphere-direction-details-row { font-size: 7px; }
+}
