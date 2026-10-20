@@ -434,6 +434,22 @@ export default function Universe2() {
   const growthPct = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
   const active = nodes.find(n => n.id === selected) || nodes[0];
   const scenario = scenarios[scenarioKey];
+  const directionData = (() => {
+    if (neonStatus !== 'connected' || !latestMonth) return { value: active.value, metric: active.metric, note: active.note };
+    const growth = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
+    const range = neonData.service_lines?.length ? `${Math.min(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}–${Math.max(...neonData.service_lines.map(x => Number(x.delivery_cost_pct))).toFixed(0)}%` : '—';
+    const fmt = value => eur(value);
+    const map = {
+      procurement: { value: growth(firstMonth?.marketing_spend, latestMonth.marketing_spend), metric: 'Channel spend change', note: `Channel spend: ${fmt(firstMonth?.marketing_spend)} → ${fmt(latestMonth.marketing_spend)}. Compare spend growth with qualified leads and opportunities to assess acquisition efficiency.` },
+      production: { value: range, metric: 'Delivery cost by service line', note: `Delivery costs vary by service line (${neonData.service_lines?.map(x => `${x.name}: ${Number(x.delivery_cost_pct).toFixed(0)}%`).join(', ') || 'data unavailable'}). Service mix changes the cost of delivery and operating margin.` },
+      marketing: { value: growth(firstMonth?.qualified_leads, latestMonth.qualified_leads), metric: 'Qualified leads change', note: `Qualified leads: ${Number(firstMonth?.qualified_leads || 0)} → ${Number(latestMonth.qualified_leads || 0)}. Channel spend and channel-level conversion rates help explain lead quality and acquisition cost.` },
+      sales: { value: growth(firstMonth?.opportunities, latestMonth.opportunities), metric: 'Opportunities change', note: `Opportunities: ${Number(firstMonth?.opportunities || 0)} → ${Number(latestMonth.opportunities || 0)}; won deals: ${Number(firstMonth?.deals_won || 0)} → ${Number(latestMonth.deals_won || 0)}. Lead quality and sales conversion affect recognized revenue.` },
+      operations: { value: fmt(neonData.team?.monthly_payroll), metric: 'Monthly payroll', note: `Team capacity: ${Number(neonData.team?.size || 0)} people; monthly payroll: ${fmt(neonData.team?.monthly_payroll)}. Capacity and payroll affect delivery capacity and the fixed cost base.` },
+      finance: { value: fmt(latestMonth.recognized_revenue), metric: 'Recognized revenue', note: `Recognized revenue: ${fmt(firstMonth?.recognized_revenue)} → ${fmt(latestMonth.recognized_revenue)}; operating profit in the latest month: ${fmt(latestMonth.operating_profit)} (${Number(latestMonth.operating_margin_pct || 0).toFixed(1)}% margin). Won deals and delivery costs flow into the result.` },
+      customers: { value: `${Number(latestMonth.deals_won || 0)} won`, metric: 'Won deals · latest month', note: `Customer receipts: ${fmt(latestMonth.receipts)} in the latest month, alongside ${Number(latestMonth.deals_won || 0)} won deals. Recognized revenue and cash receipts are related but are not the same measure.` }
+    };
+    return map[active.id] || { value: active.value, metric: active.metric, note: active.note };
+  })();
   useEffect(() => {
     document.title = 'Business Universe 2 — NIFINANCE SOLUTION';
     return () => { document.title = 'NIFINANCE SOLUTION — Business Beyond Borders'; };
@@ -462,8 +478,8 @@ export default function Universe2() {
         <div className="bu-section-label"><span>SELECTED DIRECTION / {active.label.toUpperCase()}</span><span>{neonStatus === "connected" ? "LIVE DATA · NEON" : neonStatus === "error" ? "LIVE DATA UNAVAILABLE" : "LOADING DIRECTION DATA"}</span></div>
         <h2>{active.label}: drivers, outcomes and dependencies</h2>
         <div className="bu-direction-summary">
-          <div className="bu-direction-kpi"><span>{active.metric}</span><strong>{active.value}</strong><small>Direction indicator · Jan–Mar</small></div>
-          <div className="bu-direction-description"><p>{active.note}</p><div className="bu-impact-note"><span className="bu-impact-icon">↗</span><div><b>BUSINESS RELATIONSHIP</b><p>{active.impact}</p></div></div></div>
+          <div className="bu-direction-kpi"><span>{directionData.metric}</span><strong>{directionData.value}</strong><small>Direction indicator · Jan–Mar</small></div>
+          <div className="bu-direction-description"><p>{directionData.note}</p><div className="bu-impact-note"><span className="bu-impact-icon">↗</span><div><b>BUSINESS RELATIONSHIP</b><p>{active.impact}</p></div></div></div>
         </div>
         <div className="bu-section-label bu-relations-heading"><span>CONNECTED DIRECTIONS</span><span>SELECT A DIRECTION TO TRACE THE LINK</span></div>
         <div className="bu-related-directions">
