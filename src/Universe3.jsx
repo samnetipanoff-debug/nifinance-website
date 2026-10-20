@@ -686,29 +686,29 @@ export default function Universe2() {
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
-      {detailWindows.map(window => {
-        const detailSelection = window.selection;
+      {detailWindows.map(dataWindow => {
+        const detailSelection = dataWindow.selection;
         const selectedDetailRows = getDetailRows(detailSelection);
-        return <aside key={window.id} className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`} style={{ left: window.x, top: window.y, width: window.width, height: window.height, right: 'auto', bottom: 'auto' }}>
+        return <aside key={dataWindow.id} className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`} style={{ left: dataWindow.x, top: dataWindow.y, width: dataWindow.width, height: dataWindow.height, right: 'auto', bottom: 'auto' }}>
           <div className="bu-drill-head" onPointerDown={event => {
             if (event.target.closest('button')) return;
             event.preventDefault();
             event.currentTarget.setPointerCapture?.(event.pointerId);
-            dragDetailRef.current = { id: window.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: window.x, y: window.y };
+            dragDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: dataWindow.x, y: dataWindow.y };
           }} onPointerMove={event => {
             const drag = dragDetailRef.current;
-            if (!drag || drag.id !== window.id || drag.pointerId !== event.pointerId) return;
+            if (!drag || drag.id !== dataWindow.id || drag.pointerId !== event.pointerId) return;
             const stage = event.currentTarget.closest('.bu-stage-wrap');
-            const maxX = Math.max(0, (stage?.clientWidth || window.innerWidth) - window.width - 8);
+            const maxX = Math.max(0, (stage?.clientWidth || window.innerWidth) - dataWindow.width - 8);
             const maxY = Math.max(0, (stage?.clientHeight || window.innerHeight) - 80);
-            moveDetailWindow(window.id, Math.max(0, Math.min(maxX, drag.x + event.clientX - drag.startX)), Math.max(0, Math.min(maxY, drag.y + event.clientY - drag.startY)));
+            moveDetailWindow(dataWindow.id, Math.max(0, Math.min(maxX, drag.x + event.clientX - drag.startX)), Math.max(0, Math.min(maxY, drag.y + event.clientY - drag.startY)));
           }} onPointerUp={() => { dragDetailRef.current = null; }} onPointerCancel={() => { dragDetailRef.current = null; }}>
             <div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div>
-            <button type="button" aria-label="Close details" onClick={() => closeDetailWindow(window.id)}>×</button>
+            <button type="button" aria-label="Close details" onClick={() => closeDetailWindow(dataWindow.id)}>×</button>
           </div>
           <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
           <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
-          <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(window.id)}>CLOSE WINDOW ×</button></div>
+          <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(dataWindow.id)}>CLOSE WINDOW ×</button></div>
         </aside>;
       })}
     </section>
