@@ -19,7 +19,7 @@ const parseAmount = (v = '') => {
   else if (s.includes(',')) s = s.replace(',', '.');
   return Number(s.replace(/[^0-9.\-]/g, '')) || 0;
 };
-function parseCSV(text) {
+function parseCSV(text, delimiterOverride = null) {
   // Choose a delimiter by consistency across several non-empty lines, not by the first
   // line alone: exports may start with a title, account metadata, or a quoted note.
   const sampleLines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim()).slice(0, 12);
@@ -39,7 +39,7 @@ function parseCSV(text) {
     const consistent = counts.filter(n => n === max).length / counts.length;
     return max * consistent + Math.min(counts.length, 8) * 0.05;
   };
-  const delimiter = candidates.sort((a,b) => scoreDelimiter(b) - scoreDelimiter(a))[0];
+  const delimiter = delimiterOverride && [',', ';', '\t', '|'].includes(delimiterOverride) ? delimiterOverride : candidates.sort((a,b) => scoreDelimiter(b) - scoreDelimiter(a))[0];
   const rows = [];
   let row = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -126,7 +126,7 @@ function classify(row, rules) {
   return { ...row, category, role, confidence: rule ? 'Rule' : certain ? 'High' : category === 'Needs review' ? 'Low' : 'Suggested', status: rule || certain ? 'classified' : 'review' };
 }
 function readRows(text, rules, fileName, mapping = null) {
-  const table = parseCSV(String(text).replace(/^\\uFEFF/, ''));
+  const table = parseCSV(String(text).replace(/^\\uFEFF/, ''), mapping?.delimiter || null);
   if (table.length < 2) throw new Error('The file does not contain a header and data rows.');
 
   // Bank exports often place account details or report metadata above the real CSV header.
@@ -341,8 +341,42 @@ export default function DataCenter() {
           return { ...row, fingerprint, isDuplicate };
         }));
       } catch (parseError) {
-        // Keep the file in memory and offer explicit column mapping instead of stopping at
-        // a header-name error. No transaction is committed until the user reviews preview.
+        // Stage 1: AI only identifies file structure. It never classifies transactions.
+        // Only a small sample is sent; the full file remains in the browser.
+        let aiMapping = null;
+        try {
+          const response = await fetch('/api/data-center-recognize', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Workspace-Id': workspaceCredentials?.workspaceId || '',
+              'X-Workspace-Token': workspaceCredentials?.token || ''
+            },
+            body: JSON.stringify({ fileName: file.name, sample: text.slice(0, 14000) })
+          });
+          const result = await response.json();
+          if (response.ok && result.mapping && Number.isInteger(result.mapping.headerRow)) aiMapping = result.mapping;
+          else if (!response.ok) console.warn('AI structure recognition unavailable:', result.error || response.status);
+        } catch (aiError) {
+          console.warn('AI structure recognition unavailable:', aiError);
+        }
+        if (aiMapping) {
+          try {
+            const rows = readRows(text, rules, file.name, aiMapping);
+            const seen = new Set(transactions.map(fingerprintOf));
+            setPreview(rows.map(row => {
+              const fingerprint = fingerprintOf(row);
+              const isDuplicate = seen.has(fingerprint);
+              seen.add(fingerprint);
+              return { ...row, fingerprint, isDuplicate };
+            }));
+            setError('AI identified the file structure. Review the preview carefully before importing; operation classification is a separate step.');
+            return;
+          } catch (aiParseError) {
+            console.warn('AI mapping did not pass deterministic validation:', aiParseError);
+          }
+        }
+        // Fallback: keep the file in memory and offer explicit column mapping.
         const table = parseCSV(text.replace(/^\uFEFF/, ''));
         const headerIndex = table.findIndex((row, index) => index < Math.min(table.length - 1, 30) &&
           row.filter(cell => /[A-Za-zА-Яа-яÀ-ÿ]/.test(String(cell))).length >= 2 &&
@@ -366,7 +400,7 @@ export default function DataCenter() {
               currency: findGuess(['currency','valuta','валюта'])
             }
           });
-          setError('Automatic recognition was not confident enough. Map the columns below; nothing has been imported yet.');
+          setError('Automatic and AI recognition could not confirm the required fields. Map the columns below; nothing has been imported yet.');
         } else {
           setError(parseError.message || 'Could not read this file.');
         }
