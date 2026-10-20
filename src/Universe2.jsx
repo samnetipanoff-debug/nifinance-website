@@ -245,7 +245,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           new THREE.PlaneGeometry(1.22, 0.76),
           new THREE.MeshBasicMaterial({ map: panelTexture, transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false })
         );
-        panel.position.z = 0.58;
+        panel.position.z = -0.58;
         panel.position.y = -0.22;
         group.add(panel);
         group.add(halo, frame, cube);
