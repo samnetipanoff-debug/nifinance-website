@@ -12,6 +12,16 @@ const nodes = [
   { id: 'customers', label: 'Customers', metric: 'Won deals / month', value: '6', color: '#f3e66d', pos: [0.1, 3.8, -3.5], note: 'The demo tracks six won deals per month across client accounts including Adria Home, GreenBasket, Nova Dental, BluePeak SaaS, UrbanFit and Finwise.', impact: 'Client mix + service mix → contract value and delivery margin', links: ['sales', 'finance'] }
 ];
 
+const directionBreakdowns = {
+  procurement: { title: 'CHANNEL SPEND', rows: [['Paid search', '€3.2k'], ['Social ads', '€1.9k'], ['SEO & content', '€1.4k']] },
+  production: { title: 'DELIVERY COST', rows: [['Strategy', '25%'], ['Performance marketing', '32%'], ['SEO', '38%'], ['Websites', '48%']] },
+  marketing: { title: 'LEADS BY CHANNEL', rows: [['Paid search', '42'], ['Social campaigns', '36'], ['SEO & content', '31'], ['Partners / email', '47']] },
+  sales: { title: 'SALES FUNNEL', rows: [['Qualified leads', '173'], ['Opportunities', '83'], ['Proposals', '31'], ['Deals won', '6']] },
+  operations: { title: 'TEAM CAPACITY', rows: [['Consulting', '2'], ['Marketing & SEO', '3'], ['Development', '2'], ['Account management', '1']] },
+  finance: { title: 'LATEST MONTH', rows: [['Revenue', '€58.0k'], ['Operating costs', '€41.6k'], ['Operating profit', '€16.4k'], ['Margin', '28.3%']] },
+  customers: { title: 'CUSTOMERS & CASH', rows: [['Active clients', '6'], ['Deals won', '6'], ['Cash received', '€23.2k']] }
+};
+
 const scenarios = {
   growth: {
     title: 'Acquisition efficiency improves',
@@ -208,6 +218,23 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         label.querySelector('.sphere-label-name').textContent = node.label;
         label.querySelector('.sphere-label-metric').textContent = node.metric;
         label.querySelector('.sphere-label-value').textContent = node.value;
+        const breakdown = directionBreakdowns[node.id];
+        if (breakdown) {
+          const details = document.createElement('span');
+          details.className = 'sphere-direction-details';
+          const heading = document.createElement('b');
+          heading.className = 'sphere-direction-details-title';
+          heading.textContent = breakdown.title;
+          details.appendChild(heading);
+          breakdown.rows.forEach(([keyText, valueText]) => {
+            const row = document.createElement('span');
+            row.className = 'sphere-direction-details-row';
+            const key = document.createElement('span'); key.textContent = keyText;
+            const value = document.createElement('b'); value.textContent = valueText;
+            row.append(key, value); details.appendChild(row);
+          });
+          label.appendChild(details);
+        }
         label.style.setProperty('--node-color', node.color);
         label.addEventListener('click', () => stateRef.current.onSelect(node.id));
         el.appendChild(label);
@@ -356,6 +383,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             const showMetrics = zoomLevel >= 1.22;
             label.style.opacity = visible && showMetrics ? (active ? '1' : onPath ? '0.96' : '0.82') : '0';
             label.style.pointerEvents = visible && showMetrics ? 'auto' : 'none';
+            label.classList.toggle('details-open', active && showMetrics);
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
           }
