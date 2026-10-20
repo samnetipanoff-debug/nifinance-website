@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const [pnlRows, marketingRows, channelRows, receiptRows, serviceRows, payrollRows] = await Promise.all([
+    const [pnlRows, marketingRows, channelRows, receiptRows, serviceRows, payrollRows, dealRows, transactionRows, employeeRows] = await Promise.all([
       sql`SELECT month_start, recognized_revenue, operating_expenses, operating_profit, operating_margin_pct
           FROM public.demo_monthly_pnl
           WHERE company_name = 'Northstar Growth'
@@ -55,7 +55,30 @@ export default async function handler(req, res) {
           ORDER BY name`,
       sql`SELECT SUM(monthly_gross_cost)::numeric AS monthly_payroll, COUNT(*)::int AS team_size
           FROM public.demo_employees
-          WHERE company_id = (SELECT id FROM public.demo_companies WHERE slug = 'northstar-growth' LIMIT 1)`
+          WHERE company_id = (SELECT id FROM public.demo_companies WHERE slug = 'northstar-growth' LIMIT 1)`,
+      sql`SELECT p.month_start, d.client_name, d.deal_name, d.stage, d.deal_date,
+                d.contract_value, d.probability_pct, d.payment_terms_days,
+                ch.name AS channel, s.name AS service_line
+          FROM public.demo_deals d
+          JOIN public.demo_companies c ON c.id = d.company_id
+          JOIN public.demo_periods p ON p.id = d.period_id
+          LEFT JOIN public.demo_channels ch ON ch.id = d.channel_id
+          JOIN public.demo_service_lines s ON s.id = d.service_line_id
+          WHERE c.slug = 'northstar-growth'
+          ORDER BY d.deal_date, d.client_name`,
+      sql`SELECT p.month_start, t.transaction_date, t.direction, t.category,
+                t.description, t.counterparty, t.amount, t.cash_status,
+                t.is_recurring, d.client_name AS related_client
+          FROM public.demo_transactions t
+          JOIN public.demo_companies c ON c.id = t.company_id
+          JOIN public.demo_periods p ON p.id = t.period_id
+          LEFT JOIN public.demo_deals d ON d.id = t.deal_id
+          WHERE c.slug = 'northstar-growth'
+          ORDER BY t.transaction_date, t.category`,
+      sql`SELECT full_name, role, department, monthly_gross_cost, employment_status
+          FROM public.demo_employees
+          WHERE company_id = (SELECT id FROM public.demo_companies WHERE slug = 'northstar-growth' LIMIT 1)
+          ORDER BY department, full_name`
     ]);
 
     if (!pnlRows.length) {
@@ -115,7 +138,10 @@ export default async function handler(req, res) {
       months,
       channels,
       service_lines: serviceRows.map(row => ({ name: row.name, delivery_cost_pct: number(row.delivery_cost_pct) })),
-      team: { monthly_payroll: number(payrollRows[0]?.monthly_payroll), size: number(payrollRows[0]?.team_size) }
+      team: { monthly_payroll: number(payrollRows[0]?.monthly_payroll), size: number(payrollRows[0]?.team_size) },
+      deals: dealRows.map(row => ({ month_start: String(row.month_start).slice(0, 10), client: row.client_name, deal: row.deal_name, stage: row.stage, date: String(row.deal_date).slice(0, 10), value: number(row.contract_value), probability_pct: number(row.probability_pct), payment_terms_days: number(row.payment_terms_days), channel: row.channel || 'Unassigned', service_line: row.service_line })),
+      transactions: transactionRows.map(row => ({ month_start: String(row.month_start).slice(0, 10), date: String(row.transaction_date).slice(0, 10), direction: row.direction, category: row.category, description: row.description, counterparty: row.counterparty, amount: number(row.amount), status: row.cash_status, recurring: Boolean(row.is_recurring), related_client: row.related_client || '' })),
+      employees: employeeRows.map(row => ({ name: row.full_name, role: row.role, department: row.department, monthly_cost: number(row.monthly_gross_cost), status: row.employment_status }))
     });
   } catch (error) {
     console.error('Universe 2 Neon data request failed:', error);
