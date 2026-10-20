@@ -241,14 +241,46 @@ export default function DataCenter() {
   const onFile = async event => {
     const file = event.target.files?.[0]; if (!file) return;
     setError(''); setPreview([]); setFileName(file.name);
-    try { const text = await file.text(); setPreview(readRows(text, rules, file.name)); }
-    catch (e) { setError(e.message || 'Could not read this file.'); }
+    try {
+      const text = await file.text();
+      const rows = readRows(text, rules, file.name);
+      const seen = new Set(transactions.map(fingerprintOf));
+      setPreview(rows.map(row => {
+        const fingerprint = fingerprintOf(row);
+        const isDuplicate = seen.has(fingerprint);
+        seen.add(fingerprint);
+        return { ...row, fingerprint, isDuplicate };
+      }));
+    } catch (e) { setError(e.message || 'Could not read this file.'); }
     event.target.value = '';
   };
+  const fingerprintOf = row => row.fingerprint || [row.date, norm(row.counterparty), Number(row.amount), norm(row.description), String(row.reference || '').trim()].join('|');
+  const duplicateCount = preview.filter(t => t.isDuplicate).length;
+  const newPreviewCount = preview.length - duplicateCount;
   const commitImport = () => {
-    const seen = new Set(transactions.map(t => t.fingerprint || [t.date,norm(t.counterparty),t.amount,norm(t.description),t.reference].join('|')));
-    const accepted = preview.filter(t => { const fp = [t.date,norm(t.counterparty),t.amount,norm(t.description),t.reference].join('|'); if (seen.has(fp)) return false; seen.add(fp); t.fingerprint = fp; return true; });
-    setTransactions(old => [...old, ...accepted]);
+    const importId = 'import-' + Date.now();
+    const accepted = preview.filter(t => !t.isDuplicate).map(t => ({ ...t, fingerprint: fingerprintOf(t), isDuplicate: undefined }));
+    const importRecord = {
+      id: importId, sourceName: fileName, importedAt: new Date().toISOString(),
+      totalRows: preview.length, importedCount: accepted.length, skippedCount: duplicateCount,
+      status: 'completed'
+    };
+    setSaved(s => {
+      const existing = s.transactions || [];
+      const seen = new Set(existing.map(fingerprintOf));
+      const unique = accepted.filter(t => {
+        const fp = fingerprintOf(t);
+        if (seen.has(fp)) return false;
+        seen.add(fp);
+        return true;
+      });
+      const record = { ...importRecord, importedCount: unique.length, skippedCount: preview.length - unique.length };
+      return {
+        ...s,
+        transactions: [...existing, ...unique],
+        imports: [record, ...(s.imports || []).filter(item => item.id !== record.id)].slice(0, 100)
+      };
+    });
     setPreview([]); setError('');
     setTab('transactions');
   };
@@ -280,7 +312,7 @@ export default function DataCenter() {
   return <main className="dc-page">
     <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className={"dc-status " + cloudStatus}><span /> {cloudStatus === "connected" ? "NEON SYNC / SAVED" : cloudStatus === "saving" ? "NEON SYNC / SAVING" : cloudStatus === "connecting" ? "CONNECTING TO NEON" : "LOCAL CACHE / OFFLINE"}</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
     <section className="dc-hero"><div><div className="dc-eyebrow">DATA INFRASTRUCTURE / 01</div><h1>From raw data<br/><em>to business meaning.</em></h1><p>Import financial transactions. Identify counterparties. Build a consistent management view — with uncertain decisions kept visible.</p></div><div className="dc-hero-orb"><span /><i /><b>DATA<br/>INTELLIGENCE</b></div></section>
-    <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>Stored in this browser</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
+    <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>{cloudStatus==='connected'?'Synced with Neon PostgreSQL':'Browser cache / cloud status above'}</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
     {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage} Check that DATABASE_URL is configured in Vercel. Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['counterparties','02','Counterparties'],['rules','03','Classification rules'],['manual','04','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
@@ -288,7 +320,8 @@ export default function DataCenter() {
         {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT CSV</button><input ref={inputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={onFile}/></div></div>
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
-          {preview.length>0&&<div className="dc-preview"><div><b>IMPORT PREVIEW / {fileName}</b><span>{preview.length} rows detected · {preview.filter(t=>t.status==='review').length} need review · duplicates are skipped on import</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setPreview([])}>CANCEL</button><button className="dc-btn primary" onClick={commitImport}>IMPORT {preview.length} ROWS</button></div><div className="dc-preview-table"><table><thead><tr><th>Date</th><th>Counterparty</th><th>Amount</th><th>Suggested category</th><th>Confidence</th></tr></thead><tbody>{preview.slice(0,8).map(t=><tr key={t.id}><td>{t.date}</td><td>{t.counterparty}</td><td className={t.amount>0?'positive':'negative'}>{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{t.category}</td><td><span className={'dc-confidence '+t.confidence.toLowerCase()}>{t.confidence}</span></td></tr>)}</tbody></table>{preview.length>8&&<small>Showing 8 of {preview.length} rows</small>}</div></div>}
+          {preview.length>0&&<div className="dc-preview"><div><b>IMPORT PREVIEW / {fileName}</b><span>{preview.length} rows detected · {newPreviewCount} new · {duplicateCount} duplicates will be skipped · {preview.filter(t=>t.status==='review'&&!t.isDuplicate).length} need review</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setPreview([])}>CANCEL</button><button className="dc-btn primary" onClick={commitImport} disabled={newPreviewCount===0}>IMPORT {newPreviewCount} NEW ROWS</button></div><div className="dc-preview-table"><table><thead><tr><th>Date</th><th>Counterparty</th><th>Amount</th><th>Suggested category</th><th>Confidence</th><th>Import check</th></tr></thead><tbody>{preview.slice(0,8).map(t=><tr key={t.id}><td>{t.date}</td><td>{t.counterparty}</td><td className={t.amount>0?'positive':'negative'}>{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{t.category}</td><td><span className={'dc-confidence '+t.confidence.toLowerCase()}>{t.confidence}</span></td><td><span className={'dc-confidence '+(t.isDuplicate?'low':'high')}>{t.isDuplicate?'DUPLICATE':'NEW'}</span></td></tr>)}</tbody></table>{preview.length>8&&<small>Showing 8 of {preview.length} rows</small>}</div></div>}
+          {(saved.imports||[]).length>0&&<div className="dc-import-history"><div className="dc-section-tag">IMPORT HISTORY / LAST 5</div>{(saved.imports||[]).slice(0,5).map(item=><div className="dc-import-row" key={item.id}><div><b>{item.sourceName||'Imported file'}</b><small>{item.importedAt?new Date(item.importedAt).toLocaleString():''}</small></div><span>{item.importedCount} added</span><span>{item.skippedCount} skipped</span></div>)}</div>}
           <div className="dc-table-wrap">{filtered.length===0?<div className="dc-empty"><div>↳</div><h3>{transactions.length?'No operations match this filter':'Your ledger starts with a file.'}</h3><p>Upload a bank CSV statement to preview detected columns, classify transactions and create counterparty records.</p><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>IMPORT FIRST CSV</button></div>:<table className="dc-ledger"><thead><tr><th>DATE / SOURCE</th><th>COUNTERPARTY</th><th>TYPE</th><th>AMOUNT</th><th>CATEGORY</th><th>CONFIDENCE</th><th>ACTION</th></tr></thead><tbody>{filtered.slice().reverse().map(t=><tr key={t.id}><td><b>{t.date||'—'}</b><small>{t.source}</small></td><td><b>{t.counterparty}</b><small>{t.description}</small></td><td><span className={'dc-direction '+(t.amount>0?'income':'expense')}>{t.amount>0?'INCOME':'OUTFLOW'}</span><small>{ROLE_LABELS[t.role]||'Unconfirmed'}</small></td><td className={'dc-amount '+(t.amount>0?'positive':'negative')}>{t.amount>0?'+':''}{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})} <small>{t.currency}</small></td><td><select value={t.category} onChange={e=>updateTransaction(t.id,{category:e.target.value},false)}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select><select value={t.role} onChange={e=>updateTransaction(t.id,{role:e.target.value},false)}>{Object.entries(ROLE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td><span className={'dc-confidence '+String(t.confidence).toLowerCase()}>{t.confidence}</span>{t.status==='review'&&<small className="dc-review-label">Review needed</small>}</td><td><button className="dc-mini-action" title="Confirm this classification" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},false)}>CONFIRM</button><button className="dc-mini-action learn" title="Save this rule for future transactions from this counterparty" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},true)}>SAVE RULE</button></td></tr>)}</tbody></table>}</div>
         </>}
         {tab === 'counterparties' && <><div className="dc-panel-head"><div><div className="dc-section-tag">MASTER DATA / DIRECTORY</div><h2>Counterparty directory</h2><p>Built automatically from imported transactions. Roles can overlap.</p></div><span className="dc-count">{counterparties.length} RECORDS</span></div>{!counterparties.length?<div className="dc-empty"><h3>No counterparties yet</h3><p>Import a CSV statement. The system will create directory candidates from transaction names.</p></div>:<div className="dc-counterparty-grid">{counterparties.map(c=><article className="dc-counterparty" key={c.key}><div className="dc-counterparty-top"><span className="dc-avatar">{(c.name[0]||'?').toUpperCase()}</span><span className="dc-confidence suggested">{c.count} OPS</span></div><h3>{c.name}</h3><div className="dc-role-list">{c.roles.map(r=><span key={r}>{ROLE_LABELS[r]||r}</span>)}</div><div className="dc-counterparty-stats"><div><small>RECEIVED</small><b className="positive">{c.incoming.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div><div><small>PAID</small><b className="negative">{c.outgoing.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div></div><small className="dc-category-list">{c.categories.join(' · ')}</small></article>)}</div>}</>}
