@@ -339,10 +339,14 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
       const pulseGroup = new THREE.Group();
       businessElements.add(pulseGroup);
       const pulses = [];
+      const arrowHeads = [];
       for (let i = 0; i < 3; i++) {
         const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), new THREE.MeshBasicMaterial({ color: 0xc9ff78 }));
         pulseGroup.add(pulse);
         pulses.push(pulse);
+        const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.19, 8), new THREE.MeshBasicMaterial({ color: 0xc9ff78, transparent: true, opacity: 0.95 }));
+        pulseGroup.add(arrow);
+        arrowHeads.push(arrow);
       }
 
       raycaster = new THREE.Raycaster();
@@ -424,7 +428,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
         linkMeshes.forEach(({ from, to, line, material }) => {
           const highlighted = pathSet.has(from) && pathSet.has(to);
-          material.opacity = highlighted ? 0.88 : 0.3;
+          material.opacity = highlighted ? 0.92 : 0.13;
           material.color.set(highlighted ? 0xc9ff78 : 0x78917a);
           // Rebuild each curved connection from the current block positions every frame.
           const a = nodeById[from].group.position;
@@ -501,7 +505,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             // Node names and headline metrics are always visible at every zoom level.
             // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
             const showMetrics = zoomLevel >= 0.8;
-            label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.82') : '0';
+            label.style.opacity = visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0';
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('details-open', expanded && showMetrics);
             label.classList.toggle('active', active);
@@ -521,7 +525,14 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
               const causalCurve = new THREE.QuadraticBezierCurve3(a, mid, b);
               pulses[i].position.copy(causalCurve.getPoint(alpha));
               pulses[i].visible = true;
-            } else pulses[i].visible = false;
+              const arrow = arrowHeads[i];
+              arrow.position.copy(causalCurve.getPoint(0.76));
+              arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), causalCurve.getTangent(0.76).normalize());
+              arrow.visible = true;
+            } else {
+              pulses[i].visible = false;
+              arrowHeads[i].visible = false;
+            }
           });
         }
         renderer.render(scene, camera);
@@ -561,6 +572,8 @@ export default function Universe2() {
   const toggleExpanded = id => setExpandedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
+  const [showCausalPanel, setShowCausalPanel] = useState(true);
+  const [scenarioAdjustment, setScenarioAdjustment] = useState(0);
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
@@ -661,6 +674,18 @@ export default function Universe2() {
     return [];
   };
   const scenario = scenarios[scenarioKey];
+  const modeledImpact = (() => {
+    const leads = Number(latestMonth?.qualified_leads || 0);
+    const opportunities = Number(latestMonth?.opportunities || 0);
+    const wins = Number(latestMonth?.deals_won || 0);
+    const revenue = Number(latestMonth?.recognized_revenue || 0);
+    const extraLeads = leads * scenarioAdjustment / 100;
+    const opportunityRate = leads > 0 ? opportunities / leads : 0;
+    const winRate = opportunities > 0 ? wins / opportunities : 0;
+    const revenuePerWin = wins > 0 ? revenue / wins : 0;
+    return { extraLeads, extraOpportunities: extraLeads * opportunityRate, revenueDelta: extraLeads * opportunityRate * winRate * revenuePerWin };
+  })();
+  const fmtSigned = value => (value > 0 ? '+' : '') + value.toFixed(1);
   const directionData = (() => {
     if (neonStatus !== 'connected' || !latestMonth) return { value: active.value, metric: active.metric, note: active.note };
     const growth = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
@@ -697,7 +722,40 @@ export default function Universe2() {
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
-      <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button></div>
+      <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button><button className={showCausalPanel ? 'active' : ''} onClick={() => setShowCausalPanel(value => !value)}>CAUSE MAP {showCausalPanel ? '−' : '+'}</button></div>
+      {showCausalPanel && <aside className="bu-causal-panel" aria-label="Causal relationships and scenario model">
+        <div className="bu-causal-panel-head"><div><span>CAUSE → EFFECT / {scenarioKey === 'growth' ? 'ACQUISITION' : 'CASH FLOW'}</span><h2>{scenario.title}</h2><p>{scenario.subtitle}</p></div><button type="button" aria-label="Hide cause map" onClick={() => setShowCausalPanel(false)}>×</button></div>
+        <div className="bu-causal-confidence"><span className="bu-confidence-dot observed" /> OBSERVED CHANGE <span className="bu-confidence-dot modeled" /> MODELED EFFECT</div>
+        <div className="bu-causal-steps">
+          {scenario.steps.map((step, index) => {
+            const node = nodes.find(item => item.id === step.node) || nodes[0];
+            const observed = step.node === 'procurement' ? (firstMonth && latestMonth ? eur(firstMonth.marketing_spend) + ' → ' + eur(latestMonth.marketing_spend) : step.value)
+              : step.node === 'marketing' ? (firstMonth && latestMonth ? firstMonth.qualified_leads + ' → ' + latestMonth.qualified_leads : step.value)
+              : step.node === 'sales' ? (firstMonth && latestMonth ? firstMonth.opportunities + ' → ' + latestMonth.opportunities : step.value)
+              : step.node === 'finance' ? (firstMonth && latestMonth ? eur(firstMonth.recognized_revenue) + ' → ' + eur(latestMonth.recognized_revenue) : step.value)
+              : step.node === 'customers' ? (firstMonth && latestMonth ? eur(firstMonth.receipts) + ' → ' + eur(latestMonth.receipts) : step.value);
+            return <React.Fragment key={step.node}>
+              <button type="button" className={'bu-causal-step ' + (selected === step.node ? 'selected' : '')} onClick={() => setSelected(step.node)} style={{'--causal-color':node.color}}>
+                <span className="bu-causal-step-top"><i>{String(index + 1).padStart(2, '0')}</i><b>{node.label}</b><em>{index === 0 ? 'DRIVER' : index === scenario.steps.length - 1 ? 'OUTCOME' : 'LINKED METRIC'}</em></span>
+                <strong>{observed || step.value}</strong><small>{step.label}</small><p>{step.detail}</p>
+              </button>
+              {index < scenario.steps.length - 1 && <div className="bu-causal-arrow"><span>↓</span><small>{index === 0 ? 'LEADS / COST' : index === 1 ? 'CONVERSION' : 'REVENUE'}</small></div>}
+            </React.Fragment>;
+          })}
+        </div>
+        <div className="bu-causal-evidence"><span>WHY THIS MAY BE CONNECTED</span><p>{scenarioKey === 'growth'
+          ? 'The demo shows channel spend, qualified leads, opportunities and revenue moving across the same period. This is a useful operating signal, but timing and correlation alone do not prove that one metric caused another.'
+          : 'Recognized revenue and cash receipts are recorded separately. Payment terms and collection timing can explain why a won deal does not immediately become cash.'}</p>
+          <div className="bu-evidence-status"><b>CONFIDENCE</b><span>{scenarioKey === 'growth' ? 'Observed correlation · causal link not yet verified' : 'Accounting relationship · timing depends on payment terms'}</span></div>
+        </div>
+        <div className="bu-scenario-model">
+          <div className="bu-scenario-model-title"><span>WHAT-IF MODEL</span><b>Marketing spend {scenarioAdjustment > 0 ? '+' : ''}{scenarioAdjustment}%</b></div>
+          <input aria-label="Adjust marketing spend scenario" type="range" min="-20" max="20" step="5" value={scenarioAdjustment} onChange={event => setScenarioAdjustment(Number(event.target.value))} />
+          <div className="bu-scenario-model-range"><span>−20%</span><span>BASELINE</span><span>+20%</span></div>
+          <div className="bu-model-results"><div><small>MODELED LEADS</small><b>{fmtSigned(modeledImpact.extraLeads)} leads</b></div><div><small>MODELED OPPORTUNITIES</small><b>{fmtSigned(modeledImpact.extraOpportunities)}</b></div><div><small>MODELED REVENUE</small><b>{eur(modeledImpact.revenueDelta)}</b></div></div>
+          <p className="bu-model-disclaimer">Illustrative scenario only: assumes current lead, opportunity and win rates stay constant. It is not a causal estimate or forecast.</p>
+        </div>
+      </aside>}
       {detailWindows.map(dataWindow => {
         const detailSelection = dataWindow.selection;
         const selectedDetailRows = getDetailRows(detailSelection);
