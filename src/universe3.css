@@ -359,3 +359,13 @@ body:has(.business-universe3),
   }
   .business-universe3 .sphere-direction-details-row { font-size: 7px; }
 }
+
+
+/* Universe 3: keep the network clean — no decorative glow spots beneath blocks. */
+.business-universe3 .sphere-node-label,
+.business-universe3 .sphere-node-label.active {
+  box-shadow: none !important;
+}
+.business-universe3 .sphere-label-dot {
+  box-shadow: none !important;
+}
