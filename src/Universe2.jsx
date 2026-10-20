@@ -489,8 +489,8 @@ export default function Universe2() {
       </div>
       <aside className="bu-selected-card">
         <div className="bu-section-label">CAUSE → EFFECT</div>
-        <div className="bu-selected-heading"><span className="bu-selected-cube" style={{borderColor: active.color, background: active.color + "22"}} /><div><h3>{active.label}</h3><small>BUSINESS DRIVER</small></div><strong style={{color: active.color}}>{active.value}</strong></div>
-        <p>{active.note}</p>
+        <div className="bu-selected-heading"><span className="bu-selected-cube" style={{borderColor: active.color, background: active.color + "22"}} /><div><h3>{active.label}</h3><small>BUSINESS DRIVER</small></div><strong style={{color: active.color}}>{directionData.value}</strong></div>
+        <p>{directionData.note}</p>
         <div className="bu-impact-path"><span>HOW IT CONNECTS</span><b>{active.impact}</b></div>
         <div className="bu-connected"><span>RELATED NODES</span><div>{active.links.map(id => { const related = nodes.find(n => n.id === id); return related ? <button key={related.id} type="button" onClick={() => setSelected(related.id)}><i style={{background: related.color}} />{related.label}</button> : null; })}</div></div>
       </aside>
