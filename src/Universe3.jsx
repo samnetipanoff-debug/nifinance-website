@@ -582,7 +582,7 @@ export default function Universe2() {
       let position = candidates[slot % candidates.length];
       for (const candidate of candidates) {
         const x = Math.min(maxX, candidate.x), y = Math.min(maxY, candidate.y);
-        const overlaps = previous.some(w => x < w.x + width && x + width > w.x && y < w.y + 180 && y + height > w.y);
+        const overlaps = previous.some(w => x < w.x + w.width && x + width > w.x && y < w.y + w.height && y + height > w.y);
         if (!overlaps) { position = { x, y }; break; }
       }
       return [...previous, { id, selection, x: Math.min(maxX, position.x), y: Math.min(maxY, position.y), width, height }];
