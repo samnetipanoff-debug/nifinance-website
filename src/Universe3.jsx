@@ -567,6 +567,7 @@ export default function Universe2() {
   const [detailWindows, setDetailWindows] = useState([]);
   const nextDetailId = useRef(1);
   const dragDetailRef = useRef(null);
+  const resizeDetailRef = useRef(null);
   const openDetailWindow = selection => {
     const id = nextDetailId.current++;
     setDetailWindows(previous => {
@@ -590,6 +591,17 @@ export default function Universe2() {
   };
   const closeDetailWindow = id => setDetailWindows(previous => previous.filter(window => window.id !== id));
   const moveDetailWindow = (id, x, y) => setDetailWindows(previous => previous.map(window => window.id === id ? { ...window, x, y } : window));
+  const resizeDetailWindow = (id, width, height) => {
+    const stage = document.querySelector('.bu-stage-wrap');
+    const stageWidth = stage?.clientWidth || window.innerWidth;
+    const stageHeight = stage?.clientHeight || window.innerHeight;
+    setDetailWindows(previous => previous.map(item => {
+      if (item.id !== id) return item;
+      const maxWidth = Math.max(260, stageWidth - item.x - 8);
+      const maxHeight = Math.max(220, stageHeight - item.y - 8);
+      return { ...item, width: Math.max(260, Math.min(maxWidth, width)), height: Math.max(220, Math.min(maxHeight, height)) };
+    }));
+  };
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -709,6 +721,25 @@ export default function Universe2() {
           <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
           <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
           <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(dataWindow.id)}>CLOSE WINDOW ×</button></div>
+          <div
+            className="bu-drill-resize"
+            role="separator"
+            aria-label="Resize data window"
+            title="Drag to resize"
+            onPointerDown={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              resizeDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, width: dataWindow.width, height: dataWindow.height };
+            }}
+            onPointerMove={event => {
+              const resize = resizeDetailRef.current;
+              if (!resize || resize.id !== dataWindow.id || resize.pointerId !== event.pointerId) return;
+              resizeDetailWindow(dataWindow.id, resize.width + event.clientX - resize.startX, resize.height + event.clientY - resize.startY);
+            }}
+            onPointerUp={() => { resizeDetailRef.current = null; }}
+            onPointerCancel={() => { resizeDetailRef.current = null; }}
+          />
         </aside>;
       })}
     </section>
