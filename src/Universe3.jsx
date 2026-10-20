@@ -199,13 +199,8 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
         const group = new THREE.Group();
         group.position.copy(p);
         group.lookAt(new THREE.Vector3(0, 0, 0));
-        const col = new THREE.Color(node.color);
-
-
-        const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false }));
-        group.add(halo);
         nodeGroup.add(group);
-        const entry = { id: node.id, group, halo, anchor: p.clone() };
+        const entry = { id: node.id, group, anchor: p.clone() };
         meshes.push(entry);
         nodeById[node.id] = entry;
         const label = document.createElement('button');
@@ -246,10 +241,19 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
           const dy = event.clientY - labelDrag.startY;
           if (Math.abs(dx) + Math.abs(dy) > 4) labelDrag.moved = true;
           if (labelDrag.moved) {
-            const offset = labelOffsets.get(node.id) || { x: 0, y: 0 };
-            offset.x += event.movementX;
-            offset.y += event.movementY;
-            labelOffsets.set(node.id, offset);
+            // Move the actual 3D node, not just its HTML card, so every relationship
+            // remains physically attached to the block while it is repositioned.
+            const entry = nodeById[node.id];
+            if (entry) {
+              const worldPos = entry.group.getWorldPosition(new THREE.Vector3());
+              const depth = Math.max(0.5, -worldPos.z);
+              const unitsPerPixel = (2 * depth * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.max(1, el.clientHeight) / Math.max(zoomLevel, 0.25);
+              const screenDelta = new THREE.Vector3(event.movementX * unitsPerPixel, -event.movementY * unitsPerPixel, 0);
+              const inverseShellRotation = shell.quaternion.clone().invert();
+              screenDelta.applyQuaternion(inverseShellRotation);
+              entry.group.position.add(screenDelta);
+              entry.anchor.copy(entry.group.position);
+            }
             suppressLabelClick = true;
           }
         });
@@ -379,9 +383,18 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
         linkMeshes.forEach(({ from, to, line, material }) => {
           const highlighted = pathSet.has(from) && pathSet.has(to);
-          material.opacity = highlighted ? 0.95 : 0.19;
-          material.color.set(highlighted ? 0xc9ff78 : 0x64896b);
-          line.computeLineDistances?.();
+          material.opacity = highlighted ? 0.88 : 0.3;
+          material.color.set(highlighted ? 0xc9ff78 : 0x78917a);
+          // Rebuild each curved connection from the current block positions every frame.
+          const a = nodeById[from].group.position;
+          const b = nodeById[to].group.position;
+          const mid = a.clone().add(b).normalize().multiplyScalar(shellRadius * 1.012);
+          const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+          const points = curve.getPoints(64);
+          const positions = line.geometry.attributes.position;
+          points.forEach((point, index) => positions.setXYZ(index, point.x, point.y, point.z));
+          positions.needsUpdate = true;
+          line.geometry.computeBoundingSphere();
         });
         meshes.forEach((n, i) => {
           const active = n.id === stateRef.current.selected;
@@ -389,7 +402,6 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
           const onPath = pathSet.has(n.id);
           const pulse = 1 + Math.sin(t * 2 + i) * 0.05;
           n.group.scale.setScalar(pulse * (active ? 1.35 : onPath ? 1.13 : 1));
-          n.halo.material.opacity = active ? 0.19 : onPath ? 0.12 : 0.055;
           const worldPos = n.group.getWorldPosition(new THREE.Vector3());
           const projected = worldPos.clone().project(camera);
           const visible = projected.z < 1 && projected.z > -1 && worldPos.z < -0.3;
@@ -416,8 +428,11 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, scena
             const next = nodeById[activeScenario.path[i + 1]];
             if (next) {
               const alpha = (t * 0.34 + i * 0.37) % 1;
-              const p = node.group.position.clone().lerp(next.group.position, alpha);
-              pulses[i].position.copy(p);
+              const a = node.group.position;
+              const b = next.group.position;
+              const mid = a.clone().add(b).normalize().multiplyScalar(shellRadius * 1.012);
+              const causalCurve = new THREE.QuadraticBezierCurve3(a, mid, b);
+              pulses[i].position.copy(causalCurve.getPoint(alpha));
               pulses[i].visible = true;
             } else pulses[i].visible = false;
           });
