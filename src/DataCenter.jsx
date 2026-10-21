@@ -31,8 +31,14 @@ const CATEGORIES = [
 ];
 const ROLE_LABELS = {
   customer: 'Customer', supplier: 'Supplier', contractor: 'Contractor', tax_authority: 'Tax authority',
-  bank: 'Bank', employee: 'Employee', own_account: 'Own account', unknown: 'Unconfirmed'
+  bank: 'Bank', employee: 'Employee', own_account: 'Own account', borrower: 'Borrower', unknown: 'Unconfirmed'
 };
+const SOURCE_TYPES = {
+  bank_statement: { label: 'Bank statement', basis: 'cash' },
+  accounting_journal: { label: 'Accounting journal (e.g. 1C)', basis: 'accrual' },
+  other: { label: 'Other / not confirmed', basis: 'unknown' }
+};
+const BASIS_LABELS = { cash: 'Cash basis', accrual: 'Accrual basis', unknown: 'Basis not confirmed' };
 const norm = (v = '') => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
 const parseAmount = (v = '') => {
   let s = String(v).replace(/[€$£₽\s]/g, '').replace(/\((.*)\)/, '-$1');
@@ -227,6 +233,7 @@ export default function DataCenter() {
   const [preview, setPreview] = useState([]);
   const [mappingDraft, setMappingDraft] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [importSourceType, setImportSourceType] = useState('');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('transactions');
   const [filter, setFilter] = useState('all');
@@ -349,6 +356,10 @@ export default function DataCenter() {
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const onFile = async event => {
     const file = event.target.files?.[0]; if (!file) return;
+    if (!importSourceType || !SOURCE_TYPES[importSourceType]) {
+      setError('Choose the source type first. Bank statements use cash basis; accounting journals (e.g. 1C) use accrual basis.');
+      event.target.value = ''; return;
+    }
     setError(''); setPreview([]); setMappingDraft(null); setFileName(file.name);
     try {
       const text = await decodeStatementFile(file);
@@ -359,7 +370,7 @@ export default function DataCenter() {
           const fingerprint = fingerprintOf(row);
           const isDuplicate = seen.has(fingerprint);
           seen.add(fingerprint);
-          return { ...row, fingerprint, isDuplicate };
+          return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
         }));
       } catch (parseError) {
         // Stage 1: AI only identifies file structure. It never classifies transactions.
@@ -389,7 +400,7 @@ export default function DataCenter() {
               const fingerprint = fingerprintOf(row);
               const isDuplicate = seen.has(fingerprint);
               seen.add(fingerprint);
-              return { ...row, fingerprint, isDuplicate };
+              return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
             }));
             setError('AI identified the file structure. Review the preview carefully before importing; operation classification is a separate step.');
             return;
@@ -438,7 +449,7 @@ export default function DataCenter() {
         const fingerprint = fingerprintOf(row);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
-        return { ...row, fingerprint, isDuplicate };
+        return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
       }));
       setMappingDraft(null);
       setError('');
@@ -457,7 +468,7 @@ export default function DataCenter() {
     const importId = 'import-' + Date.now();
     const accepted = preview.filter(t => !t.isDuplicate).map(t => ({ ...t, fingerprint: fingerprintOf(t), isDuplicate: undefined }));
     const importRecord = {
-      id: importId, sourceName: fileName, importedAt: new Date().toISOString(),
+      id: importId, sourceName: fileName, sourceType: preview[0]?.sourceType || 'other', accountingBasis: preview[0]?.accountingBasis || 'unknown', importedAt: new Date().toISOString(),
       totalRows: preview.length, importedCount: accepted.length, skippedCount: duplicateCount,
       status: 'completed'
     };
@@ -493,14 +504,14 @@ export default function DataCenter() {
   const addManual = e => {
     e.preventDefault();
     const amount = Math.abs(parseAmount(manual.amount)) * (manual.direction === 'income' ? 1 : -1);
-    const row = classify({ ...manual, id: 'manual-' + Date.now(), amount, currency: '—', source: 'Manual entry', reference: '', original: [], direction: manual.direction }, rules);
+    const row = classify({ ...manual, id: 'manual-' + Date.now(), amount, currency: '—', source: 'Manual entry', sourceType: 'other', accountingBasis: 'unknown', reference: '', original: [], direction: manual.direction }, rules);
     setTransactions(old => [...old, { ...row, category: manual.category, status: manual.category === 'Needs review' ? 'review' : 'classified', confidence: 'Confirmed' }]);
     setManual(v => ({ ...v, counterparty: '', description: '', amount: '' }));
     setTab('transactions');
   };
   const filtered = transactions.filter(t => filter === 'all' || (filter === 'review' ? t.status === 'review' : filter === 'income' ? t.amount > 0 : t.amount < 0));
   const exportCSV = () => {
-    const rows = [['Date','Counterparty','Role','Description','Amount','Currency','Category','Status','Source'], ...transactions.map(t => [t.date,t.counterparty,ROLE_LABELS[t.role] || t.role,t.description,t.amount,t.currency,t.category,t.status,t.source])];
+    const rows = [['Date','Counterparty','Role','Description','Amount','Currency','Category','Accounting basis','Source type','Status','Source'], ...transactions.map(t => [t.date,t.counterparty,ROLE_LABELS[t.role] || t.role,t.description,t.amount,t.currency,t.category,BASIS_LABELS[t.accountingBasis] || BASIS_LABELS.unknown,SOURCE_TYPES[t.sourceType]?.label || 'Manual / legacy',t.status,t.source])];
     const csv = rows.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = 'nifinance-classified-transactions.csv'; a.click(); URL.revokeObjectURL(url);
@@ -513,7 +524,7 @@ export default function DataCenter() {
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['counterparties','02','Counterparties'],['rules','03','Classification rules'],['manual','04','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
-        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT CSV</button><input ref={inputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={onFile}/></div></div>
+        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="">SELECT SOURCE TYPE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()} disabled={!importSourceType}>＋ IMPORT CSV</button><input ref={inputRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={onFile}/></div></div>
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
           {mappingDraft&&<div className="dc-preview dc-column-mapping">
@@ -525,7 +536,7 @@ export default function DataCenter() {
           </div>}
                     {preview.length>0&&<div className="dc-preview"><div><b>IMPORT PREVIEW / {fileName}</b><span>{preview.length} rows detected · {newPreviewCount} new · {duplicateCount} duplicates will be skipped · {preview.filter(t=>t.status==='review'&&!t.isDuplicate).length} need review</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setPreview([])}>CANCEL</button><button className="dc-btn primary" onClick={commitImport} disabled={newPreviewCount===0}>IMPORT {newPreviewCount} NEW ROWS</button></div><div className="dc-preview-table"><table><thead><tr><th>Date</th><th>Counterparty</th><th>Amount</th><th>Suggested category</th><th>Confidence</th><th>Import check</th></tr></thead><tbody>{preview.slice(0,8).map(t=><tr key={t.id}><td>{t.date}</td><td>{t.counterparty}</td><td className={t.amount>0?'positive':'negative'}>{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{t.category}</td><td><span className={'dc-confidence '+t.confidence.toLowerCase()}>{t.confidence}</span></td><td><span className={'dc-confidence '+(t.isDuplicate?'low':'high')}>{t.isDuplicate?'DUPLICATE':'NEW'}</span></td></tr>)}</tbody></table>{preview.length>8&&<small>Showing 8 of {preview.length} rows</small>}</div></div>}
           {(saved.imports||[]).length>0&&<div className="dc-import-history"><div className="dc-section-tag">IMPORT HISTORY / LAST 5</div>{(saved.imports||[]).slice(0,5).map(item=><div className="dc-import-row" key={item.id}><div><b>{item.sourceName||'Imported file'}</b><small>{item.importedAt?new Date(item.importedAt).toLocaleString():''}</small></div><span>{item.importedCount} added</span><span>{item.skippedCount} skipped</span></div>)}</div>}
-          <div className="dc-table-wrap">{filtered.length===0?<div className="dc-empty"><div>↳</div><h3>{transactions.length?'No operations match this filter':'Your ledger starts with a file.'}</h3><p>Upload a bank CSV statement to preview detected columns, classify transactions and create counterparty records.</p><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>IMPORT FIRST CSV</button></div>:<table className="dc-ledger"><thead><tr><th>DATE / SOURCE</th><th>COUNTERPARTY</th><th>TYPE</th><th>AMOUNT</th><th>CATEGORY</th><th>CONFIDENCE</th><th>ACTION</th></tr></thead><tbody>{filtered.slice().reverse().map(t=><tr key={t.id}><td><b>{t.date||'—'}</b><small>{t.source}</small></td><td><b>{t.counterparty}</b><small>{t.description}</small></td><td><span className={'dc-direction '+(t.amount>0?'income':'expense')}>{t.amount>0?'INCOME':'OUTFLOW'}</span><small>{ROLE_LABELS[t.role]||'Unconfirmed'}</small></td><td className={'dc-amount '+(t.amount>0?'positive':'negative')}>{t.amount>0?'+':''}{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})} <small>{t.currency}</small></td><td><select value={t.category} onChange={e=>updateTransaction(t.id,{category:e.target.value},false)}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select><select value={t.role} onChange={e=>updateTransaction(t.id,{role:e.target.value},false)}>{Object.entries(ROLE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td><span className={'dc-confidence '+String(t.confidence).toLowerCase()}>{t.confidence}</span>{t.status==='review'&&<small className="dc-review-label">Review needed</small>}</td><td><button className="dc-mini-action" title="Confirm this classification" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},false)}>CONFIRM</button><button className="dc-mini-action learn" title="Save this rule for future transactions from this counterparty" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},true)}>SAVE RULE</button></td></tr>)}</tbody></table>}</div>
+          <div className="dc-table-wrap">{filtered.length===0?<div className="dc-empty"><div>↳</div><h3>{transactions.length?'No operations match this filter':'Your ledger starts with a file.'}</h3><p>Upload a bank CSV statement to preview detected columns, classify transactions and create counterparty records.</p><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>IMPORT FIRST CSV</button></div>:<table className="dc-ledger"><thead><tr><th>DATE / SOURCE</th><th>COUNTERPARTY</th><th>TYPE</th><th>AMOUNT</th><th>CATEGORY</th><th>CONFIDENCE</th><th>ACTION</th></tr></thead><tbody>{filtered.slice().reverse().map(t=><tr key={t.id}><td><b>{t.date||'—'}</b><small>{t.source}</small><small>{BASIS_LABELS[t.accountingBasis] || BASIS_LABELS.unknown}</small></td><td><b>{t.counterparty}</b><small>{t.description}</small></td><td><span className={'dc-direction '+(t.amount>0?'income':'expense')}>{t.amount>0?'INCOME':'OUTFLOW'}</span><small>{ROLE_LABELS[t.role]||'Unconfirmed'}</small></td><td className={'dc-amount '+(t.amount>0?'positive':'negative')}>{t.amount>0?'+':''}{t.amount.toLocaleString(undefined,{maximumFractionDigits:2})} <small>{t.currency}</small></td><td><select value={t.category} onChange={e=>updateTransaction(t.id,{category:e.target.value},false)}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select><select value={t.role} onChange={e=>updateTransaction(t.id,{role:e.target.value},false)}>{Object.entries(ROLE_LABELS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></td><td><span className={'dc-confidence '+String(t.confidence).toLowerCase()}>{t.confidence}</span>{t.status==='review'&&<small className="dc-review-label">Review needed</small>}</td><td><button className="dc-mini-action" title="Confirm this classification" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},false)}>CONFIRM</button><button className="dc-mini-action learn" title="Save this rule for future transactions from this counterparty" onClick={()=>updateTransaction(t.id,{category:t.category,role:t.role},true)}>SAVE RULE</button></td></tr>)}</tbody></table>}</div>
         </>}
         {tab === 'counterparties' && <><div className="dc-panel-head"><div><div className="dc-section-tag">MASTER DATA / DIRECTORY</div><h2>Counterparty directory</h2><p>Built automatically from imported transactions. Roles can overlap.</p></div><span className="dc-count">{counterparties.length} RECORDS</span></div>{!counterparties.length?<div className="dc-empty"><h3>No counterparties yet</h3><p>Import a CSV statement. The system will create directory candidates from transaction names.</p></div>:<div className="dc-counterparty-grid">{counterparties.map(c=><article className="dc-counterparty" key={c.key}><div className="dc-counterparty-top"><span className="dc-avatar">{(c.name[0]||'?').toUpperCase()}</span><span className="dc-confidence suggested">{c.count} OPS</span></div><h3>{c.name}</h3><div className="dc-role-list">{c.roles.map(r=><span key={r}>{ROLE_LABELS[r]||r}</span>)}</div><div className="dc-counterparty-stats"><div><small>RECEIVED</small><b className="positive">{c.incoming.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div><div><small>PAID</small><b className="negative">{c.outgoing.toLocaleString(undefined,{maximumFractionDigits:2})}</b></div></div><small className="dc-category-list">{c.categories.join(' · ')}</small></article>)}</div>}</>}
         {tab === 'rules' && <><div className="dc-panel-head"><div><div className="dc-section-tag">LEARNING / DECISION HISTORY</div><h2>Classification rules</h2><p>Rules saved from your confirmed decisions are applied to future imports.</p></div><span className="dc-count">{rules.length} RULES</span></div>{!rules.length?<div className="dc-empty"><h3>No saved rules yet</h3><p>In Transactions, adjust a category and role, then choose SAVE RULE. Matching future transactions will reuse that decision.</p><button className="dc-btn secondary" onClick={()=>setTab('transactions')}>OPEN TRANSACTIONS ↗</button></div>:<div className="dc-table-wrap"><table className="dc-ledger"><thead><tr><th>COUNTERPARTY MATCH</th><th>ROLE</th><th>CATEGORY</th><th>LAST UPDATED</th><th></th></tr></thead><tbody>{rules.map(r=><tr key={r.key}><td><b>{r.counterparty}</b><small>Exact normalized name match</small></td><td>{ROLE_LABELS[r.role]||r.role}</td><td>{r.category}</td><td>{new Date(r.updatedAt).toLocaleDateString()}</td><td><button className="dc-mini-action" onClick={()=>setSaved(s=>({...s,rules:s.rules.filter(x=>x.key!==r.key)}))}>DELETE RULE</button></td></tr>)}</tbody></table></div>}</>}
