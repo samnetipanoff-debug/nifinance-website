@@ -27,10 +27,10 @@ const CATEGORIES = [
   'Sales income', 'Other income', 'Marketing & advertising', 'Software & subscriptions',
   'Contractors & external services', 'Payroll & personnel', 'Rent & utilities',
   'Taxes & statutory payments', 'Bank fees', 'Travel & transport', 'Office & supplies',
-  'Loan principal', 'Interest expense', 'Internal transfer', 'Refunds & reversals', 'Needs review'
+  'Loan principal', 'Loans issued', 'Interest expense', 'Internal transfer', 'Refunds & reversals', 'Needs review'
 ];
 const ROLE_LABELS = {
-  customer: 'Customer', supplier: 'Supplier', contractor: 'Contractor', tax_authority: 'Tax authority',
+  customer: 'Customer', supplier: 'Supplier', contractor: 'Contractor', borrower: 'Borrower', lender: 'Lender', tax_authority: 'Tax authority',
   bank: 'Bank', employee: 'Employee', own_account: 'Own account', unknown: 'Unconfirmed'
 };
 const norm = (v = '') => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
@@ -119,8 +119,12 @@ function guessCategory(description, counterparty, direction, amount) {
   if (/subscription|software|hosting|cloud|github|adobe|notion|slack|software|softver/.test(t)) return 'Software & subscriptions';
   if (/salary|payroll|wage|plata|zarada|плата|зарплат/.test(t)) return 'Payroll & personnel';
   if (/rent|lease|electric|utilities|struja|zakup|закупка помещения|аренд/.test(t)) return 'Rent & utilities';
-  if (/interest|kamata|процент по кредит/.test(t)) return 'Interest expense';
-  if (/loan principal|credit repayment|otplata kredita|тело кредита/.test(t)) return 'Loan principal';
+  // Loan issuance is a balance-sheet movement, not an operating expense.
+  // Detect the payment purpose before the generic negative-amount fallback.
+  if (/выдач[аеиу]\s+(?:денежного\s+)?займ|перечислени[ея].{0,100}(?:договор[ауе]?\s+)?денежн(?:ого|ому)\s+займ|договор[ауе]?\s+(?:денежного\s+)?займ|денежного займа|loan issued|issue of loan|loan agreement/.test(t) && direction === 'expense') return 'Loans issued';
+  if (/возврат.{0,40}займ|погашени[ея].{0,40}займ|loan repayment received|repayment of loan/.test(t) && direction === 'income') return 'Loan principal';
+  if (/interest|kamata|процент по кредит|проценты по займу|процент(?:ы|ов)?\s+по\s+договору\s+займа/.test(t)) return direction === 'income' ? 'Other income' : 'Interest expense';
+  if (/loan principal|credit repayment|otplata kredita|тело кредита|погашение основного долга/.test(t)) return 'Loan principal';
   if (/fuel|taxi|transport|travel|hotel|gorivo|putni|такси|бензин|командиров/.test(t)) return 'Travel & transport';
   if (/office|stationery|supplies|kancelarijski|канцеляр/.test(t)) return 'Office & supplies';
   if (direction === 'income' && amount > 0) return 'Sales income';
@@ -133,6 +137,10 @@ function guessRole(name, description, direction, category) {
   if (/tax|porez|porezi|налог|фнс|пдв/.test(t) || category === 'Taxes & statutory payments') return 'tax_authority';
   if (/bank|banka|banc|банка|banking/.test(t) || category === 'Bank fees') return 'bank';
   if (/transfer|own account|sopstveni racun|между счет/.test(t) || category === 'Internal transfer') return 'own_account';
+  if (/договор[ауе]?\s+(?:денежного\s+)?займ|денежного займа|выдач[аеиу]\s+займ|loan agreement|loan issued|loan repayment/.test(t)) {
+    if (direction === 'expense') return 'borrower';
+    if (direction === 'income') return 'lender';
+  }
   if (/salary|employee|zarada|заработная плата/.test(t)) return 'employee';
   if (direction === 'income') return 'customer';
   if (/agency|studio|consult|development|marketing|contractor|services|usluge|услуг/.test(t)) return 'contractor';
@@ -143,7 +151,7 @@ function classify(row, rules) {
   const rule = rules.find(r => r.key && r.key === key);
   const category = rule?.category || guessCategory(row.description, row.counterparty, row.direction, row.amount);
   const role = rule?.role || guessRole(row.counterparty, row.description, row.direction, category);
-  const certain = Boolean(rule) || category !== 'Needs review' && (role === 'tax_authority' || role === 'bank' || role === 'own_account' || /tax|bank fee|internal transfer|refund/i.test(category));
+  const certain = Boolean(rule) || category !== 'Needs review' && (role === 'tax_authority' || role === 'bank' || role === 'own_account' || category === 'Loans issued' || /tax|bank fee|internal transfer|refund/i.test(category));
   return { ...row, category, role, confidence: rule ? 'Rule' : certain ? 'High' : category === 'Needs review' ? 'Low' : 'Suggested', status: rule || certain ? 'classified' : 'review' };
 }
 function readRows(text, rules, fileName, mapping = null) {
