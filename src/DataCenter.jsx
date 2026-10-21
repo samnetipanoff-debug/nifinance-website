@@ -213,7 +213,7 @@ function readRows(text, rules, fileName, mapping = null) {
       counterparty, description, reference: get(refI), source: fileName, status: 'review', category: '', role: '', direction, original: cells
     };
     return classify(base, rules);
-  }).filter(r => r.date || r.amount || r.description);
+  }).filter(r => looksLikeDate(r.date) && (amountI >= 0 ? looksLikeAmount(r.original[amountI] || '') : ((mappedDebitI >= 0 && looksLikeAmount(r.original[mappedDebitI] || '')) || (mappedCreditI >= 0 && looksLikeAmount(r.original[mappedCreditI] || '')))));
 }
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
