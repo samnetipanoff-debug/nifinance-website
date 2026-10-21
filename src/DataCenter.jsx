@@ -2,6 +2,27 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './data-center.css';
 
 const STORAGE_KEY = 'nifinance-data-center-v1';
+
+// Decode bank exports before parsing. File.text() assumes UTF-8 and corrupts
+// Cyrillic headers from common Windows-1251 exports, making column detection fail.
+async function decodeStatementFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const startsWith = (...signature) => signature.every((value, index) => bytes[index] === value);
+  if (startsWith(0xEF, 0xBB, 0xBF)) return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  if (startsWith(0xFF, 0xFE)) return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+  if (startsWith(0xFE, 0xFF)) return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    // Many Russian-language bank exports are Windows-1251 rather than UTF-8.
+    try {
+      return new TextDecoder('windows-1251').decode(bytes);
+    } catch {
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  }
+}
 const CATEGORIES = [
   'Sales income', 'Other income', 'Marketing & advertising', 'Software & subscriptions',
   'Contractors & external services', 'Payroll & personnel', 'Rent & utilities',
@@ -330,7 +351,7 @@ export default function DataCenter() {
     const file = event.target.files?.[0]; if (!file) return;
     setError(''); setPreview([]); setMappingDraft(null); setFileName(file.name);
     try {
-      const text = await file.text();
+      const text = await decodeStatementFile(file);
       try {
         const rows = readRows(text, rules, file.name);
         const seen = new Set(transactions.map(fingerprintOf));
