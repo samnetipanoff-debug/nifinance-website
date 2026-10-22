@@ -37,6 +37,9 @@ FROM public.dc_organizations o
 WHERE w.organization_id IS NULL
   AND o.slug = 'migrated-' || REPLACE(w.workspace_id::text, '-', '');
 
+ALTER TABLE public.dc_workspaces ALTER COLUMN organization_id SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS dc_workspaces_id_org_uidx
+  ON public.dc_workspaces (workspace_id, organization_id);
 CREATE INDEX IF NOT EXISTS dc_workspaces_organization_idx
   ON public.dc_workspaces (organization_id);
 
@@ -115,7 +118,7 @@ CREATE TABLE IF NOT EXISTS public.dc_membership_roles (
 CREATE TABLE IF NOT EXISTS public.dc_business_objects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.dc_organizations(id) ON DELETE CASCADE,
-  workspace_id UUID NOT NULL REFERENCES public.dc_workspaces(workspace_id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL,
   object_type TEXT NOT NULL,
   object_id TEXT NOT NULL,
   display_name TEXT NOT NULL,
@@ -125,7 +128,9 @@ CREATE TABLE IF NOT EXISTS public.dc_business_objects (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (workspace_id, object_type, object_id),
-  UNIQUE (id, workspace_id)
+  UNIQUE (id, workspace_id, organization_id),
+  FOREIGN KEY (workspace_id, organization_id)
+    REFERENCES public.dc_workspaces(workspace_id, organization_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS dc_business_objects_org_type_idx
   ON public.dc_business_objects (organization_id, object_type, status);
@@ -137,7 +142,7 @@ CREATE INDEX IF NOT EXISTS dc_business_objects_search_idx
 CREATE TABLE IF NOT EXISTS public.dc_business_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.dc_organizations(id) ON DELETE CASCADE,
-  workspace_id UUID NOT NULL REFERENCES public.dc_workspaces(workspace_id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL,
   source_object_id UUID NOT NULL,
   target_object_id UUID NOT NULL,
   relation_type TEXT NOT NULL,
@@ -151,10 +156,12 @@ CREATE TABLE IF NOT EXISTS public.dc_business_links (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (source_object_id <> target_object_id),
-  FOREIGN KEY (source_object_id, workspace_id)
-    REFERENCES public.dc_business_objects(id, workspace_id) ON DELETE CASCADE,
-  FOREIGN KEY (target_object_id, workspace_id)
-    REFERENCES public.dc_business_objects(id, workspace_id) ON DELETE CASCADE,
+  FOREIGN KEY (workspace_id, organization_id)
+    REFERENCES public.dc_workspaces(workspace_id, organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (source_object_id, workspace_id, organization_id)
+    REFERENCES public.dc_business_objects(id, workspace_id, organization_id) ON DELETE CASCADE,
+  FOREIGN KEY (target_object_id, workspace_id, organization_id)
+    REFERENCES public.dc_business_objects(id, workspace_id, organization_id) ON DELETE CASCADE,
   UNIQUE (workspace_id, source_object_id, target_object_id, relation_type)
 );
 CREATE INDEX IF NOT EXISTS dc_business_links_source_idx
