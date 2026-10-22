@@ -101,7 +101,7 @@ function summarize(transactions) {
 
   return {
     generatedAt: new Date().toISOString(),
-    dataScope: { transactionCount: rows.length, cashCount: cashRows.length, accrualCount: accrualRows.length, unconfirmedBasisCount: unknownRows.length, reviewCount: reviewRows.length, currencies, dateRange: { from: rows.map(x => x._date).filter(Boolean).sort()[0] || null, to: rows.map(x => x._date).filter(Boolean).sort().at(-1) || null } },
+    dataScope: { transactionCount: rows.length, cashCount: cashRows.length, accrualCount: accrualRows.length, unconfirmedBasisCount: unknownRows.length, reviewCount: reviewRows.length, missingDateCount: missingDate.length, missingCategoryCount: missingCategory.length, currencies, dateRange: { from: rows.map(x => x._date).filter(Boolean).sort()[0] || null, to: rows.map(x => x._date).filter(Boolean).sort().at(-1) || null } },
     cash,
     accrual,
     managementPnl: accrualRows.length ? {
@@ -121,7 +121,6 @@ function summarize(transactions) {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
