@@ -239,6 +239,9 @@ export default function DataCenter() {
   const [importSourceType, setImportSourceType] = useState('');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('transactions');
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
   const [filter, setFilter] = useState('all');
   const [manual, setManual] = useState({ date: new Date().toISOString().slice(0,10), counterparty: '', description: '', amount: '', direction: 'expense', category: 'Needs review' });
   const inputRef = useRef(null);
@@ -355,6 +358,33 @@ export default function DataCenter() {
     }, 600);
     return () => clearTimeout(timer);
   }, [saved, cloudReady, workspaceCredentials]);
+
+  useEffect(() => {
+    if (tab !== 'analytics' || !workspaceCredentials || !cloudReady) return;
+    let cancelled = false;
+    const loadAnalytics = async () => {
+      setAnalyticsLoading(true);
+      setAnalyticsError('');
+      try {
+        const response = await fetch('/api/data-center-analytics', {
+          method: 'GET',
+          headers: {
+            'X-Workspace-Id': workspaceCredentials.workspaceId,
+            'X-Workspace-Token': workspaceCredentials.token
+          }
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not load analytics');
+        if (!cancelled) setAnalytics(result.analytics);
+      } catch (error) {
+        if (!cancelled) setAnalyticsError(error.message || 'Could not load analytics');
+      } finally {
+        if (!cancelled) setAnalyticsLoading(false);
+      }
+    };
+    loadAnalytics();
+    return () => { cancelled = true; };
+  }, [tab, workspaceCredentials, cloudReady, transactions]);
 
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const processImportText = async (text, sourceName) => {
@@ -550,8 +580,30 @@ export default function DataCenter() {
     <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>{cloudStatus==='connected'?'Synced with Neon PostgreSQL':'Browser cache / cloud status above'}</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
     {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage} Check that DATABASE_URL is configured in Vercel. Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
-      <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['counterparties','02','Counterparties'],['rules','03','Classification rules'],['manual','04','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
+      <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['analytics','02','Universe Core'],['counterparties','03','Counterparties'],['rules','04','Classification rules'],['manual','05','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
+        {tab === 'analytics' && <><div className="dc-panel-head"><div><div className="dc-section-tag">UNIVERSE CORE / ANALYTICS ENGINE</div><h2>Business pulse</h2><p>Source-aware analytics from saved operations. Cash movement and accrual records stay separate.</p></div><button className="dc-btn secondary" onClick={()=>{setAnalytics(null);setTab('analytics');}} disabled={analyticsLoading}>REFRESH ANALYSIS ↻</button></div>
+          {analyticsLoading && <div className="dc-empty"><h3>Analyzing source data…</h3><p>Calculating totals, data quality and review signals from the saved ledger.</p></div>}
+          {analyticsError && <div className="dc-error" role="alert">{analyticsError}</div>}
+          {!analyticsLoading && analytics && <>
+            <div className="dc-stats">
+              <div><span>CASH INFLOWS</span><strong>{analytics.cash.inflows.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>{analytics.cash.transactionCount} cash-basis records</small></div>
+              <div><span>CASH OUTFLOWS</span><strong>{analytics.cash.outflows.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Transfers and loan principal excluded</small></div>
+              <div><span>NET CASH MOVEMENT</span><strong className={analytics.cash.netCashMovement>=0?'positive':'negative'}>{analytics.cash.netCashMovement.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Not the same as profit</small></div>
+              <div className={analytics.dataScope.reviewCount||analytics.dataScope.unconfirmedBasisCount?'dc-stat-alert':''}><span>DATA NEEDS ATTENTION</span><strong>{(analytics.dataScope.reviewCount+analytics.dataScope.unconfirmedBasisCount+analytics.dataScope.dateRange.from?0:0) + analytics.dataScope.reviewCount + analytics.dataScope.unconfirmedBasisCount}</strong><small>{analytics.dataScope.reviewCount} review · {analytics.dataScope.unconfirmedBasisCount} basis unknown</small></div>
+            </div>
+            <div className="dc-preview"><div><b>DATA RELIABILITY / {analytics.dataScope.transactionCount} RECORDS</b><span>Period: {analytics.dataScope.dateRange.from||'—'} to {analytics.dataScope.dateRange.to||'—'} · Currencies: {analytics.dataScope.currencies.join(', ')||'not specified'} · {analytics.dataScope.missingDateCount||0} dates not recognized</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setTab('transactions')}>REVIEW SOURCE RECORDS ↗</button></div></div>
+            <div className="dc-panel-head"><div><div className="dc-section-tag">MANAGEMENT P&L</div><h2>{analytics.managementPnl.status==='unavailable'?'Not enough accrual data':'Provisional accrual summary'}</h2><p>{analytics.managementPnl.note}</p></div><span className="dc-count">{analytics.managementPnl.status.toUpperCase()}</span></div>
+            {analytics.managementPnl.status!=='unavailable' && <div className="dc-stats"><div><span>ACCRUAL INFLOWS</span><strong>{analytics.managementPnl.income.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Accrual basis only</small></div><div><span>ACCRUAL OUTFLOWS</span><strong>{analytics.managementPnl.expenses.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Needs chart-of-accounts validation</small></div><div><span>PROVISIONAL RESULT</span><strong>{analytics.managementPnl.netResultBeforeValidatedAdjustments.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Not final accounting profit</small></div><div><span>INTEREST EXPENSE</span><strong>{analytics.managementPnl.interestExpense.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Shown separately from loan principal</small></div></div>}
+            <div className="dc-panel-head"><div><div className="dc-section-tag">SIGNALS / EXPLAINABLE FINDINGS</div><h2>What needs attention</h2><p>Signals describe the available records; they do not claim causality without evidence.</p></div><span className="dc-count">{analytics.alerts.length} SIGNALS</span></div>
+            {!analytics.alerts.length?<div className="dc-empty"><h3>No data-quality signals detected</h3><p>This does not mean the data is complete; review the source coverage and accounting mappings.</p></div>:<div className="dc-counterparty-grid">{analytics.alerts.map((a,i)=><article className="dc-counterparty" key={a.code||i}><div className="dc-counterparty-top"><span className="dc-section-tag">{a.severity.toUpperCase()} / {a.code}</span>{a.count!==undefined&&<span className="dc-confidence suggested">{a.count}</span>}</div><h3>{a.title}</h3><p>{a.explanation}</p>{a.category&&<div className="dc-counterparty-stats"><div><small>CATEGORY</small><b>{a.category}</b></div><div><small>AMOUNT</small><b>{Number(a.amount).toLocaleString(undefined,{maximumFractionDigits:2})}</b></div></div>}</article>)}</div>}
+            <div className="dc-panel-head"><div><div className="dc-section-tag">CASH BASIS / MONTHLY</div><h2>Cash movement by month</h2><p>Amounts are not converted between currencies. Confirm the currency scope before comparing totals.</p></div></div>
+            {!analytics.cash.monthly.length?<div className="dc-empty"><h3>No dated cash-basis transactions</h3><p>Import a bank statement with source type “Bank statement · cash” to build this view.</p></div>:<div className="dc-table-wrap"><table className="dc-ledger"><thead><tr><th>MONTH</th><th>INFLOWS</th><th>OUTFLOWS</th><th>NET MOVEMENT</th><th>RECORDS</th></tr></thead><tbody>{analytics.cash.monthly.map(m=><tr key={m.month}><td><b>{m.month}</b></td><td className="positive">{m.inflows.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td className="negative">{m.outflows.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td className={m.net>=0?'positive':'negative'}>{m.net.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{m.count}</td></tr>)}</tbody></table></div>}
+            <div className="dc-panel-head"><div><div className="dc-section-tag">CASH BASIS / CATEGORIES</div><h2>Largest classified outflows</h2><p>Internal transfers and loan principal are separated from operating category totals.</p></div></div>
+            {!analytics.cash.categories.length?<div className="dc-empty"><h3>No classified cash categories</h3><p>Check the source basis and transaction classifications.</p></div>:<div className="dc-table-wrap"><table className="dc-ledger"><thead><tr><th>CATEGORY</th><th>OUTFLOWS</th><th>INFLOWS</th><th>NET</th><th>RECORDS</th></tr></thead><tbody>{analytics.cash.categories.slice(0,20).map(c=><tr key={c.category}><td><b>{c.category}</b></td><td className="negative">{c.expense.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td className="positive">{c.income.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td className={c.net>=0?'positive':'negative'}>{c.net.toLocaleString(undefined,{maximumFractionDigits:2})}</td><td>{c.count}</td></tr>)}</tbody></table></div>}
+            <div className="dc-panel-head"><div><div className="dc-section-tag">FINANCING / SEPARATE VIEW</div><h2>Loan principal</h2><p>Principal is financing, not operating revenue or expense.</p></div></div><div className="dc-stats"><div><span>LOAN PROCEEDS</span><strong>{analytics.cash.financing.loanProceeds.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>PRINCIPAL REPAYMENTS</span><strong>{analytics.cash.financing.principalRepayments.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>UNCONFIRMED BASIS</span><strong>{analytics.dataScope.unconfirmedBasisCount}</strong><small>Excluded from totals</small></div><div><span>ACCRUAL RECORDS</span><strong>{analytics.dataScope.accrualCount}</strong><small>Shown separately from cash</small></div></div>
+          </>}
+        </>}
         {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="">SELECT SOURCE TYPE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()} disabled={!importSourceType}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
           {excelSheets.length > 1 && <div className="dc-preview dc-excel-sheet-picker"><label><b>EXCEL WORKSHEET</b><select value={selectedExcelSheet} onChange={e=>onExcelSheetChange(e.target.value)}>{excelSheets.map(sheet=><option key={sheet.name} value={sheet.name}>{sheet.name}</option>)}</select></label><span>{excelSheets.length} non-empty worksheets found. Choose the sheet containing transaction rows; only the selected sheet will be previewed.</span></div>}
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
