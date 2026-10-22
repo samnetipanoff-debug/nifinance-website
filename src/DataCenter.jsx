@@ -242,6 +242,7 @@ export default function DataCenter() {
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsRefresh, setAnalyticsRefresh] = useState(0);
   const [filter, setFilter] = useState('all');
   const [manual, setManual] = useState({ date: new Date().toISOString().slice(0,10), counterparty: '', description: '', amount: '', direction: 'expense', category: 'Needs review' });
   const inputRef = useRef(null);
@@ -384,7 +385,7 @@ export default function DataCenter() {
     };
     loadAnalytics();
     return () => { cancelled = true; };
-  }, [tab, workspaceCredentials, cloudReady, transactions]);
+  }, [tab, workspaceCredentials, cloudReady, transactions, analyticsRefresh]);
 
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const processImportText = async (text, sourceName) => {
@@ -582,7 +583,7 @@ export default function DataCenter() {
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['analytics','02','Universe Core'],['counterparties','03','Counterparties'],['rules','04','Classification rules'],['manual','05','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
-        {tab === 'analytics' && <><div className="dc-panel-head"><div><div className="dc-section-tag">UNIVERSE CORE / ANALYTICS ENGINE</div><h2>Business pulse</h2><p>Source-aware analytics from saved operations. Cash movement and accrual records stay separate.</p></div><button className="dc-btn secondary" onClick={()=>{setAnalytics(null);setTab('analytics');}} disabled={analyticsLoading}>REFRESH ANALYSIS ↻</button></div>
+        {tab === 'analytics' && <><div className="dc-panel-head"><div><div className="dc-section-tag">UNIVERSE CORE / ANALYTICS ENGINE</div><h2>Business pulse</h2><p>Source-aware analytics from saved operations. Cash movement and accrual records stay separate.</p></div><button className="dc-btn secondary" onClick={()=>setAnalyticsRefresh(value=>value+1)} disabled={analyticsLoading}>REFRESH ANALYSIS ↻</button></div>
           {analyticsLoading && <div className="dc-empty"><h3>Analyzing source data…</h3><p>Calculating totals, data quality and review signals from the saved ledger.</p></div>}
           {analyticsError && <div className="dc-error" role="alert">{analyticsError}</div>}
           {!analyticsLoading && analytics && <>
@@ -590,7 +591,7 @@ export default function DataCenter() {
               <div><span>CASH INFLOWS</span><strong>{analytics.cash.inflows.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>{analytics.cash.transactionCount} cash-basis records</small></div>
               <div><span>CASH OUTFLOWS</span><strong>{analytics.cash.outflows.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Transfers and loan principal excluded</small></div>
               <div><span>NET CASH MOVEMENT</span><strong className={analytics.cash.netCashMovement>=0?'positive':'negative'}>{analytics.cash.netCashMovement.toLocaleString(undefined,{maximumFractionDigits:2})}</strong><small>Not the same as profit</small></div>
-              <div className={analytics.dataScope.reviewCount||analytics.dataScope.unconfirmedBasisCount?'dc-stat-alert':''}><span>DATA NEEDS ATTENTION</span><strong>{(analytics.dataScope.reviewCount+analytics.dataScope.unconfirmedBasisCount+analytics.dataScope.dateRange.from?0:0) + analytics.dataScope.reviewCount + analytics.dataScope.unconfirmedBasisCount}</strong><small>{analytics.dataScope.reviewCount} review · {analytics.dataScope.unconfirmedBasisCount} basis unknown</small></div>
+              <div className={analytics.dataScope.reviewCount||analytics.dataScope.unconfirmedBasisCount?'dc-stat-alert':''}><span>DATA NEEDS ATTENTION</span><strong>{analytics.dataScope.reviewCount + analytics.dataScope.unconfirmedBasisCount}</strong><small>{analytics.dataScope.reviewCount} review · {analytics.dataScope.unconfirmedBasisCount} basis unknown</small></div>
             </div>
             <div className="dc-preview"><div><b>DATA RELIABILITY / {analytics.dataScope.transactionCount} RECORDS</b><span>Period: {analytics.dataScope.dateRange.from||'—'} to {analytics.dataScope.dateRange.to||'—'} · Currencies: {analytics.dataScope.currencies.join(', ')||'not specified'} · {analytics.dataScope.missingDateCount||0} dates not recognized</span></div><div className="dc-actions"><button className="dc-btn secondary" onClick={()=>setTab('transactions')}>REVIEW SOURCE RECORDS ↗</button></div></div>
             <div className="dc-panel-head"><div><div className="dc-section-tag">MANAGEMENT P&L</div><h2>{analytics.managementPnl.status==='unavailable'?'Not enough accrual data':'Provisional accrual summary'}</h2><p>{analytics.managementPnl.note}</p></div><span className="dc-count">{analytics.managementPnl.status.toUpperCase()}</span></div>
