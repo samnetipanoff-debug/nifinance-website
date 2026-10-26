@@ -395,10 +395,11 @@ export default function DataCenter() {
       const rows = readRows(text, rules, sourceName);
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const fingerprint = fingerprintOf(row);
+        const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+        const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
-        return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
+        return { ...candidate, fingerprint, isDuplicate };
       }));
       if (!rows.length) setError('No transaction rows were detected on this sheet. Choose another worksheet or map the columns manually.');
     } catch (parseError) {
@@ -425,10 +426,11 @@ export default function DataCenter() {
           const rows = readRows(text, rules, sourceName, aiMapping);
           const seen = new Set(transactions.map(fingerprintOf));
           setPreview(rows.map(row => {
-            const fingerprint = fingerprintOf(row);
+            const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+            const fingerprint = fingerprintOf(candidate);
             const isDuplicate = seen.has(fingerprint);
             seen.add(fingerprint);
-            return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
+            return { ...candidate, fingerprint, isDuplicate };
           }));
           setError('AI identified the file structure. Review the preview carefully before importing; operation classification is a separate step.');
           return;
@@ -506,10 +508,11 @@ export default function DataCenter() {
       const rows = readRows(mappingDraft.text, rules, fileName, { ...mappingDraft.mapping, headerRow: mappingDraft.headerIndex });
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const fingerprint = fingerprintOf(row);
+        const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+        const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
-        return { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis, fingerprint, isDuplicate };
+        return { ...candidate, fingerprint, isDuplicate };
       }));
       setMappingDraft(null);
       setError('');
@@ -521,7 +524,12 @@ export default function DataCenter() {
     ['date','Date *'], ['amount','Signed amount'], ['debit','Debit / outgoing'], ['credit','Credit / incoming'],
     ['counterparty','Counterparty'], ['description','Description / purpose'], ['reference','Reference / transaction ID'], ['currency','Currency']
   ];
-  const fingerprintOf = row => row.fingerprint || [row.date, norm(row.counterparty), Number(row.amount), norm(row.description), String(row.reference || '').trim()].join('|');
+  const fingerprintOf = row => {
+    const base = [row.date, norm(row.counterparty), Number(row.amount), norm(row.description), String(row.reference || '').trim()].join('|');
+    const basis = row.accountingBasis || SOURCE_TYPES[row.sourceType]?.basis;
+    // Keep cash and accrual imports distinct: one business event can have both a bank movement and an accounting entry.
+    return basis ? basis + '|' + base : (row.fingerprint || base);
+  };
   const duplicateCount = preview.filter(t => t.isDuplicate).length;
   const newPreviewCount = preview.length - duplicateCount;
   const commitImport = () => {
