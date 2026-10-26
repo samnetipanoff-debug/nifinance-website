@@ -28,7 +28,7 @@ const CATEGORIES = [
   'Sales income', 'Other income', 'Marketing & advertising', 'Software & subscriptions',
   'Contractors & external services', 'Payroll & personnel', 'Rent & utilities',
   'Taxes & statutory payments', 'Bank fees', 'Travel & transport', 'Office & supplies',
-  'Loan principal', 'Interest expense', 'Internal transfer', 'Refunds & reversals', 'Needs review'
+  'Loan proceeds', 'Loan principal', 'Interest expense', 'Internal transfer', 'Refunds & reversals', 'Needs review'
 ];
 const ROLE_LABELS = {
   customer: 'Customer', supplier: 'Supplier', contractor: 'Contractor', tax_authority: 'Tax authority',
