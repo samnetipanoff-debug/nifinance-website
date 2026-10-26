@@ -22,7 +22,7 @@ const dateOf = (tx) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw)) ? raw : null;
 };
 const monthOf = (tx) => dateOf(tx)?.slice(0, 7) || 'Undated';
-const isLoanPrincipal = (tx) => /loan principal|principal repayment|тело кредита|погашение основного долга/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
+const isLoanPrincipal = (tx) => /loan principal|principal repayment|loan proceeds|loan received|credit received|proceeds from loan|тело кредита|погашение основного долга|получен кредит|получение кредита|поступление кредита|получение займа|заем получен|займ получен/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isTransfer = (tx) => /internal transfer|перевод между счет|внутренний перевод/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isInterest = (tx) => /interest expense|процент по кредит|проценты по кредит/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isRefund = (tx) => /refund|reversal|возврат|сторно/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
