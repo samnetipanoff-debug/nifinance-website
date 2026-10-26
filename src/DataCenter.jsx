@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
+import { transactionFingerprint } from './data-center-import-utils.js';
 import './data-center.css';
 
 const STORAGE_KEY = 'nifinance-data-center-v1';
@@ -524,12 +525,7 @@ export default function DataCenter() {
     ['date','Date *'], ['amount','Signed amount'], ['debit','Debit / outgoing'], ['credit','Credit / incoming'],
     ['counterparty','Counterparty'], ['description','Description / purpose'], ['reference','Reference / transaction ID'], ['currency','Currency']
   ];
-  const fingerprintOf = row => {
-    const base = [row.date, norm(row.counterparty), Number(row.amount), norm(row.description), String(row.reference || '').trim()].join('|');
-    const basis = row.accountingBasis || SOURCE_TYPES[row.sourceType]?.basis;
-    // Keep cash and accrual imports distinct: one business event can have both a bank movement and an accounting entry.
-    return basis ? basis + '|' + base : (row.fingerprint || base);
-  };
+  const fingerprintOf = transactionFingerprint;
   const duplicateCount = preview.filter(t => t.isDuplicate).length;
   const newPreviewCount = preview.length - duplicateCount;
   const commitImport = () => {
