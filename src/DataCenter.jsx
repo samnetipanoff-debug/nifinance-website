@@ -126,6 +126,7 @@ function guessCategory(description, counterparty, direction, amount) {
   if (/subscription|software|hosting|cloud|github|adobe|notion|slack|software|softver/.test(t)) return 'Software & subscriptions';
   if (/salary|payroll|wage|plata|zarada|плата|зарплат/.test(t)) return 'Payroll & personnel';
   if (/rent|lease|electric|utilities|struja|zakup|закупка помещения|аренд/.test(t)) return 'Rent & utilities';
+  if (/loan proceeds|loan received|credit received|proceeds from loan|получен кредит|получение кредита|поступление кредита|получение займа|заем получен|займ получен/.test(t)) return 'Loan proceeds';
   if (/interest|kamata|процент по кредит/.test(t)) return 'Interest expense';
   if (/loan principal|credit repayment|otplata kredita|тело кредита/.test(t)) return 'Loan principal';
   if (/fuel|taxi|transport|travel|hotel|gorivo|putni|такси|бензин|командиров/.test(t)) return 'Travel & transport';
