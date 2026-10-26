@@ -44,3 +44,20 @@ test('flags multiple currencies instead of silently converting or summing them',
   ]);
   assert.ok(result.alerts.some((alert) => alert.code === 'MULTIPLE_CURRENCIES'));
 });
+
+import { transactionFingerprint } from '../src/data-center-import-utils.js';
+
+test('deduplicates within one accounting basis but keeps cash and accrual source records separate', () => {
+  const base = {
+    date: '2026-04-10',
+    amount: -250,
+    counterparty: 'Café Services',
+    description: 'Invoice 104',
+    reference: '104'
+  };
+  const cash = transactionFingerprint({ ...base, sourceType: 'bank_statement', accountingBasis: 'cash' });
+  const cashDuplicate = transactionFingerprint({ ...base, sourceType: 'bank_statement', accountingBasis: 'cash' });
+  const accrual = transactionFingerprint({ ...base, sourceType: 'accounting_journal', accountingBasis: 'accrual' });
+  assert.equal(cash, cashDuplicate);
+  assert.notEqual(cash, accrual);
+});
