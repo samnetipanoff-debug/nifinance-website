@@ -27,7 +27,7 @@ const isTransfer = (tx) => /internal transfer|перевод между счет
 const isInterest = (tx) => /interest expense|процент по кредит|проценты по кредит/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isRefund = (tx) => /refund|reversal|возврат|сторно/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 
-function summarize(transactions) {
+export function summarize(transactions) {
   const rows = transactions.map((tx, index) => ({ ...tx, _index: index, _amount: amountOf(tx), _basis: basisOf(tx), _date: dateOf(tx), _category: categoryOf(tx), _month: monthOf(tx) }));
   const cashRows = rows.filter((tx) => tx._basis === 'cash');
   const accrualRows = rows.filter((tx) => tx._basis === 'accrual');
