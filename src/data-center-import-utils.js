@@ -1,4 +1,4 @@
-const normalize = (value = '') => String(value).toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
+const normalize = (value = '') => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
 
 const BASIS_BY_SOURCE = {
   bank_statement: 'cash',
