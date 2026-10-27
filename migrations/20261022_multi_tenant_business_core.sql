@@ -189,4 +189,49 @@ INSERT INTO public.dc_permissions (permission_key, module, action, description) 
   ('communication.view', 'communication', 'view', 'View permitted conversations'),
   ('communication.send', 'communication', 'send', 'Send messages in permitted conversations'),
   ('audit.view', 'audit', 'view', 'View audit events')
+
 ON CONFLICT (permission_key) DO NOTHING;
+
+-- Seed organization-scoped system roles. These are templates, not user grants;
+-- no membership is created until a verified identity is linked to an organization.
+INSERT INTO public.dc_roles (organization_id, role_key, name, description, is_system)
+SELECT o.id, role_def.role_key, role_def.name, role_def.description, TRUE
+FROM public.dc_organizations o
+CROSS JOIN (VALUES
+  ('owner', 'Owner', 'Full control of company settings, data, users and access'),
+  ('admin', 'Administrator', 'Manage company operations and access'),
+  ('finance_manager', 'Finance manager', 'Manage financial data, mappings and reports'),
+  ('finance_analyst', 'Finance analyst', 'Read financial data and reports'),
+  ('marketing_manager', 'Marketing manager', 'Manage CRM, marketing data and team tasks'),
+  ('employee', 'Employee', 'Access assigned work and permitted communication'),
+  ('viewer', 'Read-only viewer', 'Read permitted company modules without editing')
+) AS role_def(role_key, name, description)
+ON CONFLICT (organization_id, role_key) DO NOTHING;
+
+-- Least-privilege role templates. Actual effective access must still be checked
+-- server-side for the authenticated user's active membership on every request.
+INSERT INTO public.dc_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM public.dc_roles r
+JOIN public.dc_permissions p ON
+  r.role_key IN ('owner', 'admin')
+  OR (r.role_key = 'finance_manager' AND p.permission_key IN (
+    'company.view', 'users.view', 'data.view', 'data.import', 'data.edit',
+    'data.export', 'finance.view', 'finance.manage', 'audit.view'
+  ))
+  OR (r.role_key = 'finance_analyst' AND p.permission_key IN (
+    'company.view', 'data.view', 'finance.view', 'audit.view'
+  ))
+  OR (r.role_key = 'marketing_manager' AND p.permission_key IN (
+    'company.view', 'users.view', 'data.view', 'data.import', 'crm.view',
+    'crm.manage', 'tasks.view', 'tasks.manage', 'communication.view',
+    'communication.send', 'audit.view'
+  ))
+  OR (r.role_key = 'employee' AND p.permission_key IN (
+    'company.view', 'tasks.view', 'tasks.manage', 'communication.view', 'communication.send'
+  ))
+  OR (r.role_key = 'viewer' AND p.permission_key IN (
+    'company.view', 'data.view', 'finance.view', 'crm.view', 'tasks.view',
+    'communication.view', 'audit.view'
+  ))
+ON CONFLICT (role_id, permission_id) DO NOTHING;
