@@ -566,6 +566,51 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
   return <div className="business-sphere" ref={host} aria-label="Business dependency sphere. Select a node to inspect how business metrics affect one another." />;
 }
 
+
+function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, onSelectNode, onReset, onBack, onBreadcrumb }) {
+  const [anchor, setAnchor] = useState({ x: 0, y: 0, ready: false });
+  const host = useRef(null);
+  useEffect(() => {
+    let frame = 0, live = true;
+    const measure = () => {
+      if (!live) return;
+      const root = host.current?.closest('.bu-stage-wrap');
+      const node = root?.querySelector('.sphere-node-label.active');
+      if (root && node) {
+        const rr = root.getBoundingClientRect(), nr = node.getBoundingClientRect();
+        setAnchor({ x: nr.left + nr.width / 2 - rr.left, y: nr.top + nr.height / 2 - rr.top, ready: true });
+      }
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    return () => { live = false; cancelAnimationFrame(frame); };
+  }, [selected, trail, rows.length]);
+  if (!trail.length) return null;
+  const current = trail[trail.length - 1];
+  const isRecord = Boolean(current.record);
+  const branches = isRecord ? relatedNodes : rows;
+  const width = host.current?.closest('.bu-stage-wrap')?.clientWidth || 1000;
+  const height = host.current?.closest('.bu-stage-wrap')?.clientHeight || 600;
+  const side = anchor.x > width * 0.56 ? -1 : 1;
+  const startX = anchor.ready ? anchor.x : width * 0.5;
+  const startY = anchor.ready ? anchor.y : height * 0.5;
+  const childX = Math.max(118, Math.min(width - 118, startX + side * Math.min(245, width * 0.25)));
+  const spacing = Math.min(92, Math.max(54, (height - 140) / Math.max(branches.length, 1)));
+  const totalHeight = Math.max(0, (branches.length - 1) * spacing);
+  const firstY = Math.max(94, Math.min(height - 100 - totalHeight, startY - totalHeight / 2));
+  const children = branches.map((item, index) => ({ item, x: childX, y: firstY + index * spacing }));
+  return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
+    <div className="bu-graph-path"><button type="button" onClick={onReset}>UNIVERSE</button>{trail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===trail.length-1?'current':''} onClick={()=>onBreadcrumb(index)}>{item.label}</button></React.Fragment>)}<button className="bu-graph-back" type="button" onClick={onBack}>← BACK</button></div>
+    <svg className="bu-graph-links" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+      {children.map(({item,x,y},index)=><path key={item.id||item.primary||index} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
+    </svg>
+    <button type="button" className="bu-graph-root" style={{left:startX,top:startY}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
+    {children.map(({item,x,y},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:x,top:y,'--graph-node-color':item.color}} onClick={()=>onSelectNode(item.id)}><i/><span>{item.label}</span><b>{item.value}</b><small>RELATED DIRECTION</small></button> : <button key={item.primary+'-'+index} type="button" className="bu-graph-node" style={{left:x,top:y,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78'}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}><i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary||'SOURCE RECORD'}</small></button>)}
+    {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
+    <div className="bu-graph-hint">FOLLOW THE BRANCH · SELECT A NODE TO GO DEEPER</div>
+  </div>;
+}
+
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
@@ -723,17 +768,17 @@ export default function Universe2() {
           <p className="bu-model-disclaimer">Illustrative scenario only: assumes current lead, opportunity and win rates stay constant. It is not a causal estimate or forecast.</p>
         </div>
       </aside>}
-      {detailTrail.length > 0 && (() => {
-        const current = detailTrail[detailTrail.length - 1];
-        const selectedDetailRows = current.record ? [] : getDetailRows(current);
-        const activeNode = nodes.find(n => n.id === current.nodeId) || active;
-        return <aside className="bu-branch-navigator" aria-label="In-sphere business branch navigator" style={{'--branch-color': activeNode.color}}>
-          <div className="bu-branch-top"><div><span>UNIVERSE PATH / LIVE BRANCH</span><h2>{activeNode.label}</h2></div><button type="button" onClick={resetDetailTrail} aria-label="Return to sphere overview">×</button></div>
-          <nav className="bu-branch-breadcrumb" aria-label="Navigation path"><button type="button" onClick={resetDetailTrail}>Universe</button>{detailTrail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===detailTrail.length-1?'current':''} onClick={()=>setDetailTrail(previous=>previous.slice(0,index+1))}>{item.label}</button></React.Fragment>)}</nav>
-          {current.record ? <div className="bu-branch-record"><span>SELECTED RECORD / DETAIL NODE</span><h3>{current.record.primary}</h3><strong>{current.record.value}</strong><p>{current.record.secondary}</p><small>{current.record.note || 'No additional source detail is available.'}</small><button type="button" className="bu-branch-back" onClick={goBackDetail}>← Back to related records</button><div className="bu-branch-crosslinks"><span>CONTINUE THROUGH THE BUSINESS GRAPH</span>{activeNode.links.map(id=>{const related=nodes.find(n=>n.id===id);return related?<button key={id} type="button" onClick={()=>{setSelected(id);setDetailTrail(previous=>[...previous,{nodeId:id,label:related.label,value:related.value}]);}}><i style={{background:related.color}}/><b>{related.label}</b><em>↗</em></button>:null;})}</div></div> : <><p className="bu-branch-context">Choose a connected record to move deeper into this branch. Details stay inside the sphere instead of opening floating windows.</p><div className="bu-branch-list">{selectedDetailRows.map((row,index)=><button type="button" className="bu-branch-item" key={row.primary+'-'+index} onClick={()=>setDetailTrail(previous=>[...previous,{nodeId:current.nodeId,label:row.primary,value:row.value,record:row}])}><span className="bu-branch-link" aria-hidden="true">╰─</span><span className="bu-branch-item-main"><b>{row.primary}</b><small>{row.secondary}</small><em>{row.note}</em></span><strong>{row.value}</strong><i>↗</i></button>)}{!selectedDetailRows.length&&<p className="bu-branch-empty">No source records are available at this level.</p>}</div></>}
-          <div className="bu-branch-foot"><span>BRANCH {detailTrail.length} · {selectedDetailRows.length} CONNECTED RECORDS</span><button type="button" onClick={goBackDetail} disabled={detailTrail.length===1}>← BACK</button></div>
-        </aside>;
-      })()}
+      <SphereBranchGraph
+        selected={selected}
+        trail={detailTrail}
+        rows={detailTrail.length && !detailTrail[detailTrail.length - 1].record ? getDetailRows(detailTrail[detailTrail.length - 1]) : []}
+        relatedNodes={(nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
+        onOpenRecord={row => setDetailTrail(previous => [...previous, { nodeId: detailTrail[detailTrail.length - 1].nodeId, label: row.primary, value: row.value, record: row }])}
+        onSelectNode={id => { setSelected(id); setDetailTrail(previous => [...previous, { nodeId: id, label: nodes.find(n => n.id === id)?.label || id, value: nodes.find(n => n.id === id)?.value || '' }]); }}
+        onReset={resetDetailTrail}
+        onBack={goBackDetail}
+        onBreadcrumb={index => setDetailTrail(previous => previous.slice(0, index + 1))}
+      />}
     </section>
 
     <section className="bu-analysis" aria-label="Business direction and relationships">
