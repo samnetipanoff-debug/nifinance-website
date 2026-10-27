@@ -577,44 +577,10 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
-  const [detailWindows, setDetailWindows] = useState([]);
-  const nextDetailId = useRef(1);
-  const dragDetailRef = useRef(null);
-  const resizeDetailRef = useRef(null);
-  const openDetailWindow = selection => {
-    const id = nextDetailId.current++;
-    setDetailWindows(previous => {
-      const stage = document.querySelector('.bu-stage-wrap');
-      const width = Math.min(380, Math.max(280, (stage?.clientWidth || window.innerWidth) * 0.32));
-      const height = Math.min(420, Math.max(260, (stage?.clientHeight || window.innerHeight) * 0.58));
-      const maxX = Math.max(8, (stage?.clientWidth || window.innerWidth) - width - 12);
-      const maxY = Math.max(8, (stage?.clientHeight || window.innerHeight) - 100);
-      // Spiral through staggered slots; new windows prefer open space rather than stacking.
-      const slot = previous.length;
-      const candidates = [];
-      for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) candidates.push({ x: 14 + col * Math.min(48, width * 0.16), y: 74 + row * 48 });
-      let position = candidates[slot % candidates.length];
-      for (const candidate of candidates) {
-        const x = Math.min(maxX, candidate.x), y = Math.min(maxY, candidate.y);
-        const overlaps = previous.some(w => x < w.x + w.width && x + width > w.x && y < w.y + w.height && y + height > w.y);
-        if (!overlaps) { position = { x, y }; break; }
-      }
-      return [...previous, { id, selection, x: Math.min(maxX, position.x), y: Math.min(maxY, position.y), width, height }];
-    });
-  };
-  const closeDetailWindow = id => setDetailWindows(previous => previous.filter(window => window.id !== id));
-  const moveDetailWindow = (id, x, y) => setDetailWindows(previous => previous.map(window => window.id === id ? { ...window, x, y } : window));
-  const resizeDetailWindow = (id, width, height) => {
-    const stage = document.querySelector('.bu-stage-wrap');
-    const stageWidth = stage?.clientWidth || window.innerWidth;
-    const stageHeight = stage?.clientHeight || window.innerHeight;
-    setDetailWindows(previous => previous.map(item => {
-      if (item.id !== id) return item;
-      const maxWidth = Math.max(260, stageWidth - item.x - 8);
-      const maxHeight = Math.max(220, stageHeight - item.y - 8);
-      return { ...item, width: Math.max(260, Math.min(maxWidth, width)), height: Math.max(220, Math.min(maxHeight, height)) };
-    }));
-  };
+  const [detailTrail, setDetailTrail] = useState([]);
+  const openDetailWindow = selection => { setSelected(selection.nodeId); setDetailTrail(previous => [...previous, selection]); };
+  const goBackDetail = () => setDetailTrail(previous => previous.slice(0, -1));
+  const resetDetailTrail = () => setDetailTrail([]);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -757,50 +723,17 @@ export default function Universe2() {
           <p className="bu-model-disclaimer">Illustrative scenario only: assumes current lead, opportunity and win rates stay constant. It is not a causal estimate or forecast.</p>
         </div>
       </aside>}
-      {detailWindows.map(dataWindow => {
-        const detailSelection = dataWindow.selection;
-        const selectedDetailRows = getDetailRows(detailSelection);
-        return <aside key={dataWindow.id} className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`} style={{ left: dataWindow.x, top: dataWindow.y, width: dataWindow.width, height: dataWindow.height, right: 'auto', bottom: 'auto' }}>
-          <div className="bu-drill-head" onPointerDown={event => {
-            if (event.target.closest('button')) return;
-            event.preventDefault();
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            dragDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: dataWindow.x, y: dataWindow.y };
-          }} onPointerMove={event => {
-            const drag = dragDetailRef.current;
-            if (!drag || drag.id !== dataWindow.id || drag.pointerId !== event.pointerId) return;
-            const stage = event.currentTarget.closest('.bu-stage-wrap');
-            const maxX = Math.max(0, (stage?.clientWidth || window.innerWidth) - dataWindow.width - 8);
-            const maxY = Math.max(0, (stage?.clientHeight || window.innerHeight) - 80);
-            moveDetailWindow(dataWindow.id, Math.max(0, Math.min(maxX, drag.x + event.clientX - drag.startX)), Math.max(0, Math.min(maxY, drag.y + event.clientY - drag.startY)));
-          }} onPointerUp={() => { dragDetailRef.current = null; }} onPointerCancel={() => { dragDetailRef.current = null; }}>
-            <div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div>
-            <button type="button" aria-label="Close details" onClick={() => closeDetailWindow(dataWindow.id)}>×</button>
-          </div>
-          <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
-          <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
-          <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(dataWindow.id)}>CLOSE WINDOW ×</button></div>
-          <div
-            className="bu-drill-resize"
-            role="separator"
-            aria-label="Resize data window"
-            title="Drag to resize"
-            onPointerDown={event => {
-              event.preventDefault();
-              event.stopPropagation();
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              resizeDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, width: dataWindow.width, height: dataWindow.height };
-            }}
-            onPointerMove={event => {
-              const resize = resizeDetailRef.current;
-              if (!resize || resize.id !== dataWindow.id || resize.pointerId !== event.pointerId) return;
-              resizeDetailWindow(dataWindow.id, resize.width + event.clientX - resize.startX, resize.height + event.clientY - resize.startY);
-            }}
-            onPointerUp={() => { resizeDetailRef.current = null; }}
-            onPointerCancel={() => { resizeDetailRef.current = null; }}
-          />
+      {detailTrail.length > 0 && (() => {
+        const current = detailTrail[detailTrail.length - 1];
+        const selectedDetailRows = current.record ? [] : getDetailRows(current);
+        const activeNode = nodes.find(n => n.id === current.nodeId) || active;
+        return <aside className="bu-branch-navigator" aria-label="In-sphere business branch navigator" style={{'--branch-color': activeNode.color}}>
+          <div className="bu-branch-top"><div><span>UNIVERSE PATH / LIVE BRANCH</span><h2>{activeNode.label}</h2></div><button type="button" onClick={resetDetailTrail} aria-label="Return to sphere overview">×</button></div>
+          <nav className="bu-branch-breadcrumb" aria-label="Navigation path"><button type="button" onClick={resetDetailTrail}>Universe</button>{detailTrail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===detailTrail.length-1?'current':''} onClick={()=>setDetailTrail(previous=>previous.slice(0,index+1))}>{item.label}</button></React.Fragment>)}</nav>
+          {current.record ? <div className="bu-branch-record"><span>SELECTED RECORD / DETAIL NODE</span><h3>{current.record.primary}</h3><strong>{current.record.value}</strong><p>{current.record.secondary}</p><small>{current.record.note || 'No additional source detail is available.'}</small><button type="button" className="bu-branch-back" onClick={goBackDetail}>← Back to related records</button></div> : <><p className="bu-branch-context">Choose a connected record to move deeper into this branch. Details stay inside the sphere instead of opening floating windows.</p><div className="bu-branch-list">{selectedDetailRows.map((row,index)=><button type="button" className="bu-branch-item" key={row.primary+'-'+index} onClick={()=>setDetailTrail(previous=>[...previous,{nodeId:current.nodeId,label:row.primary,value:row.value,record:row}])}><span className="bu-branch-link" aria-hidden="true">╰─</span><span className="bu-branch-item-main"><b>{row.primary}</b><small>{row.secondary}</small><em>{row.note}</em></span><strong>{row.value}</strong><i>↗</i></button>)}{!selectedDetailRows.length&&<p className="bu-branch-empty">No source records are available at this level.</p>}</div></>}
+          <div className="bu-branch-foot"><span>BRANCH {detailTrail.length} · {selectedDetailRows.length} CONNECTED RECORDS</span><button type="button" onClick={goBackDetail} disabled={detailTrail.length===1}>← BACK</button></div>
         </aside>;
-      })}
+      })()}
     </section>
 
     <section className="bu-analysis" aria-label="Business direction and relationships">
