@@ -566,6 +566,52 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
   return <div className="business-sphere" ref={host} aria-label="Business dependency sphere. Select a node to inspect how business metrics affect one another." />;
 }
 
+
+function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, onSelectNode, onReset, onBack, onBreadcrumb }) {
+  const [anchor, setAnchor] = useState({ x: 0, y: 0, ready: false });
+  const host = useRef(null);
+  useEffect(() => {
+    let frame = 0, live = true;
+    const measure = () => {
+      if (!live) return;
+      const root = host.current?.closest('.bu-stage-wrap');
+      const node = root?.querySelector('.sphere-node-label.active');
+      if (root && node) {
+        const rr = root.getBoundingClientRect(), nr = node.getBoundingClientRect();
+        const x = nr.left + nr.width / 2 - rr.left, y = nr.top + nr.height / 2 - rr.top;
+        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 1.25 && Math.abs(previous.y - y) < 1.25 ? previous : { x, y, ready: true });
+      }
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    return () => { live = false; cancelAnimationFrame(frame); };
+  }, [selected, trail, rows.length]);
+  if (!trail.length) return null;
+  const current = trail[trail.length - 1];
+  const isRecord = Boolean(current.record);
+  const branches = isRecord ? relatedNodes : rows;
+  const width = host.current?.closest('.bu-stage-wrap')?.clientWidth || 1000;
+  const height = host.current?.closest('.bu-stage-wrap')?.clientHeight || 600;
+  const side = anchor.x > width * 0.56 ? -1 : 1;
+  const startX = anchor.ready ? anchor.x : width * 0.5;
+  const startY = anchor.ready ? anchor.y : height * 0.5;
+  const childX = Math.max(118, Math.min(width - 118, startX + side * Math.min(245, width * 0.25)));
+  const spacing = Math.min(92, Math.max(54, (height - 140) / Math.max(branches.length, 1)));
+  const totalHeight = Math.max(0, (branches.length - 1) * spacing);
+  const firstY = Math.max(94, Math.min(height - 100 - totalHeight, startY - totalHeight / 2));
+  const children = branches.map((item, index) => ({ item, x: childX, y: firstY + index * spacing }));
+  return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
+    <div className="bu-graph-path"><button type="button" onClick={onReset}>UNIVERSE</button>{trail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===trail.length-1?'current':''} onClick={()=>onBreadcrumb(index)}>{item.label}</button></React.Fragment>)}<button className="bu-graph-back" type="button" onClick={onBack}>← BACK</button></div>
+    <svg className="bu-graph-links" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+      {children.map(({item,x,y},index)=><path key={item.id||item.primary||index} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
+    </svg>
+    <button type="button" className="bu-graph-root" style={{left:startX,top:startY}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
+    {children.map(({item,x,y},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:x,top:y,'--graph-node-color':item.color}} onClick={()=>onSelectNode(item.id)}><i/><span>{item.label}</span><b>{item.value}</b><small>RELATED DIRECTION</small></button> : <button key={item.primary+'-'+index} type="button" className="bu-graph-node" style={{left:x,top:y,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78'}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}><i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary||'SOURCE RECORD'}</small></button>)}
+    {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
+    <div className="bu-graph-hint">FOLLOW THE BRANCH · SELECT A NODE TO GO DEEPER</div>
+  </div>;
+}
+
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
@@ -577,44 +623,10 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
-  const [detailWindows, setDetailWindows] = useState([]);
-  const nextDetailId = useRef(1);
-  const dragDetailRef = useRef(null);
-  const resizeDetailRef = useRef(null);
-  const openDetailWindow = selection => {
-    const id = nextDetailId.current++;
-    setDetailWindows(previous => {
-      const stage = document.querySelector('.bu-stage-wrap');
-      const width = Math.min(380, Math.max(280, (stage?.clientWidth || window.innerWidth) * 0.32));
-      const height = Math.min(420, Math.max(260, (stage?.clientHeight || window.innerHeight) * 0.58));
-      const maxX = Math.max(8, (stage?.clientWidth || window.innerWidth) - width - 12);
-      const maxY = Math.max(8, (stage?.clientHeight || window.innerHeight) - 100);
-      // Spiral through staggered slots; new windows prefer open space rather than stacking.
-      const slot = previous.length;
-      const candidates = [];
-      for (let row = 0; row < 6; row++) for (let col = 0; col < 7; col++) candidates.push({ x: 14 + col * Math.min(48, width * 0.16), y: 74 + row * 48 });
-      let position = candidates[slot % candidates.length];
-      for (const candidate of candidates) {
-        const x = Math.min(maxX, candidate.x), y = Math.min(maxY, candidate.y);
-        const overlaps = previous.some(w => x < w.x + w.width && x + width > w.x && y < w.y + w.height && y + height > w.y);
-        if (!overlaps) { position = { x, y }; break; }
-      }
-      return [...previous, { id, selection, x: Math.min(maxX, position.x), y: Math.min(maxY, position.y), width, height }];
-    });
-  };
-  const closeDetailWindow = id => setDetailWindows(previous => previous.filter(window => window.id !== id));
-  const moveDetailWindow = (id, x, y) => setDetailWindows(previous => previous.map(window => window.id === id ? { ...window, x, y } : window));
-  const resizeDetailWindow = (id, width, height) => {
-    const stage = document.querySelector('.bu-stage-wrap');
-    const stageWidth = stage?.clientWidth || window.innerWidth;
-    const stageHeight = stage?.clientHeight || window.innerHeight;
-    setDetailWindows(previous => previous.map(item => {
-      if (item.id !== id) return item;
-      const maxWidth = Math.max(260, stageWidth - item.x - 8);
-      const maxHeight = Math.max(220, stageHeight - item.y - 8);
-      return { ...item, width: Math.max(260, Math.min(maxWidth, width)), height: Math.max(220, Math.min(maxHeight, height)) };
-    }));
-  };
+  const [detailTrail, setDetailTrail] = useState([]);
+  const openDetailWindow = selection => { setSelected(selection.nodeId); setDetailTrail(previous => [...previous, selection]); };
+  const goBackDetail = () => setDetailTrail(previous => previous.slice(0, -1));
+  const resetDetailTrail = () => setDetailTrail([]);
   useEffect(() => {
     let cancelled = false;
     fetch('/api/universe2-data', { cache: 'no-store' })
@@ -723,7 +735,7 @@ export default function Universe2() {
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button><button className={showCausalPanel ? 'active' : ''} onClick={() => setShowCausalPanel(value => !value)}>CAUSE MAP {showCausalPanel ? '−' : '+'}</button></div>
-      {showCausalPanel && <aside className="bu-causal-panel" aria-label="Causal relationships and scenario model">
+      {showCausalPanel && detailTrail.length === 0 && <aside className="bu-causal-panel" aria-label="Causal relationships and scenario model">
         <div className="bu-causal-panel-head"><div><span>CAUSE → EFFECT / {scenarioKey === 'growth' ? 'ACQUISITION' : 'CASH FLOW'}</span><h2>{scenario.title}</h2><p>{scenario.subtitle}</p></div><button type="button" aria-label="Hide cause map" onClick={() => setShowCausalPanel(false)}>×</button></div>
         <div className="bu-causal-confidence"><span className="bu-confidence-dot observed" /> OBSERVED CHANGE <span className="bu-confidence-dot modeled" /> MODELED EFFECT</div>
         <div className="bu-causal-steps">
@@ -757,50 +769,17 @@ export default function Universe2() {
           <p className="bu-model-disclaimer">Illustrative scenario only: assumes current lead, opportunity and win rates stay constant. It is not a causal estimate or forecast.</p>
         </div>
       </aside>}
-      {detailWindows.map(dataWindow => {
-        const detailSelection = dataWindow.selection;
-        const selectedDetailRows = getDetailRows(detailSelection);
-        return <aside key={dataWindow.id} className="bu-drill-panel" aria-label={`Detailed data for ${detailSelection.label}`} style={{ left: dataWindow.x, top: dataWindow.y, width: dataWindow.width, height: dataWindow.height, right: 'auto', bottom: 'auto' }}>
-          <div className="bu-drill-head" onPointerDown={event => {
-            if (event.target.closest('button')) return;
-            event.preventDefault();
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            dragDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: dataWindow.x, y: dataWindow.y };
-          }} onPointerMove={event => {
-            const drag = dragDetailRef.current;
-            if (!drag || drag.id !== dataWindow.id || drag.pointerId !== event.pointerId) return;
-            const stage = event.currentTarget.closest('.bu-stage-wrap');
-            const maxX = Math.max(0, (stage?.clientWidth || window.innerWidth) - dataWindow.width - 8);
-            const maxY = Math.max(0, (stage?.clientHeight || window.innerHeight) - 80);
-            moveDetailWindow(dataWindow.id, Math.max(0, Math.min(maxX, drag.x + event.clientX - drag.startX)), Math.max(0, Math.min(maxY, drag.y + event.clientY - drag.startY)));
-          }} onPointerUp={() => { dragDetailRef.current = null; }} onPointerCancel={() => { dragDetailRef.current = null; }}>
-            <div><span>DATA EXPLORER / NORTHSTAR GROWTH</span><h2>{detailSelection.label}<small> · {nodes.find(n => n.id === detailSelection.nodeId)?.label}</small></h2></div>
-            <button type="button" aria-label="Close details" onClick={() => closeDetailWindow(dataWindow.id)}>×</button>
-          </div>
-          <p className="bu-drill-context">Source records behind this indicator · latest available month {latestMonth?.month_start || '—'}. All amounts in EUR. This is a fictional demonstration company.</p>
-          <div className="bu-drill-rows">{selectedDetailRows.length ? selectedDetailRows.map((row, i) => <article className="bu-drill-row" key={`${row.primary}-${i}`}><div><b>{row.primary}</b><span>{row.secondary}</span><small>{row.note}</small></div><strong>{row.value}</strong></article>) : <p>No source rows are available for this indicator.</p>}</div>
-          <div className="bu-drill-foot"><span>SOURCE: NEON POSTGRESQL</span><button type="button" onClick={() => closeDetailWindow(dataWindow.id)}>CLOSE WINDOW ×</button></div>
-          <div
-            className="bu-drill-resize"
-            role="separator"
-            aria-label="Resize data window"
-            title="Drag to resize"
-            onPointerDown={event => {
-              event.preventDefault();
-              event.stopPropagation();
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              resizeDetailRef.current = { id: dataWindow.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, width: dataWindow.width, height: dataWindow.height };
-            }}
-            onPointerMove={event => {
-              const resize = resizeDetailRef.current;
-              if (!resize || resize.id !== dataWindow.id || resize.pointerId !== event.pointerId) return;
-              resizeDetailWindow(dataWindow.id, resize.width + event.clientX - resize.startX, resize.height + event.clientY - resize.startY);
-            }}
-            onPointerUp={() => { resizeDetailRef.current = null; }}
-            onPointerCancel={() => { resizeDetailRef.current = null; }}
-          />
-        </aside>;
-      })}
+      <SphereBranchGraph
+        selected={selected}
+        trail={detailTrail}
+        rows={detailTrail.length && !detailTrail[detailTrail.length - 1].record ? getDetailRows(detailTrail[detailTrail.length - 1]) : []}
+        relatedNodes={(nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
+        onOpenRecord={row => setDetailTrail(previous => [...previous, { nodeId: detailTrail[detailTrail.length - 1].nodeId, label: row.primary, value: row.value, record: row }])}
+        onSelectNode={id => { setSelected(id); setDetailTrail(previous => [...previous, { nodeId: id, label: nodes.find(n => n.id === id)?.label || id, value: nodes.find(n => n.id === id)?.value || '' }]); }}
+        onReset={resetDetailTrail}
+        onBack={goBackDetail}
+        onBreadcrumb={index => setDetailTrail(previous => previous.slice(0, index + 1))}
+      />}
     </section>
 
     <section className="bu-analysis" aria-label="Business direction and relationships">

@@ -35,6 +35,14 @@
     {
       "source": "/universe-3/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/business-hub",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/business-hub/",
+      "destination": "/index.html"
     }
   ]
 }
