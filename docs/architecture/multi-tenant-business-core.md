@@ -55,6 +55,10 @@ Organization
 7. Add CRM entities and pipelines using the same registry and link table.
 8. Add employee workspaces, tasks, communication and role-specific Company Pulse views.
 
+## Role templates
+
+The additive migration seeds organization-scoped system-role templates for `owner`, `admin`, `finance_manager`, `finance_analyst`, `marketing_manager`, `employee`, and `viewer`, with least-privilege permission mappings. It deliberately does not create memberships or assign a role to any person. The eventual organization-creation flow must seed these templates for each new organization, and a verified identity flow must explicitly grant a role after membership is accepted. Role templates alone do not enforce access; every endpoint must resolve the authenticated user, active organization membership, and required permission server-side.
+
 ## Migration status
 
 The SQL in `migrations/20261022_multi_tenant_business_core.sql` is a reviewed starting point only. It is not executed by the app or against Neon as part of this pull request. API integration, tenant authorization, auth-provider setup and migration tests are still required before enabling multi-company production use.
