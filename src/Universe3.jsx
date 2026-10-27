@@ -589,7 +589,7 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
       if (root && node) {
         const rr = root.getBoundingClientRect(), nr = node.getBoundingClientRect();
         const x = nr.left + nr.width / 2 - rr.left, y = nr.top + nr.height / 2 - rr.top;
-        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 1.25 && Math.abs(previous.y - y) < 1.25 ? previous : { x, y, ready: true });
+        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 2.75 && Math.abs(previous.y - y) < 2.75 ? previous : { x, y, ready: true });
       }
       frame = requestAnimationFrame(measure);
     };
@@ -774,13 +774,13 @@ export default function Universe2() {
   return <main className="business-universe3">
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
-      <div className="bu-live-state"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {neonStatus === 'connected' ? 'DEMO DATA · NEON CONNECTED' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
+      <div className="bu-live-state"><i className={workspaceGraphStatus === 'connected' || neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> {workspaceGraphStatus === 'connected' ? 'DATA CENTER ↔ CRM' : 'NORTHSTAR GROWTH'} <span>·</span> {workspaceGraphStatus === 'connected' ? `${workspaceGraph.summary?.transactions || 0} TRANSACTIONS · ${workspaceGraph.summary?.matchedTransactions || 0} CRM MATCHES` : neonStatus === 'connected' ? 'DEMO DATA · NEON CONNECTED' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
       <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
 
 
 
-    <section className="bu-stage-wrap">
+    <section className={'bu-stage-wrap' + (detailTrail.length ? ' is-exploring-branch' : '')}>
       <div className="bu-stage-grid" />
       <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} detailTrail={detailTrail} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
