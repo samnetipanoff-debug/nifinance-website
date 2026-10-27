@@ -61,3 +61,18 @@ test('deduplicates within one accounting basis but keeps cash and accrual source
   assert.equal(cash, cashDuplicate);
   assert.notEqual(cash, accrual);
 });
+
+
+test('classifies loan proceeds and principal repayments by meaning, including reversals', () => {
+  const result = summarize([
+    { date: '2026-05-01', amount: 25000, basis: 'cash', category: 'Loan proceeds', description: 'Loan received', currency: 'EUR' },
+    { date: '2026-05-02', amount: -2000, basis: 'cash', category: 'Loan proceeds reversal', description: 'Reversal of loan received', currency: 'EUR' },
+    { date: '2026-05-03', amount: -1000, basis: 'cash', category: 'Loan principal', description: 'Principal repayment', currency: 'EUR' },
+    { date: '2026-05-04', amount: 100, basis: 'cash', category: 'Loan principal', description: 'Reversal of principal repayment', currency: 'EUR' }
+  ]);
+
+  assert.equal(result.cash.inflows, 0);
+  assert.equal(result.cash.outflows, 0);
+  assert.equal(result.cash.financing.loanProceeds, 23000);
+  assert.equal(result.cash.financing.principalRepayments, 900);
+});
