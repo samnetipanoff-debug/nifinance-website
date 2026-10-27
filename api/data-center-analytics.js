@@ -117,13 +117,16 @@ export function summarize(transactions) {
     dataScope: { transactionCount: rows.length, cashCount: cashRows.length, accrualCount: accrualRows.length, unconfirmedBasisCount: unknownRows.length, reviewCount: reviewRows.length, missingDateCount: missingDate.length, missingCategoryCount: missingCategory.length, currencies, dateRange: { from: rows.map(x => x._date).filter(Boolean).sort()[0] || null, to: rows.map(x => x._date).filter(Boolean).sort().at(-1) || null } },
     cash,
     accrual,
-    managementPnl: accrualRows.length ? {
+    managementPnl: accrualRows.length && !mixedCurrencies ? {
       status: 'provisional',
       note: 'This is a categorized accrual transaction summary, not yet a complete P&L. Revenue/expense recognition, period adjustments, tax treatment, and chart-of-accounts mapping must be validated.',
       income: accrual.inflows,
       expenses: accrual.outflows,
       netResultBeforeValidatedAdjustments: round(accrual.inflows - accrual.outflows),
       interestExpense: round(accrual.categories.filter(x => /interest expense/i.test(x.category)).reduce((s,x) => s + x.expense, 0))
+    } : accrualRows.length && mixedCurrencies ? {
+      status: 'multi_currency',
+      note: 'Accrual records contain multiple or unspecified currencies. A single combined P&L is suppressed until amounts are separated by currency.'
     } : {
       status: 'unavailable',
       note: 'No transactions explicitly marked as accrual basis. A complete management P&L cannot be derived safely from cash-only records.'
