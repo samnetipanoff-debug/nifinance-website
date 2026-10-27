@@ -735,7 +735,7 @@ export default function Universe2() {
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
       <div className="bu-scenario-mini"><button className={scenarioKey === 'growth' ? 'active' : ''} onClick={() => setScenarioKey('growth')}>LEAD GROWTH</button><button className={scenarioKey === 'cash' ? 'active' : ''} onClick={() => setScenarioKey('cash')}>REVENUE VS CASH</button><button className={showCausalPanel ? 'active' : ''} onClick={() => setShowCausalPanel(value => !value)}>CAUSE MAP {showCausalPanel ? '−' : '+'}</button></div>
-      {showCausalPanel && <aside className="bu-causal-panel" aria-label="Causal relationships and scenario model">
+      {showCausalPanel && detailTrail.length === 0 && <aside className="bu-causal-panel" aria-label="Causal relationships and scenario model">
         <div className="bu-causal-panel-head"><div><span>CAUSE → EFFECT / {scenarioKey === 'growth' ? 'ACQUISITION' : 'CASH FLOW'}</span><h2>{scenario.title}</h2><p>{scenario.subtitle}</p></div><button type="button" aria-label="Hide cause map" onClick={() => setShowCausalPanel(false)}>×</button></div>
         <div className="bu-causal-confidence"><span className="bu-confidence-dot observed" /> OBSERVED CHANGE <span className="bu-confidence-dot modeled" /> MODELED EFFECT</div>
         <div className="bu-causal-steps">
