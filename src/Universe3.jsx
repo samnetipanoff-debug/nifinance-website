@@ -96,14 +96,12 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
       const applyZoom = (value) => {
         targetZoom = Math.max(0.25, Math.min(3.0, value));
         const universe = el.closest('.business-universe3');
-        if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 0.8);
+        if (universe) {
+          universe.classList.toggle('is-zoomed', targetZoom >= 0.8);
+          universe.style.setProperty('--universe-zoom', String(targetZoom));
+        }
         // The entire 3D scene and its branch overlay share one zoom value.
         // Zoom remains available while exploring; it never changes the camera target.
-        const branchGraph = universe?.querySelector('.bu-sphere-branch-graph');
-        if (branchGraph) {
-          branchGraph.style.transform = `scale(${targetZoom})`;
-          branchGraph.style.transformOrigin = '50% 50%';
-        }
         zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
