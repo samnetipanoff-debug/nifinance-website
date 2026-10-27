@@ -540,3 +540,10 @@ body:has(.business-universe3),
  .business-universe3 .bu-branch-item { grid-template-columns:14px minmax(0,1fr) auto 10px;padding:8px 4px;gap:5px; }
  .business-universe3 .bu-branch-item-main em { display:none; }
 }
+
+.business-universe3 .bu-branch-crosslinks { margin-top:18px;padding-top:12px;border-top:1px solid #c9ff7825; }
+.business-universe3 .bu-branch-crosslinks>span { display:block;margin-bottom:8px;color:#83977c;font:7px 'DM Mono',monospace;letter-spacing:.1em; }
+.business-universe3 .bu-branch-crosslinks>button { display:flex;align-items:center;gap:8px;width:100%;padding:8px 2px;border:0;border-bottom:1px solid #c9ff7815;background:transparent;text-align:left;color:#dcebd5!important; }
+.business-universe3 .bu-branch-crosslinks>button i { width:6px;height:6px;flex:none;border-radius:50%; }
+.business-universe3 .bu-branch-crosslinks>button b { flex:1;font:9px 'DM Mono',monospace; }
+.business-universe3 .bu-branch-crosslinks>button em { color:#c9ff78;font-style:normal; }
