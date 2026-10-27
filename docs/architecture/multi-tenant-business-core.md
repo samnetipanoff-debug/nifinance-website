@@ -39,7 +39,7 @@ Organization
 4. Every link is tenant/workspace scoped. Database foreign keys prevent links across workspaces. API authorization must also check the user's active membership and permissions.
 5. A user may belong to multiple organizations. Their role and data scope are membership-specific, not global.
 6. Access is enforced on the server for every request. Hiding UI controls is not authorization. Use deny-by-default permissions and audit changes to access grants.
-7. The current browser workspace token is prototype access, not employee authentication. Do not treat this schema addition as production-ready authentication.
+7. The current browser workspace token is prototype access, not employee authentication. The API now shares one verifier that validates UUID/token shape and compares SHA-256 token hashes with a constant-time comparison. This hardens the existing prototype credential check, but it does not replace verified user identity, active organization membership, role/permission checks, session expiry/revocation, or audit of user actions. Do not treat this as production-ready authentication.
 8. Do not apply the migration until the API has been updated to create an organization with each new workspace and all endpoints enforce tenant/membership scope. Migration is additive and backfills existing workspaces to preserve current data.
 9. Do not store passwords in `dc_users`; connect a verified identity provider and persist its provider + subject. Invitation acceptance must verify identity.
 10. Universe visualization is a view over these entities and links; it must not become a second database.
