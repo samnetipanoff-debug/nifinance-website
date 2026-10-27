@@ -22,7 +22,9 @@ const dateOf = (tx) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw)) ? raw : null;
 };
 const monthOf = (tx) => dateOf(tx)?.slice(0, 7) || 'Undated';
-const isLoanPrincipal = (tx) => /loan principal|principal repayment|loan proceeds|loan received|credit received|proceeds from loan|тело кредита|погашение основного долга|получен кредит|получение кредита|поступление кредита|получение займа|заем получен|займ получен/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
+const loanTextOf = (tx) => categoryOf(tx) + ' ' + String(tx?.description || '');
+const isLoanProceeds = (tx) => /loan proceeds|loan received|credit received|proceeds from loan|received loan|кредит получен|получен кредит|получение кредита|поступление кредита|получение займа|заем получен|займ получен/i.test(loanTextOf(tx));
+const isPrincipalRepayment = (tx) => /loan principal|principal repayment|repayment of principal|тело кредита|погашение основного долга|погашение тела кредита|возврат основного долга/i.test(loanTextOf(tx));
 const isTransfer = (tx) => /internal transfer|перевод между счет|внутренний перевод/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isInterest = (tx) => /interest expense|процент по кредит|проценты по кредит/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 const isRefund = (tx) => /refund|reversal|возврат|сторно/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
@@ -37,7 +39,7 @@ export function summarize(transactions) {
   const missingCategory = rows.filter((tx) => !tx.category || /needs review/i.test(tx._category));
   const currencies = [...new Set(rows.map((tx) => String(tx.currency || '').trim().toUpperCase()).filter(Boolean))];
   const summarizeBasis = (basisRows, basis) => {
-    let inflows = 0, outflows = 0, financingIn = 0, financingOut = 0, excludedTransfers = 0;
+    let inflows = 0, outflows = 0, loanProceeds = 0, principalRepayments = 0, excludedTransfers = 0;
     const byCategory = new Map();
     const byMonth = new Map();
     const byCounterparty = new Map();
@@ -45,9 +47,15 @@ export function summarize(transactions) {
       const a = tx._amount;
       const cat = tx._category;
       if (isTransfer(tx)) { excludedTransfers += a; continue; }
-      if (isLoanPrincipal(tx)) {
-        if (a > 0) financingIn += a;
-        else financingOut += Math.abs(a);
+      if (isLoanProceeds(tx)) {
+        // Keep loan proceeds out of operating income; preserve reversals with their sign.
+        loanProceeds += a;
+        continue;
+      }
+      if (isPrincipalRepayment(tx)) {
+        // Outflows are negative in this data model, so a normal repayment is positive here.
+        // A positive reversal reduces the reported principal repayment amount.
+        principalRepayments -= a;
         continue;
       }
       if (a > 0) inflows += a;
@@ -79,7 +87,7 @@ export function summarize(transactions) {
       inflows: round(inflows),
       outflows: round(outflows),
       netCashMovement: round(inflows - outflows),
-      financing: { loanProceeds: round(financingIn), principalRepayments: round(financingOut) },
+      financing: { loanProceeds: round(loanProceeds), principalRepayments: round(principalRepayments) },
       excludedInternalTransfersNet: round(excludedTransfers),
       categories: [...byCategory.values()].map(money).sort((a,b) => b.expense - a.expense),
       monthly: [...byMonth.values()].map(money).sort((a,b) => a.month.localeCompare(b.month)),
