@@ -1,9 +1,7 @@
 import { neon } from '@neondatabase/serverless';
-import { createHash } from 'node:crypto';
+import { isWorkspaceId, isWorkspaceToken, workspaceTokenMatches } from './_lib/workspace-auth.js';
 
-const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const send = (res, status, body) => res.status(status).json(body);
-const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const norm = (value = '') => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
 const round = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const amountOf = (tx) => {
@@ -152,14 +150,14 @@ export default async function handler(req, res) {
   if (!process.env.DATABASE_URL) return send(res, 503, { error: 'Database connection is not configured', code: 'DATABASE_NOT_CONFIGURED' });
   const workspaceId = req.headers['x-workspace-id'];
   const token = req.headers['x-workspace-token'];
-  if (!isUuid(workspaceId) || typeof token !== 'string' || token.length < 32 || token.length > 256) {
+  if (!isWorkspaceId(workspaceId) || !isWorkspaceToken(token)) {
     return send(res, 401, { error: 'A valid workspace credential is required', code: 'INVALID_CREDENTIALS' });
   }
   try {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`SELECT payload, token_hash FROM public.dc_workspaces WHERE workspace_id = ${workspaceId}::uuid LIMIT 1`;
     const workspace = rows[0];
-    if (!workspace || workspace.token_hash !== hashToken(token)) return send(res, 401, { error: 'Workspace credential was not accepted', code: 'INVALID_CREDENTIALS' });
+    if (!workspace || !workspaceTokenMatches(workspace.token_hash, token)) return send(res, 401, { error: 'Workspace credential was not accepted', code: 'INVALID_CREDENTIALS' });
     const payload = workspace.payload || {};
     if (!Array.isArray(payload.transactions)) return send(res, 422, { error: 'Workspace transactions are invalid' });
     return send(res, 200, { analytics: summarize(payload.transactions) });
