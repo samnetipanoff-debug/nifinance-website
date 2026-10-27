@@ -633,6 +633,8 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
+  const [workspaceGraph, setWorkspaceGraph] = useState(null);
+  const [workspaceGraphStatus, setWorkspaceGraphStatus] = useState('idle');
   const [detailTrail, setDetailTrail] = useState([]);
   const openDetailWindow = selection => { setSelected(selection.nodeId); setDetailTrail(previous => [...previous, selection]); };
   const goBackDetail = () => setDetailTrail(previous => previous.slice(0, -1));
@@ -658,6 +660,22 @@ export default function Universe2() {
       });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    let cancelled = false;
+    const loadWorkspaceGraph = async () => {
+      try {
+        const credentials = JSON.parse(localStorage.getItem('nifinance-data-center-credentials-v1') || 'null');
+        if (!credentials?.workspaceId || !credentials?.token) { setWorkspaceGraphStatus('no-workspace'); return; }
+        setWorkspaceGraphStatus('loading');
+        const response = await fetch('/api/universe-graph', { cache: 'no-store', headers: { 'X-Workspace-Id': credentials.workspaceId, 'X-Workspace-Token': credentials.token } });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Workspace graph unavailable');
+        if (!cancelled) { setWorkspaceGraph(payload); setWorkspaceGraphStatus('connected'); }
+      } catch (error) { if (!cancelled) setWorkspaceGraphStatus('error'); }
+    };
+    loadWorkspaceGraph();
+    return () => { cancelled = true; };
+  }, []);
   const latestMonth = neonData?.months?.[neonData.months.length - 1];
   const firstMonth = neonData?.months?.[0];
   const eur = value => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -673,8 +691,26 @@ export default function Universe2() {
     customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
   };
   const active = nodes.find(n => n.id === selected) || nodes[0];
+  const graphNodeForId = id => {
+    if (!workspaceGraph || !id) return null;
+    return (workspaceGraph.nodes || []).find(n => n.id === id) || (workspaceGraph.transactions || []).find(n => n.id === id) || null;
+  };
+  const graphNeighbors = id => {
+    if (!workspaceGraph || !id) return [];
+    return (workspaceGraph.edges || []).filter(edge => edge.from === id || edge.to === id).map(edge => {
+      const otherId = edge.from === id ? edge.to : edge.from;
+      const item = graphNodeForId(otherId);
+      if (!item) return null;
+      const meta = item.meta || item;
+      const amount = meta.amount;
+      const value = amount == null ? (meta.stage ? String(meta.stage) : meta.status || '') : Number(amount).toLocaleString('en-GB') + ' ' + (meta.currency || 'UNSPECIFIED');
+      return { primary: item.label, secondary: (item.type || 'transaction') + ' · ' + edge.label, value, note: meta.description || meta.category || meta.status || '', graphNodeId: item.id, graphEdgeId: edge.id };
+    }).filter(Boolean).slice(0, 14);
+  };
   const getDetailRows = detailSelection => {
-    if (!detailSelection || !neonData) return [];
+    if (!detailSelection) return [];
+    if (detailSelection.graphNodeId && workspaceGraph) return graphNeighbors(detailSelection.graphNodeId);
+    if (!neonData) return [];
     const month = latestMonth?.month_start;
     const money = value => eur(value);
     const monthLabel = value => { const d = new Date(`${value}T00:00:00Z`); return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); };
@@ -682,9 +718,11 @@ export default function Universe2() {
       return (neonData.channels || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'procurement' || x.spend > 0)).map(x => ({ primary: x.channel, secondary: monthLabel(x.month_start), value: detailSelection.nodeId === 'procurement' ? money(x.spend) : `${x.qualified_leads} qualified leads`, note: `${x.impressions.toLocaleString('en-GB')} impressions · ${x.clicks.toLocaleString('en-GB')} clicks · ${x.leads} leads · ${x.opportunities} opportunities · ${x.deals_won} wins · CPL ${money(x.cost_per_lead)} · CPQL ${money(x.cost_per_qualified_lead)}` }));
     }
     if (detailSelection.nodeId === 'sales' || detailSelection.nodeId === 'customers') {
+      if (workspaceGraph && (workspaceGraph.nodes || []).some(n => n.type === 'contact' || n.type === 'deal')) return (workspaceGraph.nodes || []).filter(n => n.type === (detailSelection.nodeId === 'customers' ? 'contact' : 'deal')).slice(0, 40).map(n => ({ primary: n.label, secondary: n.type.toUpperCase() + ' · ' + (n.meta?.stage || n.meta?.kind || n.meta?.status || 'workspace record'), value: n.meta?.amount == null ? '' : String(n.meta.amount) + ' ' + (n.meta.currency || ''), note: 'Workspace CRM record · select to inspect linked transactions and tasks', graphNodeId: n.id }));
       return (neonData.deals || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'customers' || x.stage === 'won')).map(x => ({ primary: x.client, secondary: `${x.deal} · ${x.stage.toUpperCase()}`, value: money(x.value), note: `${x.date} · ${x.service_line} · ${x.channel} · ${x.payment_terms_days}-day payment terms` }));
     }
     if (detailSelection.nodeId === 'finance') {
+      if (workspaceGraph?.transactions?.length) return workspaceGraph.transactions.slice(0, 40).map(tx => ({ primary: tx.counterparty || tx.label, secondary: (tx.date || 'Undated') + ' · ' + (tx.basis || 'unknown basis'), value: Number(tx.amount || 0).toLocaleString('en-GB') + ' ' + (tx.currency || 'UNSPECIFIED'), note: (tx.category || 'Needs review') + ' · ' + tx.label, graphNodeId: tx.id }));
       return (neonData.transactions || []).filter(x => x.month_start === month).map(x => ({ primary: x.category, secondary: `${x.direction.toUpperCase()} · ${x.status}`, value: money(x.amount), note: `${x.date} · ${x.counterparty} · ${x.description}${x.related_client ? ` · ${x.related_client}` : ''}` }));
     }
     if (detailSelection.nodeId === 'operations') {
