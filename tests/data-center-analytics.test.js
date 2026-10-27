@@ -43,6 +43,10 @@ test('flags multiple currencies instead of silently converting or summing them',
     { date: '2026-03-02', amount: 100, basis: 'cash', category: 'Sales income', currency: 'USD' }
   ]);
   assert.ok(result.alerts.some((alert) => alert.code === 'MULTIPLE_CURRENCIES'));
+  assert.equal(result.cash.inflows, null, 'cross-currency total must not be presented as one amount');
+  assert.equal(result.cash.monthly.length, 2, 'monthly records remain separated by currency');
+  assert.deepEqual(result.cash.monthly.map((row) => row.currency).sort(), ['EUR', 'USD']);
+  assert.equal(result.managementPnl.status, 'unavailable');
 });
 
 import { transactionFingerprint } from '../src/data-center-import-utils.js';
