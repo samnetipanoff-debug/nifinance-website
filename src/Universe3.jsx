@@ -578,7 +578,8 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
       const node = root?.querySelector('.sphere-node-label.active');
       if (root && node) {
         const rr = root.getBoundingClientRect(), nr = node.getBoundingClientRect();
-        setAnchor({ x: nr.left + nr.width / 2 - rr.left, y: nr.top + nr.height / 2 - rr.top, ready: true });
+        const x = nr.left + nr.width / 2 - rr.left, y = nr.top + nr.height / 2 - rr.top;
+        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 1.25 && Math.abs(previous.y - y) < 1.25 ? previous : { x, y, ready: true });
       }
       frame = requestAnimationFrame(measure);
     };
