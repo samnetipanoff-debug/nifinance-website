@@ -97,6 +97,13 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         targetZoom = Math.max(0.25, Math.min(3.0, value));
         const universe = el.closest('.business-universe3');
         if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 0.8);
+        // The entire 3D scene and its branch overlay share one zoom value.
+        // Zoom remains available while exploring; it never changes the camera target.
+        const branchGraph = universe?.querySelector('.bu-sphere-branch-graph');
+        if (branchGraph) {
+          branchGraph.style.transform = `scale(${targetZoom})`;
+          branchGraph.style.transformOrigin = '50% 50%';
+        }
         zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
@@ -410,10 +417,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         const zoomEase = reduced ? 0.22 : 0.075;
         zoomLevel += (targetZoom - zoomLevel) * zoomEase;
         if (Math.abs(targetZoom - zoomLevel) < 0.001) zoomLevel = targetZoom;
-        businessElements.scale.setScalar(zoomLevel);
-        businessElements.position.z = (zoomLevel - 1) * 6.0;
-        businessElements.position.x = (zoomLevel - 1) * -0.22;
-        businessElements.position.y = (zoomLevel - 1) * 0.16;
+        shell.scale.setScalar(zoomLevel);
         // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
         // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
         if (!isDragging && !reduced) {
@@ -426,16 +430,11 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         }
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
-        // Fly from the sphere centre toward the selected node while drilling into a branch.
-        const trail = stateRef.current.detailTrail || [];
-        const focusNode = nodeById[stateRef.current.selected];
-        const focusWorld = focusNode ? focusNode.group.getWorldPosition(new THREE.Vector3()) : null;
-        const cameraTarget = trail.length && focusWorld ? focusWorld.clone().normalize().multiplyScalar(2.15) : new THREE.Vector3(0, 0, 0);
-        const lookTarget = trail.length && focusWorld ? focusWorld.clone().multiplyScalar(0.96) : new THREE.Vector3(0, 0, -1);
-        camera.position.lerp(cameraTarget, reduced ? 0.16 : 0.055);
-        const currentLook = camera.getWorldDirection(new THREE.Vector3()).add(camera.position);
-        currentLook.lerp(lookTarget, reduced ? 0.16 : 0.07);
-        camera.lookAt(currentLook);
+        // Keep the camera at the sphere centre. Drill-down changes the highlighted
+        // relationship layer, not the camera pose, so users never lose the overview.
+        // Zoom and drag-to-rotate stay available at every branch depth.
+        camera.position.set(0, 0, 0);
+        camera.lookAt(0, 0, -1);
         linkMeshes.forEach(({ from, to, line, material }) => {
           const highlighted = pathSet.has(from) && pathSet.has(to);
           material.opacity = highlighted ? 0.92 : 0.13;
@@ -515,7 +514,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             // Node names and headline metrics are always visible at every zoom level.
             // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
             const showMetrics = zoomLevel >= 0.8;
-            label.style.opacity = trail.length ? '0' : (visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0');
+            // Preserve a dimmed overview behind the selected branch (focus + context).
+            // Context nodes stay visible but inactive until the user returns to UNIVERSE.
+            label.style.opacity = trail.length ? (visible ? (active ? '0.72' : '0.24') : '0') : (visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0');
             label.style.pointerEvents = visible && !trail.length ? 'auto' : 'none';
             label.classList.toggle('details-open', expanded && active && showMetrics);
             label.classList.toggle('active', active);
@@ -606,13 +607,16 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
   const startY = anchor.ready ? anchor.y : height * 0.5;
   const childX = startX;
   // Children form a small orbit around the focused node and recede into the sphere.
-  const orbitX = Math.min(205, Math.max(94, width * 0.18));
-  const orbitY = Math.min(175, Math.max(78, height * 0.21));
-  const children = branches.slice(0, 8).map((item, index) => {
-    const angle = -Math.PI / 2 + (index / Math.max(Math.min(branches.length, 8), 1)) * Math.PI * 2;
-    const radius = branches.length === 1 ? 0.42 : branches.length < 4 ? 0.72 : 1;
-    const depth = 155 + trail.length * 72 + (index % 3) * 22;
-    return { item, x: Math.max(82, Math.min(width - 82, startX + Math.cos(angle) * orbitX * radius)), y: Math.max(76, Math.min(height - 76, startY + Math.sin(angle) * orbitY * radius)), depth, scale: Math.max(0.58, 0.88 - trail.length * 0.045 - (index % 3) * 0.035) };
+  const orbitX = Math.min(300, Math.max(145, width * 0.27));
+  const orbitY = Math.min(225, Math.max(105, height * 0.27));
+  const visibleBranches = branches.slice(0, 8);
+  const maxDepth = 4;
+  const canContinue = trail.length < maxDepth;
+  const children = visibleBranches.map((item, index) => {
+    const angle = -Math.PI / 2 + (index / Math.max(visibleBranches.length, 1)) * Math.PI * 2;
+    const radius = visibleBranches.length === 1 ? 0.5 : visibleBranches.length < 4 ? 0.78 : 1;
+    const depth = 85 + trail.length * 34 + (index % 3) * 12;
+    return { item, x: Math.max(92, Math.min(width - 92, startX + Math.cos(angle) * orbitX * radius)), y: Math.max(82, Math.min(height - 82, startY + Math.sin(angle) * orbitY * radius)), depth, scale: Math.max(0.78, 1.0 - trail.length * 0.035 - (index % 3) * 0.025) };
   });
   return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
     <div className="bu-graph-path"><button type="button" onClick={onReset}>UNIVERSE</button>{trail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===trail.length-1?'current':''} onClick={()=>onBreadcrumb(index)}>{item.label}</button></React.Fragment>)}<button className="bu-graph-back" type="button" onClick={onBack}>← BACK</button></div>
@@ -620,9 +624,9 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
       {children.map(({item,x,y,depth},index)=><path key={item.id||item.graphNodeId||item.primary||index} className={'bu-graph-link-depth bu-graph-link-depth-'+(index%3)} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
     </svg>
     <button type="button" className="bu-graph-root" style={{left:width/2+(startX-width/2)*(980-42)/980,top:height/2+(startY-height/2)*(980-42)/980,'--branch-depth':'42px'}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
-    {children.map(({item,x,y,depth,scale},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':item.color,'--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>onSelectNode(item.id)}><i/><span>{item.label}</span><b>{item.value}</b><small>FOLLOW CONNECTION</small></button> : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}><i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary||'SOURCE RECORD'}</small></button>)}
+    {children.map(({item,x,y,depth,scale},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':item.color,'--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>canContinue && onSelectNode(item.id)} disabled={!canContinue}><i/><span>{item.label}</span><b>{item.value}</b><small>{canContinue ? 'FOLLOW CONNECTION' : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button> : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>canContinue && onOpenRecord(item)} disabled={!canContinue}><i/><span>{item.primary}</span><b>{item.value}</b><small>{canContinue ? (item.secondary||'SOURCE RECORD') : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button>)}
     {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
-    <div className="bu-graph-hint">FOLLOW THE BRANCH · SELECT A NODE TO GO DEEPER</div>
+    <div className="bu-graph-hint">{canContinue ? `DEPTH ${trail.length}/${maxDepth} · SCROLL TO ZOOM · DRAG TO ROTATE · UNIVERSE FOR FULL OVERVIEW` : 'MAX DEPTH REACHED · SELECT UNIVERSE TO RETURN TO FULL OVERVIEW'}</div>
   </div>;
 }
 
@@ -836,13 +840,13 @@ export default function Universe2() {
           const current = previous[previous.length - 1];
           const existing = row.graphNodeId ? previous.findIndex(item => item.graphNodeId === row.graphNodeId) : previous.findIndex(item => item.nodeId === current?.nodeId && item.record?.primary === row.primary);
           if (existing >= 0) return previous.slice(0, existing + 1);
-          if (previous.length >= 7) return previous;
+          if (previous.length >= 4) return previous;
           return [...previous, { nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
         })}
         onSelectNode={id => {
           const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
           if (existing >= 0) { setDetailTrail(previous => previous.slice(0, existing + 1)); return; }
-          if (detailTrail.length >= 7) return;
+          if (detailTrail.length >= 4) return;
           const graphNode = graphNodeForId(id);
           const type = graphNode?.type || '';
           const mappedId = type === 'contact' ? 'customers' : type === 'deal' ? 'sales' : type === 'transaction' ? 'finance' : (nodes.find(n=>n.id===id)?.id || selected);
