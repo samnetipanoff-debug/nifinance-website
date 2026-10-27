@@ -33,7 +33,7 @@ test('does not claim an accrual P&L when only cash records exist', () => {
   const result = summarize([
     { date: '2026-02-01', amount: 100, basis: 'cash', category: 'Sales income', currency: 'EUR' }
   ]);
-  assert.equal(result.managementPnl.status, 'multi_currency');
+  assert.equal(result.managementPnl.status, 'unavailable');
   assert.equal(result.accrual.transactionCount, 0);
 });
 
@@ -48,7 +48,7 @@ test('flags multiple currencies instead of silently converting or summing them',
   assert.equal(result.cash.inflows, null, 'cross-currency total must not be presented as one amount');
   assert.equal(result.cash.monthly.length, 2, 'monthly records remain separated by currency');
   assert.deepEqual(result.cash.monthly.map((row) => row.currency).sort(), ['EUR', 'USD']);
-  assert.equal(result.managementPnl.status, 'unavailable');
+  assert.equal(result.managementPnl.status, 'multi_currency');
 });
 
 import { transactionFingerprint } from '../src/data-center-import-utils.js';
