@@ -46,10 +46,10 @@ const scenarios = {
   }
 };
 
-function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDrilldown, scenario, liveMetrics }) {
+function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDrilldown, scenario, liveMetrics, detailTrail }) {
   const host = useRef(null);
-  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics });
-  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics]);
+  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail });
+  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail]);
 
   useEffect(() => {
     const el = host.current;
@@ -426,6 +426,16 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         }
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
+        // Fly from the sphere centre toward the selected node while drilling into a branch.
+        const trail = stateRef.current.detailTrail || [];
+        const focusNode = nodeById[stateRef.current.selected];
+        const focusWorld = focusNode ? focusNode.group.getWorldPosition(new THREE.Vector3()) : null;
+        const cameraTarget = trail.length && focusWorld ? focusWorld.clone().normalize().multiplyScalar(2.15) : new THREE.Vector3(0, 0, 0);
+        const lookTarget = trail.length && focusWorld ? focusWorld.clone().multiplyScalar(0.96) : new THREE.Vector3(0, 0, -1);
+        camera.position.lerp(cameraTarget, reduced ? 0.16 : 0.055);
+        const currentLook = camera.getWorldDirection(new THREE.Vector3()).add(camera.position);
+        currentLook.lerp(lookTarget, reduced ? 0.16 : 0.07);
+        camera.lookAt(currentLook);
         linkMeshes.forEach(({ from, to, line, material }) => {
           const highlighted = pathSet.has(from) && pathSet.has(to);
           material.opacity = highlighted ? 0.92 : 0.13;
@@ -505,9 +515,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             // Node names and headline metrics are always visible at every zoom level.
             // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
             const showMetrics = zoomLevel >= 0.8;
-            label.style.opacity = visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0';
-            label.style.pointerEvents = visible ? 'auto' : 'none';
-            label.classList.toggle('details-open', expanded && showMetrics);
+            label.style.opacity = trail.length ? '0' : (visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0');
+            label.style.pointerEvents = visible && !trail.length ? 'auto' : 'none';
+            label.classList.toggle('details-open', expanded && active && showMetrics);
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
           }
@@ -615,7 +625,7 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const toggleExpanded = id => setExpandedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleExpanded = id => setExpandedIds(previous => previous.has(id) && selected === id ? new Set() : new Set([id]));
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
   const [showCausalPanel, setShowCausalPanel] = useState(true);
