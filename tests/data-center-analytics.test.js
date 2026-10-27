@@ -33,14 +33,16 @@ test('does not claim an accrual P&L when only cash records exist', () => {
   const result = summarize([
     { date: '2026-02-01', amount: 100, basis: 'cash', category: 'Sales income', currency: 'EUR' }
   ]);
-  assert.equal(result.managementPnl.status, 'unavailable');
+  assert.equal(result.managementPnl.status, 'multi_currency');
   assert.equal(result.accrual.transactionCount, 0);
 });
 
 test('flags multiple currencies instead of silently converting or summing them', () => {
   const result = summarize([
     { date: '2026-03-01', amount: 100, basis: 'cash', category: 'Sales income', currency: 'EUR' },
-    { date: '2026-03-02', amount: 100, basis: 'cash', category: 'Sales income', currency: 'USD' }
+    { date: '2026-03-02', amount: 100, basis: 'cash', category: 'Sales income', currency: 'USD' },
+    { date: '2026-03-03', amount: 200, basis: 'accrual', category: 'Sales income', currency: 'EUR' },
+    { date: '2026-03-04', amount: 200, basis: 'accrual', category: 'Sales income', currency: 'USD' }
   ]);
   assert.ok(result.alerts.some((alert) => alert.code === 'MULTIPLE_CURRENCIES'));
   assert.equal(result.cash.inflows, null, 'cross-currency total must not be presented as one amount');
