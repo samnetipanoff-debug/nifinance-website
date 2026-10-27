@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { isWorkspaceId, isWorkspaceToken, workspaceTokenMatches } from './_lib/workspace-auth.js';
 import { summarize as summarizeFinance } from './data-center-analytics.js';
-const norm = value => String(value ?? '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9а-яё]+/gi,' ').trim();
+const norm = value => String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9а-яё]+/gi,' ').trim();
 
 const send=(res,status,body)=>res.status(status).json(body);
 const clean=(v,n=180)=>String(v??'').slice(0,n);
