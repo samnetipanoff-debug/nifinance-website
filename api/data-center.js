@@ -1,9 +1,8 @@
 import { neon } from '@neondatabase/serverless';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { hashWorkspaceToken, isWorkspaceId, isWorkspaceToken, workspaceTokenMatches } from './_lib/workspace-auth.js';
 
 const MAX_PAYLOAD_BYTES = 5 * 1024 * 1024;
-const hashToken = (token) => createHash('sha256').update(token).digest('hex');
-const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const normalize = (value = '') => String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim() || 'unknown';
 
 function send(res, status, body) {
@@ -226,7 +225,7 @@ export default async function handler(req, res) {
       const workspaceId = randomUUID();
       const token = randomBytes(32).toString('base64url');
       await sql`INSERT INTO public.dc_workspaces (workspace_id, token_hash, payload)
-        VALUES (${workspaceId}::uuid, ${hashToken(token)}, '{"transactions":[],"rules":[]}'::jsonb)`;
+        VALUES (${workspaceId}::uuid, ${hashWorkspaceToken(token)}, '{"transactions":[],"rules":[]}'::jsonb)`;
       return send(res, 201, { workspaceId, token, payload: { transactions: [], rules: [] } });
     } catch (error) {
       console.error('Data Center workspace creation failed:', error);
@@ -241,7 +240,7 @@ export default async function handler(req, res) {
 
   const workspaceId = req.headers['x-workspace-id'];
   const token = req.headers['x-workspace-token'];
-  if (!isUuid(workspaceId) || typeof token !== 'string' || token.length < 32 || token.length > 256) {
+  if (!isWorkspaceId(workspaceId) || !isWorkspaceToken(token)) {
     return send(res, 401, { error: 'A valid workspace credential is required', code: 'INVALID_CREDENTIALS' });
   }
 
@@ -249,7 +248,7 @@ export default async function handler(req, res) {
     const rows = await sql`SELECT workspace_id, token_hash, payload
       FROM public.dc_workspaces WHERE workspace_id = ${workspaceId}::uuid LIMIT 1`;
     const workspace = rows[0];
-    if (!workspace || workspace.token_hash !== hashToken(token)) {
+    if (!workspace || !workspaceTokenMatches(workspace.token_hash, token)) {
       return send(res, 401, { error: 'Workspace credential was not accepted', code: 'INVALID_CREDENTIALS' });
     }
 
