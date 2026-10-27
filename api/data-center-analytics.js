@@ -22,6 +22,7 @@ const dateOf = (tx) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw)) ? raw : null;
 };
 const monthOf = (tx) => dateOf(tx)?.slice(0, 7) || 'Undated';
+const currencyOf = (tx) => String(tx?.currency || '').trim().toUpperCase() || 'UNSPECIFIED';
 const loanTextOf = (tx) => categoryOf(tx) + ' ' + String(tx?.description || '');
 const isLoanProceeds = (tx) => /loan proceeds|loan received|credit received|proceeds from loan|received loan|кредит получен|получен кредит|получение кредита|поступление кредита|получение займа|заем получен|займ получен/i.test(loanTextOf(tx));
 const isPrincipalRepayment = (tx) => /loan principal|principal repayment|repayment of principal|тело кредита|погашение основного долга|погашение тела кредита|возврат основного долга/i.test(loanTextOf(tx));
@@ -30,14 +31,15 @@ const isInterest = (tx) => /interest expense|процент по кредит|п
 const isRefund = (tx) => /refund|reversal|возврат|сторно/i.test(categoryOf(tx) + ' ' + String(tx?.description || ''));
 
 export function summarize(transactions) {
-  const rows = transactions.map((tx, index) => ({ ...tx, _index: index, _amount: amountOf(tx), _basis: basisOf(tx), _date: dateOf(tx), _category: categoryOf(tx), _month: monthOf(tx) }));
+  const rows = transactions.map((tx, index) => ({ ...tx, _index: index, _amount: amountOf(tx), _basis: basisOf(tx), _date: dateOf(tx), _category: categoryOf(tx), _month: monthOf(tx), _currency: currencyOf(tx) }));
   const cashRows = rows.filter((tx) => tx._basis === 'cash');
   const accrualRows = rows.filter((tx) => tx._basis === 'accrual');
   const unknownRows = rows.filter((tx) => tx._basis === 'unknown');
   const reviewRows = rows.filter((tx) => /review|pending|unclassified|needs review/i.test(String(tx.status || '')) || /needs review|не определено|требует проверки/i.test(tx._category));
   const missingDate = rows.filter((tx) => !tx._date);
   const missingCategory = rows.filter((tx) => !tx.category || /needs review/i.test(tx._category));
-  const currencies = [...new Set(rows.map((tx) => String(tx.currency || '').trim().toUpperCase()).filter(Boolean))];
+  const currencies = [...new Set(rows.map((tx) => tx._currency))].sort();
+  const mixedCurrencies = currencies.length > 1;
   const summarizeBasis = (basisRows, basis) => {
     let inflows = 0, outflows = 0, loanProceeds = 0, principalRepayments = 0, excludedTransfers = 0;
     const byCategory = new Map();
@@ -60,34 +62,37 @@ export function summarize(transactions) {
       }
       if (a > 0) inflows += a;
       if (a < 0) outflows += Math.abs(a);
-      const entry = byCategory.get(cat) || { category: cat, income: 0, expense: 0, net: 0, count: 0 };
+      const categoryKey = `${tx._currency}::${cat}`;
+      const entry = byCategory.get(categoryKey) || { currency: tx._currency, category: cat, income: 0, expense: 0, net: 0, count: 0 };
       if (a > 0) entry.income += a;
       if (a < 0) entry.expense += Math.abs(a);
       entry.net += a;
       entry.count++;
-      byCategory.set(cat, entry);
-      const month = byMonth.get(tx._month) || { month: tx._month, inflows: 0, outflows: 0, net: 0, count: 0 };
+      byCategory.set(categoryKey, entry);
+      const monthKey = `${tx._currency}::${tx._month}`;
+      const month = byMonth.get(monthKey) || { currency: tx._currency, month: tx._month, inflows: 0, outflows: 0, net: 0, count: 0 };
       if (a > 0) month.inflows += a;
       if (a < 0) month.outflows += Math.abs(a);
       month.net += a;
       month.count++;
-      byMonth.set(tx._month, month);
+      byMonth.set(monthKey, month);
       const cp = String(tx.counterparty || tx.counterparty_name || 'Unknown counterparty').trim() || 'Unknown counterparty';
-      const cpEntry = byCounterparty.get(cp) || { counterparty: cp, inflows: 0, outflows: 0, net: 0, count: 0 };
+      const cpKey = `${tx._currency}::${cp}`;
+      const cpEntry = byCounterparty.get(cpKey) || { currency: tx._currency, counterparty: cp, inflows: 0, outflows: 0, net: 0, count: 0 };
       if (a > 0) cpEntry.inflows += a;
       if (a < 0) cpEntry.outflows += Math.abs(a);
       cpEntry.net += a;
       cpEntry.count++;
-      byCounterparty.set(cp, cpEntry);
+      byCounterparty.set(cpKey, cpEntry);
     }
     const money = (obj) => Object.fromEntries(Object.entries(obj).map(([k,v]) => [k, typeof v === 'number' ? round(v) : v]));
     return {
       basis,
       transactionCount: basisRows.length,
-      inflows: round(inflows),
-      outflows: round(outflows),
-      netCashMovement: round(inflows - outflows),
-      financing: { loanProceeds: round(loanProceeds), principalRepayments: round(principalRepayments) },
+      inflows: mixedCurrencies ? null : round(inflows),
+      outflows: mixedCurrencies ? null : round(outflows),
+      netCashMovement: mixedCurrencies ? null : round(inflows - outflows),
+      financing: { loanProceeds: mixedCurrencies ? null : round(loanProceeds), principalRepayments: mixedCurrencies ? null : round(principalRepayments) },
       excludedInternalTransfersNet: round(excludedTransfers),
       categories: [...byCategory.values()].map(money).sort((a,b) => b.expense - a.expense),
       monthly: [...byMonth.values()].map(money).sort((a,b) => a.month.localeCompare(b.month)),
@@ -104,7 +109,7 @@ export function summarize(transactions) {
   if (currencies.length > 1) alerts.push({ severity: 'warning', code: 'MULTIPLE_CURRENCIES', title: 'Multiple currencies detected', count: currencies.length, currencies, explanation: 'Totals are not converted. Do not compare or sum currencies as if they were one currency.' });
   if (!accrualRows.length) alerts.push({ severity: 'info', code: 'NO_ACCRUAL_SOURCE', title: 'Full accrual P&L is not available', explanation: 'Only records explicitly marked as accrual basis can contribute to the accrual view. Cash movement is not the same as profit.' });
   if (cashRows.length && !accrualRows.length) alerts.push({ severity: 'info', code: 'CASH_ONLY_DATA', title: 'Cash view is available', explanation: 'Use this as cash movement analysis, not as a complete management P&L or balance sheet.' });
-  const topExpense = cash.categories.filter((x) => x.expense > 0 && !/loan principal|internal transfer/i.test(x.category)).sort((a,b) => b.expense - a.expense)[0];
+  const topExpense = !mixedCurrencies ? cash.categories.filter((x) => x.expense > 0 && !/loan principal|internal transfer/i.test(x.category)).sort((a,b) => b.expense - a.expense)[0] : null;
   if (topExpense) alerts.push({ severity: 'info', code: 'TOP_CASH_EXPENSE', title: 'Largest classified cash outflow category', category: topExpense.category, amount: topExpense.expense, explanation: 'This is a descriptive finding, not a causal diagnosis or recommendation by itself.' });
 
   return {
