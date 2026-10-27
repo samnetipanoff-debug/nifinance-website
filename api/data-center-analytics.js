@@ -39,7 +39,8 @@ export function summarize(transactions) {
   const missingDate = rows.filter((tx) => !tx._date);
   const missingCategory = rows.filter((tx) => !tx.category || /needs review/i.test(tx._category));
   const currencies = [...new Set(rows.map((tx) => tx._currency))].sort();
-  const mixedCurrencies = currencies.length > 1;
+  const currenciesInConfirmedViews = [...new Set(rows.filter((tx) => tx._basis !== 'unknown').map((tx) => tx._currency))].sort();
+  const mixedCurrencies = currenciesInConfirmedViews.length > 1;
   const summarizeBasis = (basisRows, basis) => {
     let inflows = 0, outflows = 0, loanProceeds = 0, principalRepayments = 0, excludedTransfers = 0;
     const byCategory = new Map();
