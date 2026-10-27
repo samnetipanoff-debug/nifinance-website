@@ -782,7 +782,7 @@ export default function Universe2() {
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} />
+      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} detailTrail={detailTrail} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
@@ -825,9 +825,28 @@ export default function Universe2() {
         selected={selected}
         trail={detailTrail}
         rows={detailTrail.length && !detailTrail[detailTrail.length - 1].record ? getDetailRows(detailTrail[detailTrail.length - 1]) : []}
-        relatedNodes={(nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
-        onOpenRecord={row => setDetailTrail(previous => [...previous, { nodeId: detailTrail[detailTrail.length - 1].nodeId, label: row.primary, value: row.value, record: row }])}
-        onSelectNode={id => { setSelected(id); setDetailTrail(previous => [...previous, { nodeId: id, label: nodes.find(n => n.id === id)?.label || id, value: nodes.find(n => n.id === id)?.value || '' }]); }}
+        relatedNodes={detailTrail[detailTrail.length - 1]?.graphNodeId
+          ? graphNeighbors(detailTrail[detailTrail.length - 1].graphNodeId).map(row => { const n=graphNodeForId(row.graphNodeId); return { id: row.graphNodeId, label: row.primary, value: row.value, color: n?.meta?.color || (n?.type==='transaction'?'#ffbf69':n?.type==='deal'?'#b9a0ff':'#71dfff') }; })
+          : (nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
+        onOpenRecord={row => setDetailTrail(previous => {
+          const current = previous[previous.length - 1];
+          const existing = row.graphNodeId ? previous.findIndex(item => item.graphNodeId === row.graphNodeId) : previous.findIndex(item => item.nodeId === current?.nodeId && item.record?.primary === row.primary);
+          if (existing >= 0) return previous.slice(0, existing + 1);
+          if (previous.length >= 7) return previous;
+          return [...previous, { nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
+        })}
+        onSelectNode={id => {
+          const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
+          if (existing >= 0) { setDetailTrail(previous => previous.slice(0, existing + 1)); return; }
+          if (detailTrail.length >= 7) return;
+          const graphNode = graphNodeForId(id);
+          const type = graphNode?.type || '';
+          const mappedId = type === 'contact' ? 'customers' : type === 'deal' ? 'sales' : type === 'transaction' ? 'finance' : (nodes.find(n=>n.id===id)?.id || selected);
+          const staticNode = nodes.find(n=>n.id===mappedId);
+          setSelected(mappedId);
+          setExpandedIds(new Set());
+          setDetailTrail(previous => [...previous, { nodeId: mappedId, graphNodeId: id, label: graphNode?.label || staticNode?.label || id, value: graphNode?.meta?.amount == null ? (graphNode?.meta?.stage || '') : String(graphNode.meta.amount) + ' ' + (graphNode.meta.currency || '') }]);
+        }}
         onReset={resetDetailTrail}
         onBack={goBackDetail}
         onBreadcrumb={index => setDetailTrail(previous => previous.slice(0, index + 1))}
