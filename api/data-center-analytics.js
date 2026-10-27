@@ -116,7 +116,7 @@ export function summarize(transactions) {
   }
   if (!accrualRows.length) alerts.push({ severity: 'info', code: 'NO_ACCRUAL_SOURCE', title: 'Full accrual P&L is not available', explanation: 'Only records explicitly marked as accrual basis can contribute to the accrual view. Cash movement is not the same as profit.' });
   if (cashRows.length && !accrualRows.length) alerts.push({ severity: 'info', code: 'CASH_ONLY_DATA', title: 'Cash view is available', explanation: 'Use this as cash movement analysis, not as a complete management P&L or balance sheet.' });
-  const topExpense = !mixedCurrencies ? cash.categories.filter((x) => x.expense > 0 && !/loan principal|internal transfer/i.test(x.category)).sort((a,b) => b.expense - a.expense)[0] : null;
+  const topExpense = !mixedCashCurrencies ? cash.categories.filter((x) => x.expense > 0 && !/loan principal|internal transfer/i.test(x.category)).sort((a,b) => b.expense - a.expense)[0] : null;
   if (topExpense) alerts.push({ severity: 'info', code: 'TOP_CASH_EXPENSE', title: 'Largest classified cash outflow category', category: topExpense.category, amount: topExpense.expense, explanation: 'This is a descriptive finding, not a causal diagnosis or recommendation by itself.' });
 
   return {
