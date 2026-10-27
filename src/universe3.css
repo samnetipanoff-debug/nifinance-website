@@ -490,3 +490,53 @@ body:has(.business-universe3),
   .bu-model-results b { font-size:11px; }
   .business-universe3 .bu-scenario-mini { max-width:calc(100% - 16px); flex-wrap:wrap; }
 }
+
+
+/* In-sphere mind-map navigation: one persistent branch surface, never floating windows. */
+.business-universe3 .bu-branch-navigator {
+  position:absolute; z-index:9; right:clamp(14px,2.4vw,34px); bottom:66px;
+  width:min(460px,calc(100% - 28px)); max-height:min(68%,650px);
+  display:flex; flex-direction:column; overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--branch-color),transparent 42%);
+  border-top:2px solid var(--branch-color);
+  background:linear-gradient(145deg,rgba(5,12,8,.92),rgba(3,8,6,.88));
+  color:#eaf3e5; box-shadow:0 12px 48px #0005; backdrop-filter:blur(12px);
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%);
+}
+.business-universe3 .bu-branch-top { display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px 10px;border-bottom:1px solid #c9ff7826; }
+.business-universe3 .bu-branch-top span,.business-universe3 .bu-branch-record>span { color:var(--branch-color);font:8px 'DM Mono',monospace;letter-spacing:.13em; }
+.business-universe3 .bu-branch-top h2 { margin:6px 0 0;font:500 20px 'Space Grotesk',sans-serif; }
+.business-universe3 .bu-branch-top>button { width:27px;height:27px;border:1px solid #c9ff7835;background:#c9ff7808;color:#eaf3e5!important;font-size:18px!important; }
+.business-universe3 .bu-branch-breadcrumb { display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 15px;border-bottom:1px solid #c9ff7818;background:#c9ff7805; }
+.business-universe3 .bu-branch-breadcrumb button { padding:2px 0;border:0;background:transparent;color:#91a38b!important;font:8px 'DM Mono',monospace; }
+.business-universe3 .bu-branch-breadcrumb button.current { color:#eaf3e5!important; }
+.business-universe3 .bu-branch-breadcrumb i { color:var(--branch-color);font-style:normal;font-size:12px; }
+.business-universe3 .bu-branch-context { margin:0;padding:10px 15px;color:#8da087;font:8px/1.6 'DM Mono',monospace; }
+.business-universe3 .bu-branch-list { min-height:0;overflow:auto;padding:0 10px 8px;scrollbar-width:thin;scrollbar-color:#40583a transparent; }
+.business-universe3 .bu-branch-item { position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) auto 12px;align-items:start;gap:8px;width:100%;padding:10px 7px;border:0;border-bottom:1px solid #c9ff7817;background:transparent;text-align:left;color:#eaf3e5!important; }
+.business-universe3 .bu-branch-item:hover,.business-universe3 .bu-branch-item:focus-visible { background:#c9ff780a;outline:1px solid #c9ff7830; }
+.business-universe3 .bu-branch-link { color:var(--branch-color);font:13px 'DM Mono',monospace; }
+.business-universe3 .bu-branch-item-main { min-width:0;display:flex;flex-direction:column;gap:4px; }
+.business-universe3 .bu-branch-item-main b { color:#eaf3e5;font:500 11px 'Space Grotesk',sans-serif; }
+.business-universe3 .bu-branch-item-main small { color:#91a38b;font:8px 'DM Mono',monospace; }
+.business-universe3 .bu-branch-item-main em { color:#70846b;font:8px/1.5 'DM Mono',monospace;font-style:normal; }
+.business-universe3 .bu-branch-item>strong { padding-top:1px;color:var(--branch-color);font:500 11px 'Space Grotesk',sans-serif;text-align:right;white-space:nowrap; }
+.business-universe3 .bu-branch-item>i { color:#71866a;font-style:normal;font-size:11px; }
+.business-universe3 .bu-branch-empty { padding:16px;color:#8da087;font:9px 'DM Mono',monospace; }
+.business-universe3 .bu-branch-record { padding:18px;overflow:auto; }
+.business-universe3 .bu-branch-record h3 { margin:8px 0;color:#eaf3e5;font:500 18px 'Space Grotesk',sans-serif; }
+.business-universe3 .bu-branch-record>strong { display:block;color:var(--branch-color);font:500 24px 'Space Grotesk',sans-serif; }
+.business-universe3 .bu-branch-record p { color:#a0b19a;font:9px/1.6 'DM Mono',monospace; }
+.business-universe3 .bu-branch-record small { display:block;color:#83977c;font:9px/1.7 'DM Mono',monospace; }
+.business-universe3 .bu-branch-back { margin-top:14px;padding:8px 10px;border:1px solid #c9ff7830;background:#c9ff7808;color:#c9ff78!important;font:8px 'DM Mono',monospace!important; }
+.business-universe3 .bu-branch-foot { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid #c9ff7826;background:#0002; }
+.business-universe3 .bu-branch-foot span { color:#73866d;font:7px 'DM Mono',monospace;letter-spacing:.08em; }
+.business-universe3 .bu-branch-foot button { padding:6px 9px;border:1px solid #c9ff7830;background:transparent;color:#c9ff78!important;font:8px 'DM Mono',monospace!important; }
+.business-universe3 .bu-branch-foot button:disabled { opacity:.3;cursor:default; }
+@media(max-width:760px) {
+ .business-universe3 .bu-branch-navigator { right:8px;bottom:54px;width:min(390px,calc(100% - 16px));max-height:52%; }
+ .business-universe3 .bu-branch-top { padding:10px 12px 8px; }
+ .business-universe3 .bu-branch-top h2 { font-size:16px; }
+ .business-universe3 .bu-branch-item { grid-template-columns:14px minmax(0,1fr) auto 10px;padding:8px 4px;gap:5px; }
+ .business-universe3 .bu-branch-item-main em { display:none; }
+}
