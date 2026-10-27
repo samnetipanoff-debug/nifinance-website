@@ -25,7 +25,6 @@ export default async function handler(req,res){
    if(!transactionKey||!['contact','deal'].includes(recordType)||!/^([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(recordId))return send(res,400,{error:'Choose a transaction and a valid CRM contact or deal'});
    const tx=await sql`SELECT id FROM public.dc_transactions WHERE workspace_id=${workspaceId}::uuid AND transaction_key=${transactionKey} LIMIT 1`;
    if(!tx.length)return send(res,404,{error:'Data Center transaction not found in this workspace'});
-   const targetTable=recordType==='contact'?'public.bh_contacts':'public.bh_deals';
    const target=recordType==='contact'
     ? await sql`SELECT id FROM public.bh_contacts WHERE id=${recordId}::uuid AND workspace_id=${workspaceId}::uuid LIMIT 1`
     : await sql`SELECT id FROM public.bh_deals WHERE id=${recordId}::uuid AND workspace_id=${workspaceId}::uuid LIMIT 1`;
@@ -56,7 +55,6 @@ export default async function handler(req,res){
   const transactions=Array.isArray(w[0].payload?.transactions)?w[0].payload.transactions:[];
   const normalizedContacts=contacts.map(c=>({id:c.id,keys:[norm(c.name),norm(c.company)].filter(Boolean)}));
   const normalizedDeals=deals.map(d=>({id:d.id,keys:[norm(d.title),norm(d.contact_name),norm(d.contact_company)].filter(Boolean)}));
-  const financialEdges=[];
   const manualByKey=new Map();
   manualMatches.forEach(match=>{const key=String(match.transaction_key);if(!manualByKey.has(key))manualByKey.set(key,[]);manualByKey.get(key).push(match);});
   const financeNodes=transactions.slice(0,500).map((tx,index)=>{
