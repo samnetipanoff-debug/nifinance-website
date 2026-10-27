@@ -547,3 +547,19 @@ body:has(.business-universe3),
 .business-universe3 .bu-branch-crosslinks>button i { width:6px;height:6px;flex:none;border-radius:50%; }
 .business-universe3 .bu-branch-crosslinks>button b { flex:1;font:9px 'DM Mono',monospace; }
 .business-universe3 .bu-branch-crosslinks>button em { color:#c9ff78;font-style:normal; }
+
+
+/* Mind-map drilldown: branches are attached to the active metric inside the sphere stage. */
+.bu-sphere-branch-graph{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden}
+.bu-graph-path{position:absolute;z-index:5;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:calc(100% - 30px);overflow:auto;padding:8px 10px;background:#061008dc;border:1px solid #c9ff7830;backdrop-filter:blur(14px);white-space:nowrap;pointer-events:auto}
+.bu-graph-path button{border:0;background:transparent;color:#91a48c!important;font:9px 'DM Mono',monospace!important;padding:3px 0}.bu-graph-path button.current{color:var(--acid)!important}.bu-graph-path i{color:#50644d;font-style:normal}.bu-graph-path .bu-graph-back{margin-left:8px;padding-left:12px;border-left:1px solid #c9ff7830;color:#d9e6d3!important}
+.bu-graph-links{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}.bu-graph-links path{fill:none;stroke:#c9ff78;stroke-opacity:.56;stroke-width:1.3;stroke-dasharray:4 5;filter:drop-shadow(0 0 4px #c9ff7833);animation:bu-graph-flow 18s linear infinite}
+.bu-graph-root,.bu-graph-node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:132px;max-width:min(220px,42vw);padding:10px 13px;background:#08110de8;border:1px solid #c9ff7870;color:#eef6e8!important;box-shadow:0 8px 28px #0008,0 0 20px #c9ff780b;backdrop-filter:blur(12px);text-align:left;pointer-events:auto;transition:border-color .18s,background .18s,transform .18s}
+.bu-graph-root{z-index:4;border-color:var(--acid);background:#111d13f2;min-width:146px}.bu-graph-root span,.bu-graph-node small{font:7px 'DM Mono',monospace;letter-spacing:.08em;color:#81937d}.bu-graph-root b,.bu-graph-node span{font:10px 'DM Mono',monospace;line-height:1.35}.bu-graph-root strong,.bu-graph-node b{font:11px 'DM Mono',monospace;color:var(--graph-node-color,var(--acid))}.bu-graph-node{z-index:3;border-color:color-mix(in srgb,var(--graph-node-color,#c9ff78),transparent 52%);min-width:140px;max-width:220px}
+.bu-graph-node:before{content:"";position:absolute;left:-5px;top:15px;width:7px;height:7px;transform:rotate(45deg);background:var(--graph-node-color,var(--acid));box-shadow:0 0 9px var(--graph-node-color,var(--acid))}
+.bu-graph-node:hover,.bu-graph-root:hover{transform:translate(-50%,-50%) scale(1.035);background:#142116f7;border-color:var(--graph-node-color,var(--acid))}
+.bu-graph-node small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bu-graph-related{cursor:pointer}.bu-graph-empty{position:absolute;transform:translate(-50%,-50%);z-index:3;padding:12px;background:#08110de8;border:1px solid #344633;color:#91a48c;font:9px 'DM Mono',monospace;pointer-events:auto}
+.bu-graph-hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font:7px 'DM Mono',monospace;letter-spacing:.12em;color:#7f9479;background:#071008c9;border:1px solid #c9ff781a;padding:7px 10px;white-space:nowrap}
+@keyframes bu-graph-flow{to{stroke-dashoffset:-180}}
+@media(max-width:700px){.bu-graph-path{top:8px;gap:5px;padding:7px;max-width:calc(100% - 16px)}.bu-graph-path button{font-size:7px!important}.bu-graph-root,.bu-graph-node{min-width:108px;max-width:142px;padding:8px 9px}.bu-graph-root b,.bu-graph-node span{font-size:8px}.bu-graph-root strong,.bu-graph-node b{font-size:9px}.bu-graph-node small{font-size:6px}.bu-graph-hint{bottom:8px;font-size:6px;max-width:95%;overflow:hidden;text-overflow:ellipsis}
+}
