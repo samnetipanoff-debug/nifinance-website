@@ -309,6 +309,7 @@ function App() {
 }
 
 const isDataCenterRoute = /^\/data-center\/?$/.test(window.location.pathname);
+const isBusinessHubRoute = /^\/business-hub\/?$/.test(window.location.pathname);
 const isUniverse3Route = /^\/universe-3\/?$/.test(window.location.pathname);
 const isUniverse2Route = /^\/universe-2\/?$/.test(window.location.pathname);
 const isUniverseRoute = /^\/universe\/?$/.test(window.location.pathname);
