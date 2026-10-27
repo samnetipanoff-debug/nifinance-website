@@ -46,10 +46,10 @@ const scenarios = {
   }
 };
 
-function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDrilldown, scenario, liveMetrics }) {
+function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDrilldown, scenario, liveMetrics, detailTrail }) {
   const host = useRef(null);
-  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics });
-  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics]);
+  const stateRef = useRef({ selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail });
+  useEffect(() => { stateRef.current = { selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail }; }, [selected, expandedIds, scenario, onSelect, onToggleExpand, onDrilldown, liveMetrics, detailTrail]);
 
   useEffect(() => {
     const el = host.current;
@@ -426,6 +426,16 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         }
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
+        // Fly from the sphere centre toward the selected node while drilling into a branch.
+        const trail = stateRef.current.detailTrail || [];
+        const focusNode = nodeById[stateRef.current.selected];
+        const focusWorld = focusNode ? focusNode.group.getWorldPosition(new THREE.Vector3()) : null;
+        const cameraTarget = trail.length && focusWorld ? focusWorld.clone().normalize().multiplyScalar(2.15) : new THREE.Vector3(0, 0, 0);
+        const lookTarget = trail.length && focusWorld ? focusWorld.clone().multiplyScalar(0.96) : new THREE.Vector3(0, 0, -1);
+        camera.position.lerp(cameraTarget, reduced ? 0.16 : 0.055);
+        const currentLook = camera.getWorldDirection(new THREE.Vector3()).add(camera.position);
+        currentLook.lerp(lookTarget, reduced ? 0.16 : 0.07);
+        camera.lookAt(currentLook);
         linkMeshes.forEach(({ from, to, line, material }) => {
           const highlighted = pathSet.has(from) && pathSet.has(to);
           material.opacity = highlighted ? 0.92 : 0.13;
@@ -505,9 +515,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
             // Node names and headline metrics are always visible at every zoom level.
             // Keep each user's chosen breakdown open independently; details are available from 80% zoom.
             const showMetrics = zoomLevel >= 0.8;
-            label.style.opacity = visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0';
-            label.style.pointerEvents = visible ? 'auto' : 'none';
-            label.classList.toggle('details-open', expanded && showMetrics);
+            label.style.opacity = trail.length ? '0' : (visible ? (active ? '1' : onPath ? '0.98' : '0.32') : '0');
+            label.style.pointerEvents = visible && !trail.length ? 'auto' : 'none';
+            label.classList.toggle('details-open', expanded && active && showMetrics);
             label.classList.toggle('active', active);
             label.classList.toggle('on-path', onPath);
           }
@@ -579,7 +589,7 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
       if (root && node) {
         const rr = root.getBoundingClientRect(), nr = node.getBoundingClientRect();
         const x = nr.left + nr.width / 2 - rr.left, y = nr.top + nr.height / 2 - rr.top;
-        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 1.25 && Math.abs(previous.y - y) < 1.25 ? previous : { x, y, ready: true });
+        setAnchor(previous => previous.ready && Math.abs(previous.x - x) < 2.75 && Math.abs(previous.y - y) < 2.75 ? previous : { x, y, ready: true });
       }
       frame = requestAnimationFrame(measure);
     };
@@ -592,21 +602,25 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
   const branches = isRecord ? relatedNodes : rows;
   const width = host.current?.closest('.bu-stage-wrap')?.clientWidth || 1000;
   const height = host.current?.closest('.bu-stage-wrap')?.clientHeight || 600;
-  const side = anchor.x > width * 0.56 ? -1 : 1;
   const startX = anchor.ready ? anchor.x : width * 0.5;
   const startY = anchor.ready ? anchor.y : height * 0.5;
-  const childX = Math.max(118, Math.min(width - 118, startX + side * Math.min(245, width * 0.25)));
-  const spacing = Math.min(92, Math.max(54, (height - 140) / Math.max(branches.length, 1)));
-  const totalHeight = Math.max(0, (branches.length - 1) * spacing);
-  const firstY = Math.max(94, Math.min(height - 100 - totalHeight, startY - totalHeight / 2));
-  const children = branches.map((item, index) => ({ item, x: childX, y: firstY + index * spacing }));
+  const childX = startX;
+  // Children form a small orbit around the focused node and recede into the sphere.
+  const orbitX = Math.min(205, Math.max(94, width * 0.18));
+  const orbitY = Math.min(175, Math.max(78, height * 0.21));
+  const children = branches.slice(0, 8).map((item, index) => {
+    const angle = -Math.PI / 2 + (index / Math.max(Math.min(branches.length, 8), 1)) * Math.PI * 2;
+    const radius = branches.length === 1 ? 0.42 : branches.length < 4 ? 0.72 : 1;
+    const depth = 155 + trail.length * 72 + (index % 3) * 22;
+    return { item, x: Math.max(82, Math.min(width - 82, startX + Math.cos(angle) * orbitX * radius)), y: Math.max(76, Math.min(height - 76, startY + Math.sin(angle) * orbitY * radius)), depth, scale: Math.max(0.58, 0.88 - trail.length * 0.045 - (index % 3) * 0.035) };
+  });
   return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
     <div className="bu-graph-path"><button type="button" onClick={onReset}>UNIVERSE</button>{trail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===trail.length-1?'current':''} onClick={()=>onBreadcrumb(index)}>{item.label}</button></React.Fragment>)}<button className="bu-graph-back" type="button" onClick={onBack}>← BACK</button></div>
     <svg className="bu-graph-links" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-      {children.map(({item,x,y},index)=><path key={item.id||item.primary||index} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
+      {children.map(({item,x,y,depth},index)=><path key={item.id||item.graphNodeId||item.primary||index} className={'bu-graph-link-depth bu-graph-link-depth-'+(index%3)} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
     </svg>
-    <button type="button" className="bu-graph-root" style={{left:startX,top:startY}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
-    {children.map(({item,x,y},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:x,top:y,'--graph-node-color':item.color}} onClick={()=>onSelectNode(item.id)}><i/><span>{item.label}</span><b>{item.value}</b><small>RELATED DIRECTION</small></button> : <button key={item.primary+'-'+index} type="button" className="bu-graph-node" style={{left:x,top:y,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78'}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}><i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary||'SOURCE RECORD'}</small></button>)}
+    <button type="button" className="bu-graph-root" style={{left:width/2+(startX-width/2)*(980-42)/980,top:height/2+(startY-height/2)*(980-42)/980,'--branch-depth':'42px'}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
+    {children.map(({item,x,y,depth,scale},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':item.color,'--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>onSelectNode(item.id)}><i/><span>{item.label}</span><b>{item.value}</b><small>FOLLOW CONNECTION</small></button> : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}><i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary||'SOURCE RECORD'}</small></button>)}
     {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
     <div className="bu-graph-hint">FOLLOW THE BRANCH · SELECT A NODE TO GO DEEPER</div>
   </div>;
@@ -615,7 +629,7 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const toggleExpanded = id => setExpandedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const toggleExpanded = id => setExpandedIds(previous => previous.has(id) && selected === id ? new Set() : new Set([id]));
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
   const [showCausalPanel, setShowCausalPanel] = useState(true);
@@ -623,6 +637,8 @@ export default function Universe2() {
   const [neonData, setNeonData] = useState(null);
   const [neonStatus, setNeonStatus] = useState('loading');
   const [neonError, setNeonError] = useState('');
+  const [workspaceGraph, setWorkspaceGraph] = useState(null);
+  const [workspaceGraphStatus, setWorkspaceGraphStatus] = useState('idle');
   const [detailTrail, setDetailTrail] = useState([]);
   const openDetailWindow = selection => { setSelected(selection.nodeId); setDetailTrail(previous => [...previous, selection]); };
   const goBackDetail = () => setDetailTrail(previous => previous.slice(0, -1));
@@ -648,23 +664,61 @@ export default function Universe2() {
       });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    let cancelled = false;
+    const loadWorkspaceGraph = async () => {
+      try {
+        const credentials = JSON.parse(localStorage.getItem('nifinance-data-center-credentials-v1') || 'null');
+        if (!credentials?.workspaceId || !credentials?.token) { setWorkspaceGraphStatus('no-workspace'); return; }
+        setWorkspaceGraphStatus('loading');
+        const response = await fetch('/api/universe-graph', { cache: 'no-store', headers: { 'X-Workspace-Id': credentials.workspaceId, 'X-Workspace-Token': credentials.token } });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Workspace graph unavailable');
+        if (!cancelled) { setWorkspaceGraph(payload); setWorkspaceGraphStatus('connected'); }
+      } catch (error) { if (!cancelled) setWorkspaceGraphStatus('error'); }
+    };
+    loadWorkspaceGraph();
+    return () => { cancelled = true; };
+  }, []);
   const latestMonth = neonData?.months?.[neonData.months.length - 1];
   const firstMonth = neonData?.months?.[0];
   const eur = value => new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value || 0));
   const growthPct = (first, last) => Number(first) ? `${((Number(last) - Number(first)) / Number(first) * 100).toFixed(1)}%` : '—';
   const latestChannels = (neonData?.channels || []).filter(row => latestMonth && row.month_start === latestMonth.month_start);
+  const workspaceCash = workspaceGraph?.financialSummary?.cash;
+  const workspaceAccrual = workspaceGraph?.financialSummary?.accrual;
+  const formatBasisMoney = (basis, value) => { if (!basis || !basis.transactionCount) return 'No data'; if (value == null) return 'Multiple currencies'; const currency = basis.categories?.[0]?.currency; if (currency && /^[A-Z]{3}$/.test(currency) && currency !== 'UNSPECIFIED') return new Intl.NumberFormat('en-IE',{style:'currency',currency,maximumFractionDigits:0}).format(Number(value)); return Number(value).toLocaleString('en-GB',{maximumFractionDigits:0}) + (currency ? ' '+currency : ''); };
+
   const liveMetrics = neonStatus !== 'connected' || !firstMonth || !latestMonth ? null : {
     procurement: { metric: 'Marketing spend change', value: growthPct(firstMonth.marketing_spend, latestMonth.marketing_spend), title: 'CHANNEL SPEND', rows: latestChannels.slice().sort((a,b) => b.spend-a.spend).map(x => [x.channel, eur(x.spend)]) },
     production: { metric: 'Delivery cost by service', value: neonData.service_lines?.length ? Math.min(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '–' + Math.max(...neonData.service_lines.map(x=>Number(x.delivery_cost_pct))).toFixed(0) + '%' : '—', title: 'DELIVERY COST', rows: (neonData.service_lines || []).map(x => [x.name, Number(x.delivery_cost_pct).toFixed(0) + '%']) },
     marketing: { metric: 'Qualified leads change', value: growthPct(firstMonth.qualified_leads, latestMonth.qualified_leads), title: 'LEADS BY CHANNEL', rows: latestChannels.slice().sort((a,b) => b.qualified_leads-a.qualified_leads).map(x => [x.channel, String(x.qualified_leads)]) },
-    sales: { metric: 'Opportunities change', value: growthPct(firstMonth.opportunities, latestMonth.opportunities), title: 'SALES FUNNEL', rows: [['Qualified leads', String(latestMonth.qualified_leads)], ['Opportunities', String(latestMonth.opportunities)], ['Deals won', String(latestMonth.deals_won)], ['Won-deal revenue', eur(latestMonth.recognized_revenue)]] },
+    sales: workspaceGraphStatus === 'connected' ? { metric: 'Active CRM deals', value: String((workspaceGraph.nodes||[]).filter(n=>n.type==='deal'&&!['won','lost'].includes(n.meta?.stage)).length), title: 'CRM PIPELINE', rows: [['Contacts', String(workspaceGraph.summary?.contacts||0)], ['All CRM deals', String(workspaceGraph.summary?.deals||0)], ['Transactions linked', String(workspaceGraph.summary?.matchedTransactions||0)]] } : { metric: 'Opportunities change', value: growthPct(firstMonth.opportunities, latestMonth.opportunities), title: 'SALES FUNNEL', rows: [['Qualified leads', String(latestMonth.qualified_leads)], ['Opportunities', String(latestMonth.opportunities)], ['Deals won', String(latestMonth.deals_won)], ['Won-deal revenue', eur(latestMonth.recognized_revenue)]] },
     operations: { metric: 'Monthly payroll', value: eur(neonData.team?.monthly_payroll), title: 'TEAM & OPERATIONS', rows: [['Team members', String(neonData.team?.size || 0)], ['Monthly payroll', eur(neonData.team?.monthly_payroll)]] },
-    finance: { metric: 'Revenue change', value: growthPct(firstMonth.recognized_revenue, latestMonth.recognized_revenue), title: 'LATEST MONTH', rows: [['Revenue', eur(latestMonth.recognized_revenue)], ['Operating costs', eur(latestMonth.operating_expenses)], ['Operating profit', eur(latestMonth.operating_profit)], ['Margin', Number(latestMonth.operating_margin_pct || 0).toFixed(1) + '%']] },
-    customers: { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
+    finance: workspaceGraphStatus === 'connected' ? { metric: workspaceGraph.financialSummary?.managementPnl?.status === 'provisional' ? 'Accrual result · provisional' : 'Cash net movement', value: workspaceGraph.financialSummary?.managementPnl?.status === 'provisional' ? formatBasisMoney(workspaceAccrual, workspaceGraph.financialSummary.managementPnl.netResultBeforeValidatedAdjustments) : formatBasisMoney(workspaceCash, workspaceCash?.netCashMovement), title: 'DATA CENTER FINANCE', rows: [['Cash inflows', formatBasisMoney(workspaceCash, workspaceCash?.inflows)], ['Cash outflows', formatBasisMoney(workspaceCash, workspaceCash?.outflows)], ['Cash net movement', formatBasisMoney(workspaceCash, workspaceCash?.netCashMovement)], ['Accrual income', formatBasisMoney(workspaceAccrual, workspaceAccrual?.inflows)], ['Accrual expenses', formatBasisMoney(workspaceAccrual, workspaceAccrual?.outflows)], ['CRM-linked transactions', String(workspaceGraph.summary?.matchedTransactions || 0)]] } : { metric: 'Revenue change', value: growthPct(firstMonth.recognized_revenue, latestMonth.recognized_revenue), title: 'LATEST MONTH', rows: [['Revenue', eur(latestMonth.recognized_revenue)], ['Operating costs', eur(latestMonth.operating_expenses)], ['Operating profit', eur(latestMonth.operating_profit)], ['Margin', Number(latestMonth.operating_margin_pct || 0).toFixed(1) + '%']] },
+    customers: workspaceGraphStatus === 'connected' ? { metric: 'CRM contacts', value: String(workspaceGraph.summary?.contacts||0), title: 'CRM RELATIONSHIPS', rows: [['Contacts', String(workspaceGraph.summary?.contacts||0)], ['Deals', String(workspaceGraph.summary?.deals||0)], ['Matched finance records', String(workspaceGraph.summary?.matchedTransactions||0)]] } : { metric: 'Deals won · latest month', value: String(latestMonth.deals_won), title: 'CUSTOMERS & CASH', rows: [['Deals won', String(latestMonth.deals_won)], ['Cash received', eur(latestMonth.receipts)], ['Attributed revenue', eur(latestMonth.attributed_revenue)]] }
   };
   const active = nodes.find(n => n.id === selected) || nodes[0];
+  const graphNodeForId = id => {
+    if (!workspaceGraph || !id) return null;
+    return (workspaceGraph.nodes || []).find(n => n.id === id) || (workspaceGraph.transactions || []).find(n => n.id === id) || null;
+  };
+  const graphNeighbors = id => {
+    if (!workspaceGraph || !id) return [];
+    return (workspaceGraph.edges || []).filter(edge => edge.from === id || edge.to === id).map(edge => {
+      const otherId = edge.from === id ? edge.to : edge.from;
+      const item = graphNodeForId(otherId);
+      if (!item) return null;
+      const meta = item.meta || item;
+      const amount = meta.amount;
+      const value = amount == null ? (meta.stage ? String(meta.stage) : meta.status || '') : Number(amount).toLocaleString('en-GB') + ' ' + (meta.currency || 'UNSPECIFIED');
+      return { primary: item.label, secondary: (item.type || 'transaction') + ' · ' + edge.label, value, note: meta.description || meta.category || meta.status || '', graphNodeId: item.id, graphEdgeId: edge.id };
+    }).filter(Boolean).slice(0, 14);
+  };
   const getDetailRows = detailSelection => {
-    if (!detailSelection || !neonData) return [];
+    if (!detailSelection) return [];
+    if (detailSelection.graphNodeId && workspaceGraph) return graphNeighbors(detailSelection.graphNodeId);
+    if (!neonData) return [];
     const month = latestMonth?.month_start;
     const money = value => eur(value);
     const monthLabel = value => { const d = new Date(`${value}T00:00:00Z`); return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); };
@@ -672,9 +726,11 @@ export default function Universe2() {
       return (neonData.channels || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'procurement' || x.spend > 0)).map(x => ({ primary: x.channel, secondary: monthLabel(x.month_start), value: detailSelection.nodeId === 'procurement' ? money(x.spend) : `${x.qualified_leads} qualified leads`, note: `${x.impressions.toLocaleString('en-GB')} impressions · ${x.clicks.toLocaleString('en-GB')} clicks · ${x.leads} leads · ${x.opportunities} opportunities · ${x.deals_won} wins · CPL ${money(x.cost_per_lead)} · CPQL ${money(x.cost_per_qualified_lead)}` }));
     }
     if (detailSelection.nodeId === 'sales' || detailSelection.nodeId === 'customers') {
+      if (workspaceGraphStatus === 'connected') return (workspaceGraph.nodes || []).filter(n => n.type === (detailSelection.nodeId === 'customers' ? 'contact' : 'deal')).slice(0, 40).map(n => ({ primary: n.label, secondary: n.type.toUpperCase() + ' · ' + (n.meta?.stage || n.meta?.kind || n.meta?.status || 'workspace record'), value: n.meta?.amount == null ? '' : String(n.meta.amount) + ' ' + (n.meta.currency || ''), note: 'Workspace CRM record · select to inspect linked transactions and tasks', graphNodeId: n.id }));
       return (neonData.deals || []).filter(x => x.month_start === month && (detailSelection.nodeId !== 'customers' || x.stage === 'won')).map(x => ({ primary: x.client, secondary: `${x.deal} · ${x.stage.toUpperCase()}`, value: money(x.value), note: `${x.date} · ${x.service_line} · ${x.channel} · ${x.payment_terms_days}-day payment terms` }));
     }
     if (detailSelection.nodeId === 'finance') {
+      if (workspaceGraphStatus === 'connected') return (workspaceGraph.transactions || []).slice(0, 40).map(tx => ({ primary: tx.counterparty || tx.label, secondary: (tx.date || 'Undated') + ' · ' + (tx.basis || 'unknown basis'), value: Number(tx.amount || 0).toLocaleString('en-GB') + ' ' + (tx.currency || 'UNSPECIFIED'), note: (tx.category || 'Needs review') + ' · ' + tx.label, graphNodeId: tx.id }));
       return (neonData.transactions || []).filter(x => x.month_start === month).map(x => ({ primary: x.category, secondary: `${x.direction.toUpperCase()} · ${x.status}`, value: money(x.amount), note: `${x.date} · ${x.counterparty} · ${x.description}${x.related_client ? ` · ${x.related_client}` : ''}` }));
     }
     if (detailSelection.nodeId === 'operations') {
@@ -722,15 +778,15 @@ export default function Universe2() {
   return <main className="business-universe3">
     <div className="bu-topbar">
       <a className="bu-brand" href="/"><span className="bu-brand-mark">N</span><span>NIFINANCE <b>BUSINESS UNIVERSE</b></span></a>
-      <div className="bu-live-state"><i className={neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> NORTHSTAR GROWTH <span>·</span> {neonStatus === 'connected' ? 'DEMO DATA · NEON CONNECTED' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
+      <div className="bu-live-state"><i className={workspaceGraphStatus === 'connected' || neonStatus === 'connected' ? 'is-connected' : neonStatus === 'error' ? 'is-error' : ''} /> {workspaceGraphStatus === 'connected' ? 'DATA CENTER ↔ CRM' : 'NORTHSTAR GROWTH'} <span>·</span> {workspaceGraphStatus === 'connected' ? `${workspaceGraph.summary?.transactions || 0} TRANSACTIONS · ${workspaceGraph.summary?.matchedTransactions || 0} CRM MATCHES` : neonStatus === 'connected' ? 'DEMO DATA · NEON CONNECTED' : neonStatus === 'error' ? 'DATA CONNECTION ERROR' : 'LOADING DEMO DATA'}</div>
       <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
 
 
 
-    <section className="bu-stage-wrap">
+    <section className={'bu-stage-wrap' + (detailTrail.length ? ' is-exploring-branch' : '')}>
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} />
+      <BusinessSphere selected={selected} expandedIds={expandedIds} onSelect={setSelected} onToggleExpand={toggleExpanded} onDrilldown={openDetailWindow} scenario={scenarioKey} liveMetrics={liveMetrics} detailTrail={detailTrail} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 03</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
@@ -773,9 +829,28 @@ export default function Universe2() {
         selected={selected}
         trail={detailTrail}
         rows={detailTrail.length && !detailTrail[detailTrail.length - 1].record ? getDetailRows(detailTrail[detailTrail.length - 1]) : []}
-        relatedNodes={(nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
-        onOpenRecord={row => setDetailTrail(previous => [...previous, { nodeId: detailTrail[detailTrail.length - 1].nodeId, label: row.primary, value: row.value, record: row }])}
-        onSelectNode={id => { setSelected(id); setDetailTrail(previous => [...previous, { nodeId: id, label: nodes.find(n => n.id === id)?.label || id, value: nodes.find(n => n.id === id)?.value || '' }]); }}
+        relatedNodes={detailTrail[detailTrail.length - 1]?.graphNodeId
+          ? graphNeighbors(detailTrail[detailTrail.length - 1].graphNodeId).map(row => { const n=graphNodeForId(row.graphNodeId); return { id: row.graphNodeId, label: row.primary, value: row.value, color: n?.meta?.color || (n?.type==='transaction'?'#ffbf69':n?.type==='deal'?'#b9a0ff':'#71dfff') }; })
+          : (nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
+        onOpenRecord={row => setDetailTrail(previous => {
+          const current = previous[previous.length - 1];
+          const existing = row.graphNodeId ? previous.findIndex(item => item.graphNodeId === row.graphNodeId) : previous.findIndex(item => item.nodeId === current?.nodeId && item.record?.primary === row.primary);
+          if (existing >= 0) return previous.slice(0, existing + 1);
+          if (previous.length >= 7) return previous;
+          return [...previous, { nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
+        })}
+        onSelectNode={id => {
+          const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
+          if (existing >= 0) { setDetailTrail(previous => previous.slice(0, existing + 1)); return; }
+          if (detailTrail.length >= 7) return;
+          const graphNode = graphNodeForId(id);
+          const type = graphNode?.type || '';
+          const mappedId = type === 'contact' ? 'customers' : type === 'deal' ? 'sales' : type === 'transaction' ? 'finance' : (nodes.find(n=>n.id===id)?.id || selected);
+          const staticNode = nodes.find(n=>n.id===mappedId);
+          setSelected(mappedId);
+          setExpandedIds(new Set());
+          setDetailTrail(previous => [...previous, { nodeId: mappedId, graphNodeId: id, label: graphNode?.label || staticNode?.label || id, value: graphNode?.meta?.amount == null ? (graphNode?.meta?.stage || '') : String(graphNode.meta.amount) + ' ' + (graphNode.meta.currency || '') }]);
+        }}
         onReset={resetDetailTrail}
         onBack={goBackDetail}
         onBreadcrumb={index => setDetailTrail(previous => previous.slice(0, index + 1))}
