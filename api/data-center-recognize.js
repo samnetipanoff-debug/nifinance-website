@@ -1,7 +1,6 @@
 import { neon } from '@neondatabase/serverless';
-import { createHash } from 'node:crypto';
+import { isWorkspaceId, isWorkspaceToken, workspaceTokenMatches } from './_lib/workspace-auth.js';
 
-const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const send = (res, status, body) => res.status(status).json(body);
 const allowedDelimiters = [',', ';', '\t', '|'];
 const fieldKeys = ['date', 'amount', 'debit', 'credit', 'counterparty', 'description', 'reference', 'currency'];
@@ -30,8 +29,7 @@ export default async function handler(req, res) {
 
   const workspaceId = req.headers['x-workspace-id'];
   const token = req.headers['x-workspace-token'];
-  if (typeof workspaceId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(workspaceId) ||
-      typeof token !== 'string' || token.length < 32 || token.length > 256) {
+  if (!isWorkspaceId(workspaceId) || !isWorkspaceToken(token)) {
     return send(res, 401, { error: 'A valid workspace credential is required' });
   }
 
@@ -46,7 +44,7 @@ export default async function handler(req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`SELECT token_hash FROM public.dc_workspaces WHERE workspace_id = ${workspaceId}::uuid LIMIT 1`;
-    if (!rows[0] || rows[0].token_hash !== hashToken(token)) {
+    if (!rows[0] || !workspaceTokenMatches(rows[0].token_hash, token)) {
       return send(res, 401, { error: 'Workspace credential was not accepted' });
     }
 
