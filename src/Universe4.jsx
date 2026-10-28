@@ -64,9 +64,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
     let dragVelocityX = 0, dragVelocityY = 0;
     try {
       scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(72, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 100);
-      camera.position.set(0, 0, 0);
-      camera.lookAt(0, 0, -1);
+      camera = new THREE.PerspectiveCamera(48, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 120);
+      let yaw = 0, pitch = 0.08, zoomLevel = 10.5, targetYaw = 0, targetPitch = 0.08, targetZoom = 10.5;
+      const orientCamera = () => { camera.position.set(zoomLevel * Math.sin(yaw) * Math.cos(pitch), zoomLevel * Math.sin(pitch), zoomLevel * Math.cos(yaw) * Math.cos(pitch)); camera.lookAt(0, 0, 0); };
+      orientCamera();
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
       renderer.setSize(el.clientWidth, el.clientHeight);
@@ -88,13 +89,11 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       // Zoom only the business model layer; the particle shell remains at its original size.
       const businessElements = new THREE.Group();
       shell.add(businessElements);
-      let zoomLevel = 1;
-      let targetZoom = 1;
       const applyZoom = (value) => {
-        targetZoom = Math.max(0.25, Math.min(3.0, value));
+        targetZoom = Math.max(6.5, Math.min(17, value));
         const universe = el.closest('.business-universe');
-        if (universe) universe.classList.toggle('is-zoomed', targetZoom >= 1.35);
-        zoomReadout.textContent = Math.round(targetZoom * 100) + '%';
+        if (universe) universe.classList.toggle('is-zoomed', targetZoom <= 8.5);
+        zoomReadout.textContent = Math.round(10.5 / targetZoom * 100) + '%';
       };
       const zoomControls = document.createElement('div');
       zoomControls.className = 'sphere-zoom-controls';
@@ -103,14 +102,14 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const zoomIn = zoomControls.querySelector('button[aria-label="Zoom in"]');
       const zoomReadout = zoomControls.querySelector('span');
       const zoomReset = zoomControls.querySelector('.sphere-zoom-reset');
-      zoomOut.addEventListener('click', () => applyZoom(targetZoom - 0.12));
-      zoomIn.addEventListener('click', () => applyZoom(targetZoom + 0.12));
-      zoomReset.addEventListener('click', () => applyZoom(1));
+      zoomOut.addEventListener('click', () => applyZoom(targetZoom + 0.7));
+      zoomIn.addEventListener('click', () => applyZoom(targetZoom - 0.7));
+      zoomReset.addEventListener('click', () => applyZoom(10.5));
       el.appendChild(zoomControls);
 
       const onWheelZoom = (e) => {
         e.preventDefault();
-        applyZoom(targetZoom + (e.deltaY < 0 ? 0.07 : -0.07));
+        applyZoom(targetZoom + (e.deltaY < 0 ? -0.35 : 0.35));
       };
       el.addEventListener('wheel', onWheelZoom, { passive: false });
       const shellRadius = 6.0;
@@ -293,7 +292,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         dragMoved = false;
         pointerStartX = previousPointerX = e.clientX;
         pointerStartY = previousPointerY = e.clientY;
-        dragVelocityX = dragVelocityY = 0;
+        dragStartYaw = targetYaw; dragStartPitch = targetPitch;
         el.classList.add('is-dragging');
         if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
       };
@@ -302,11 +301,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         const dx = e.clientX - previousPointerX;
         const dy = e.clientY - previousPointerY;
         if (Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 4) dragMoved = true;
-        shell.rotation.y += dx * 0.0065;
-        shell.rotation.x += dy * 0.0065;
-        shell.rotation.x = Math.max(-Math.PI * 0.46, Math.min(Math.PI * 0.46, shell.rotation.x));
-        dragVelocityX = dx * 0.002;
-        dragVelocityY = dy * 0.002;
+        targetYaw = dragStartYaw - (e.clientX - pointerStartX) * 0.0045;
+        targetPitch = THREE.MathUtils.clamp(dragStartPitch + (e.clientY - pointerStartY) * 0.004, -1.05, 1.05);
         previousPointerX = e.clientX;
         previousPointerY = e.clientY;
       };
@@ -337,25 +333,13 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         frame = requestAnimationFrame(animate);
         const t = clock.getElapsedTime();
         shellDotMaterial.uniforms.uTime.value = reduced ? t * 0.35 : t;
-        // Smoothly fly the business layer toward/away from the viewer on every zoom action.
-        // The particle shell is intentionally not transformed by this movement.
         const zoomEase = reduced ? 0.22 : 0.075;
+        yaw += (targetYaw - yaw) * zoomEase;
+        pitch += (targetPitch - pitch) * zoomEase;
         zoomLevel += (targetZoom - zoomLevel) * zoomEase;
         if (Math.abs(targetZoom - zoomLevel) < 0.001) zoomLevel = targetZoom;
-        businessElements.scale.setScalar(zoomLevel);
-        businessElements.position.z = (zoomLevel - 1) * 6.0;
-        businessElements.position.x = (zoomLevel - 1) * -0.22;
-        businessElements.position.y = (zoomLevel - 1) * 0.16;
-        // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
-        // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
-        if (!isDragging && !reduced) {
-          shell.rotation.y += dragVelocityX;
-          shell.rotation.x += dragVelocityY;
-          dragVelocityX *= 0.92;
-          dragVelocityY *= 0.92;
-          if (Math.abs(dragVelocityX) < 0.00002) dragVelocityX = 0;
-          if (Math.abs(dragVelocityY) < 0.00002) dragVelocityY = 0;
-        }
+        camera.position.set(zoomLevel * Math.sin(yaw) * Math.cos(pitch), zoomLevel * Math.sin(pitch), zoomLevel * Math.cos(yaw) * Math.cos(pitch));
+        camera.lookAt(0, 0, 0);
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
         linkMeshes.forEach(({ from, to, line, material }) => {
@@ -373,15 +357,16 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           n.frame.material.opacity = active ? 1 : onPath ? 0.95 : 0.52;
           const worldPos = n.group.getWorldPosition(new THREE.Vector3());
           const projected = worldPos.clone().project(camera);
-          const visible = projected.z < 1 && projected.z > -1 && worldPos.z < -0.3;
+          const facing = worldPos.clone().normalize().dot(camera.position.clone().normalize());
+          const visible = projected.z < 1 && projected.z > -1 && facing > Math.min(0.92, 6.0 / zoomLevel);
           const label = labelEls.get(n.id);
           if (label) {
-            const labelScale = Math.max(0.82, Math.min(2.8, zoomLevel));
+            const labelScale = Math.max(0.82, Math.min(2.8, 10.5 / zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
             label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
             // Node names and headline metrics are always visible at every zoom level.
             // Detailed breakdowns open only on the selected node when zoomed in.
-            const showMetrics = zoomLevel >= 1.22;
+            const showMetrics = zoomLevel <= 8.5;
             label.style.opacity = visible ? (active ? '1' : onPath ? '0.96' : '0.82') : '0';
             label.style.pointerEvents = visible ? 'auto' : 'none';
             label.classList.toggle('details-open', active && showMetrics);
