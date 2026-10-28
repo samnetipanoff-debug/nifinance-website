@@ -862,7 +862,7 @@ export default function Universe2() {
           const current = previous[previous.length - 1];
           const existing = row.graphNodeId ? previous.findIndex(item => item.graphNodeId === row.graphNodeId) : previous.findIndex(item => item.nodeId === current?.nodeId && item.record?.primary === row.primary);
           if (existing >= 0) return previous.slice(0, existing + 1);
-          return [{ nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
+          return [...previous, { nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
         })}
         onSelectNode={id => {
           const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
