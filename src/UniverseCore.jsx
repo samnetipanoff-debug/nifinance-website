@@ -25,7 +25,7 @@ function DetailWindow({win,index,onClose,onFocus,onMove,onResize,focused}) {
  const dragStart=e=>{if(e.button!==0||e.target.closest('button'))return;start.current={x:e.clientX,y:e.clientY,left:win.x,top:win.y};e.currentTarget.setPointerCapture?.(e.pointerId);};
  const dragMove=e=>{if(!start.current)return;onMove(win.id,Math.max(8,Math.min(window.innerWidth-win.w-8,start.current.left+e.clientX-start.current.x)),Math.max(68,Math.min(window.innerHeight-90,start.current.top+e.clientY-start.current.y)));};
  const dragEnd=()=>{start.current=null};
- return <section className={'uc-window '+(focused?'focused':'')} style={{left:win.x,top:win.y,width:win.w,height:win.h,'--tone':PALETTE[n.tone]}} onPointerDown={()=>onFocus(win.id)} aria-label={'Подробности: '+n.name}>
+ return <section className={'uc-window '+(focused?'focused':'')} style={{left:win.x,top:win.y,width:win.w,height:win.h,zIndex:focused?60:40,'--tone':PALETTE[n.tone]}} onPointerDown={()=>onFocus(win.id)} aria-label={'Подробности: '+n.name}>
   <header className="uc-window-head" onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd}>
    <span className="uc-window-symbol" style={{background:PALETTE[n.tone]}}/><div className="uc-window-title"><small>{n.en}</small><strong>{n.name}</strong></div><button title="Переместить фокус в пространстве" onClick={()=>onFocus(win.id,true)}><Icon name="focus"/></button><button title="Закрыть окно" onClick={()=>onClose(win.id)}><Icon name="close"/></button>
   </header>
@@ -91,7 +91,6 @@ export default function UniverseCore(){
    return()=>{cancelAnimationFrame(raf);observer?.disconnect();el.removeEventListener('uc-node',onNode);el.removeEventListener('uc-edge',onEdge);renderer.domElement.removeEventListener('pointerdown',onDown);renderer.domElement.removeEventListener('pointermove',onMove);renderer.domElement.removeEventListener('wheel',onWheel);window.removeEventListener('pointerup',onUp);renderer.dispose();renderer.domElement.remove();scene.traverse(o=>{o.geometry?.dispose?.();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose()}});sceneData.current=null};
   }catch(e){console.error('Universe scene initialization failed',e);setIsReady(false);return()=>{renderer?.dispose?.();if(renderer?.domElement?.parentNode===el)el.removeChild(renderer.domElement)}}
  },[resetSignal,openWindow]);
- useEffect(()=>{const el=mount.current;if(!el)return;const edge=e=>{setEdgeFocus(e.detail);openWindow(e.detail.b,true)};el.addEventListener('uc-edge',edge);return()=>el.removeEventListener('uc-edge',edge)},[openWindow]);
  const filtered=NODES.filter(n=>(n.name+' '+n.en+' '+n.value).toLowerCase().includes(search.toLowerCase()));
  const reset=()=>{sceneData.current?.focus?.('core');setSelected('core');setView('COMPANY UNIVERSE');setEdgeFocus(null)};
  return <main className="universe-core">
