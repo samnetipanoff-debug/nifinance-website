@@ -571,3 +571,15 @@ body:has(.business-universe3),
 .business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-root{z-index:8}
 .business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-node{z-index:6;will-change:transform}
 .bu-inline .bh-btn{flex:0 0 auto;white-space:nowrap;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;min-height:38px}
+
+
+/* Universe3 relationship navigation: visible reciprocal links and anchored focus. */
+.business-universe3 .bu-graph-root { z-index: 8; transform:translate(-50%,-50%) translateZ(var(--branch-depth,0px)) scale(var(--branch-scale,1)); }
+.business-universe3 .bu-graph-root small { color:#91a48c; font:7px 'DM Mono',monospace; letter-spacing:.08em; }
+.business-universe3 .bu-graph-links .bu-graph-link-return { fill:none; stroke:#71dfff; stroke-opacity:.34; stroke-width:1; stroke-dasharray:2 7; animation:bu-graph-flow 9s linear infinite reverse; }
+.business-universe3 .bu-graph-path button:disabled { opacity:.35; cursor:default; }
+.business-universe3 .bu-graph-node { touch-action:manipulation; }
+@media(max-width:700px) {
+  .business-universe3 .bu-graph-root { min-width:135px; max-width:175px; padding:9px 10px; }
+  .business-universe3 .bu-graph-root small { font-size:6px; }
+}
