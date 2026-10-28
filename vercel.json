@@ -51,6 +51,14 @@
     {
       "source": "/universe-core/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/universe-4",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/universe-4/",
+      "destination": "/index.html"
     }
   ]
 }
