@@ -27,6 +27,7 @@ const colorMap = {core:0x36f2cf,finance:0x41c8ff,marketing:0xb19aff,sales:0x50d5
 export default function UniverseCore(){
  const mount=useRef(null), sceneRef=useRef(null), cameraRef=useRef(null), rendererRef=useRef(null), nodesRef=useRef({}), frameRef=useRef(0), targetRef=useRef(new THREE.Vector3(0,0,0));
  const [mode,setMode]=useState('analytics'), [selected,setSelected]=useState('core'), [period,setPeriod]=useState('MONTH'), [query,setQuery]=useState(''), [command,setCommand]=useState(''), [chat,setChat]=useState([{role:'core',text:'Ядро подключено к демонстрационной модели бизнеса. Выбери узел в пространстве или задай вопрос. Финансовые значения здесь демонстрационные.'}]), [actions,setActions]=useState([]), [showHelp,setShowHelp]=useState(false);
+ const selectedRef=useRef(selected); selectedRef.current=selected;
  const data=mode==='analytics'?metrics:actionNodes;
  const chosen=data.find(n=>n.id===selected)||data[0];
  const filtered=useMemo(()=>data.filter(n=>(n.label+' '+n.value+' '+n.desc).toLowerCase().includes(query.toLowerCase())),[data,query]);
@@ -58,7 +59,7 @@ export default function UniverseCore(){
     });
     nodesRef.current=nodeObjects;
    };
-   makeSet(metrics,links);sceneRef.current=scene;cameraRef.current=camera;rendererRef.current=renderer;raycaster=new THREE.Raycaster();mouse=new THREE.Vector2();
+   const activeNodes=mode==='analytics'?metrics:actionNodes; const activeLinks=mode==='analytics'?links:actionLinks; makeSet(activeNodes,activeLinks);sceneRef.current=scene;cameraRef.current=camera;rendererRef.current=renderer;raycaster=new THREE.Raycaster();mouse=new THREE.Vector2();
    const onResize=()=>{if(!el.clientWidth||!el.clientHeight)return;camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight)};
    resizeObserver=new ResizeObserver(onResize);resizeObserver.observe(el);
    const onDown=e=>{pointerDown={x:e.clientX,y:e.clientY};previous={x:e.clientX,y:e.clientY};drag=false;};
@@ -69,12 +70,12 @@ export default function UniverseCore(){
    const onSelect=e=>{const n=[...metrics,...actionNodes].find(x=>x.id===e.detail);if(!n)return;const obj=nodeObjects[n.id];if(obj){targetRef.current.set(...n.p);camera.position.x=n.p[0]*.22;camera.position.y=n.p[1]*.22+.5;camera.position.z=7.2}};
    el.addEventListener('universe-node',onSelect);
    let t=0;const animate=()=>{frame=requestAnimationFrame(animate);t+=.008;nebula.rotation.y+=.0006;stars.rotation.y+=.00004;
-     Object.values(nodeObjects).forEach((o,i)=>{o.group.children[1].rotation.y=t*.22+i*.15;o.group.children[2].rotation.z=t*.16+i*.12;if(o.record.id==='core')o.group.rotation.y=t*.12;if(o.record.id===selected)o.sphere.material.emissiveIntensity=.95+Math.sin(t*2)*.22;else o.sphere.material.emissiveIntensity=.52});
+     Object.values(nodeObjects).forEach((o,i)=>{o.group.children[1].rotation.y=t*.22+i*.15;o.group.children[2].rotation.z=t*.16+i*.12;if(o.record.id==='core')o.group.rotation.y=t*.12;if(o.record.id===selectedRef.current)o.sphere.material.emissiveIntensity=.95+Math.sin(t*2)*.22;else o.sphere.material.emissiveIntensity=.52});
      renderer.render(scene,camera);
    };animate();
    return()=>{cancelAnimationFrame(frame);resizeObserver?.disconnect();renderer.domElement.removeEventListener('pointerdown',onDown);renderer.domElement.removeEventListener('pointermove',onMove);renderer.domElement.removeEventListener('wheel',onWheel);window.removeEventListener('pointerup',onUp);el.removeEventListener('universe-node',onSelect);renderer.dispose();renderer.domElement.remove();scene.traverse(o=>{o.geometry?.dispose?.();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose()}})};
   }catch(err){console.error('Universe Core WebGL init failed',err);return()=>{renderer?.dispose?.();if(renderer?.domElement?.parentNode===el)el.removeChild(renderer.domElement)}}
- },[mode,selected]);
+ },[mode]);
  const focusNode=id=>{setSelected(id);const n=data.find(x=>x.id===id);if(n){targetRef.current.set(...n.p);const el=mount.current;el?.dispatchEvent(new CustomEvent('universe-node',{detail:id}))}};
  const switchMode=m=>{setMode(m);setSelected(m==='analytics'?'core':'signal')};
  const send=()=>{const q=command.trim();if(!q)return;setChat(c=>[...c,{role:'user',text:q},{role:'core',text:'Запрос принят. В текущем прототипе я могу показать пространственный сценарий и контекст узлов; для фактического анализа данных и запуска внешних действий нужно подключить LLM, API аналитики и слой разрешений.'}]);setCommand('')};
