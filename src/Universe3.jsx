@@ -238,8 +238,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
               event.preventDefault();
               event.stopPropagation();
               event.stopImmediatePropagation?.();
-              // Details stay inside the selected node; don't create a second floating window.
-              stateRef.current.onSelect(node.id);
+              stateRef.current.onDrilldown({ nodeId: node.id, label: keyText, value: valueText });
             };
             row.addEventListener('click', openDetail);
             row.addEventListener('keydown', (event) => {
@@ -498,8 +497,7 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
                       event.preventDefault();
                       event.stopPropagation();
                       event.stopImmediatePropagation?.();
-                      // Details stay inside the selected node; don't create a second floating window.
-                      stateRef.current.onSelect(n.id);
+                      stateRef.current.onDrilldown({ nodeId: n.id, label: keyText, value: valueText });
                     };
                     row.addEventListener('click', openDetail);
                     row.addEventListener('keydown', (event) => {
@@ -832,6 +830,34 @@ export default function Universe2() {
           <p className="bu-model-disclaimer">Illustrative scenario only: assumes current lead, opportunity and win rates stay constant. It is not a causal estimate or forecast.</p>
         </div>
       </aside>}
+      <SphereBranchGraph
+        selected={selected}
+        trail={detailTrail}
+        rows={detailTrail.length && !detailTrail[detailTrail.length - 1].record ? getDetailRows(detailTrail[detailTrail.length - 1]) : []}
+        relatedNodes={detailTrail[detailTrail.length - 1]?.graphNodeId
+          ? graphNeighbors(detailTrail[detailTrail.length - 1].graphNodeId).map(row => { const n=graphNodeForId(row.graphNodeId); return { id: row.graphNodeId, label: row.primary, value: row.value, color: n?.meta?.color || (n?.type==='transaction'?'#ffbf69':n?.type==='deal'?'#b9a0ff':'#71dfff') }; })
+          : (nodes.find(n => n.id === (detailTrail[detailTrail.length - 1]?.nodeId || selected))?.links || []).map(id => nodes.find(n => n.id === id)).filter(Boolean)}
+        onOpenRecord={row => setDetailTrail(previous => {
+          const current = previous[previous.length - 1];
+          const existing = row.graphNodeId ? previous.findIndex(item => item.graphNodeId === row.graphNodeId) : previous.findIndex(item => item.nodeId === current?.nodeId && item.record?.primary === row.primary);
+          if (existing >= 0) return previous.slice(0, existing + 1);
+          return [{ nodeId: current?.nodeId || selected, graphNodeId: row.graphNodeId || null, label: row.primary, value: row.value, record: row }];
+        })}
+        onSelectNode={id => {
+          const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
+          if (existing >= 0) { setDetailTrail(previous => previous.length && previous[previous.length - 1].graphNodeId === id ? [] : [previous[existing]]); return; }
+          const graphNode = graphNodeForId(id);
+          const type = graphNode?.type || '';
+          const mappedId = type === 'contact' ? 'customers' : type === 'deal' ? 'sales' : type === 'transaction' ? 'finance' : (nodes.find(n=>n.id===id)?.id || selected);
+          const staticNode = nodes.find(n=>n.id===mappedId);
+          setSelected(mappedId);
+          setExpandedIds(new Set());
+          setDetailTrail(previous => [...previous, { nodeId: mappedId, graphNodeId: id, label: graphNode?.label || staticNode?.label || id, value: graphNode?.meta?.amount == null ? (graphNode?.meta?.stage || '') : String(graphNode.meta.amount) + ' ' + (graphNode.meta.currency || '') }]);
+        }}
+        onReset={resetDetailTrail}
+        onBack={goBackDetail}
+        onBreadcrumb={index => setDetailTrail(previous => previous.slice(0, index + 1))}
+      />
 
     </section>
 
