@@ -415,7 +415,10 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         const zoomEase = reduced ? 0.22 : 0.075;
         zoomLevel += (targetZoom - zoomLevel) * zoomEase;
         if (Math.abs(targetZoom - zoomLevel) < 0.001) zoomLevel = targetZoom;
-        shell.scale.setScalar(zoomLevel);
+        businessElements.scale.setScalar(zoomLevel);
+        businessElements.position.z = (zoomLevel - 1) * 6.0;
+        businessElements.position.x = (zoomLevel - 1) * -0.22;
+        businessElements.position.y = (zoomLevel - 1) * 0.16;
         // Keep the business nodes fixed relative to the sphere. Only a deliberate drag rotates the model.
         // A short, damped inertial glide follows the user's drag; there is no idle auto-spin.
         if (!isDragging && !reduced) {
@@ -428,6 +431,9 @@ function BusinessSphere({ selected, expandedIds, onSelect, onToggleExpand, onDri
         }
         const activeScenario = scenarios[stateRef.current.scenario];
         const pathSet = new Set(activeScenario ? activeScenario.path : []);
+        // Shared by the branch-focus label styling below. Keep this inside the
+        // animation frame so the renderer never throws when the branch is opened.
+        const trail = stateRef.current.detailTrail || [];
         // Keep the camera at the sphere centre. Drill-down changes the highlighted
         // relationship layer, not the camera pose, so users never lose the overview.
         // Zoom and drag-to-rotate stay available at every branch depth.
