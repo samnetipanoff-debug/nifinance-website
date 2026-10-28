@@ -583,3 +583,47 @@ body:has(.business-universe3),
   .business-universe3 .bu-graph-root { min-width:135px; max-width:175px; padding:9px 10px; }
   .business-universe3 .bu-graph-root small { font-size:6px; }
 }
+
+
+/* Prevent stacked detail windows while navigating the Universe graph.
+   The active branch is the single source of detail; underlying sphere labels stay in place but their expanded cards are suppressed. */
+.business-universe3 .bu-stage-wrap.is-exploring-branch .sphere-node-label.details-open .sphere-direction-details {
+  display: none !important;
+}
+.business-universe3 .bu-stage-wrap.is-exploring-branch .sphere-node-label.details-open {
+  z-index: 3 !important;
+  box-shadow: none !important;
+}
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-node,
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-root {
+  box-sizing: border-box;
+  width: clamp(138px, 16vw, 178px);
+  min-width: 0;
+  max-width: 178px;
+  overflow-wrap: anywhere;
+}
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-node {
+  padding: 10px 12px;
+  gap: 5px;
+  background: rgba(5, 12, 9, .97);
+}
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-root {
+  width: clamp(150px, 18vw, 200px);
+  max-width: 200px;
+}
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-node span,
+.business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-root b {
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+@media (max-width: 700px) {
+  .business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-node {
+    width: 132px;
+    max-width: 132px;
+    padding: 8px 9px;
+  }
+  .business-universe3 .bu-stage-wrap.is-exploring-branch .bu-graph-root {
+    width: 145px;
+    max-width: 145px;
+  }
+}
