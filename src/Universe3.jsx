@@ -600,37 +600,58 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
   }, [selected, trail, rows.length]);
   if (!trail.length) return null;
   const current = trail[trail.length - 1];
-  const isRecord = Boolean(current.record);
+  const isRecord = Boolean(current.record || current.graphNodeId);
   const branches = isRecord ? relatedNodes : rows;
   const width = host.current?.closest('.bu-stage-wrap')?.clientWidth || 1000;
   const height = host.current?.closest('.bu-stage-wrap')?.clientHeight || 600;
   const startX = anchor.ready ? anchor.x : width * 0.5;
   const startY = anchor.ready ? anchor.y : height * 0.5;
-  const childX = startX;
-  // Children form a small orbit around the focused node and recede into the sphere.
-  const orbitX = Math.min(300, Math.max(145, width * 0.27));
-  const orbitY = Math.min(225, Math.max(105, height * 0.27));
-  const visibleBranches = branches.slice(0, 8);
-  const maxDepth = 999;
-  const canContinue = true;
+  const visibleBranches = branches.slice(0, 10);
+  const orbitX = Math.min(330, Math.max(155, width * 0.30));
+  const orbitY = Math.min(245, Math.max(115, height * 0.29));
   const children = visibleBranches.map((item, index) => {
     const angle = -Math.PI / 2 + (index / Math.max(visibleBranches.length, 1)) * Math.PI * 2;
-    const radius = visibleBranches.length === 1 ? 0.5 : visibleBranches.length < 4 ? 0.78 : 1;
-    const depth = 85 + trail.length * 34 + (index % 3) * 12;
-    return { item, x: Math.max(92, Math.min(width - 92, startX + Math.cos(angle) * orbitX * radius)), y: Math.max(82, Math.min(height - 82, startY + Math.sin(angle) * orbitY * radius)), depth, scale: Math.max(0.78, 1.0 - trail.length * 0.035 - (index % 3) * 0.025) };
+    const radius = visibleBranches.length === 1 ? 0.62 : visibleBranches.length < 4 ? 0.78 : 1;
+    const depth = 70 + Math.min(trail.length, 5) * 22 + (index % 3) * 10;
+    const perspective = (980 + depth) / 980;
+    return {
+      item,
+      x: Math.max(100, Math.min(width - 100, startX + Math.cos(angle) * orbitX * radius * perspective)),
+      y: Math.max(90, Math.min(height - 90, startY + Math.sin(angle) * orbitY * radius * perspective)),
+      depth,
+      scale: Math.max(0.72, 1.0 - Math.min(trail.length, 6) * 0.035 - (index % 3) * 0.02)
+    };
   });
   return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
-
+    <div className="bu-graph-path" aria-label="Navigation path">
+      <button type="button" onClick={onReset}>UNIVERSE</button>
+      {trail.map((item, index) => <React.Fragment key={(item.graphNodeId || item.nodeId || item.label) + '-' + index}>
+        <i>›</i>
+        <button type="button" className={index === trail.length - 1 ? 'current' : ''} onClick={() => onBreadcrumb(index)} title={'Open ' + item.label}>{item.label}</button>
+      </React.Fragment>)}
+      <button type="button" className="bu-graph-back" onClick={onBack} disabled={trail.length < 2}>← BACK</button>
+    </div>
     <svg className="bu-graph-links" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-      {children.map(({item,x,y,depth},index)=><path key={item.id||item.graphNodeId||item.primary||index} className={'bu-graph-link-depth bu-graph-link-depth-'+(index%3)} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
+      {children.map(({item,x,y},index)=><g key={item.id||item.graphNodeId||item.primary||index}>
+        <path className={'bu-graph-link-depth bu-graph-link-depth-'+(index%3)} d={`M ${startX} ${startY} C ${startX + (x-startX)*0.34} ${startY + (y-startY)*0.08}, ${startX + (x-startX)*0.68} ${startY + (y-startY)*0.92}, ${x} ${y}`} />
+        <path className="bu-graph-link-return" d={`M ${x} ${y} Q ${(x+startX)/2 + (index%2 ? 12 : -12)} ${(y+startY)/2} ${startX} ${startY}`} />
+      </g>)}
     </svg>
-    <button type="button" className="bu-graph-root" style={{left:width/2+(startX-width/2)*(980-42)/980,top:height/2+(startY-height/2)*(980-42)/980,'--branch-depth':'42px'}} onClick={onReset} title="Click to close details"><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
-    {children.map(({item,x,y,depth,scale},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':item.color,'--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>canContinue && onSelectNode(item.id)} disabled={!canContinue}><i/><span>{item.label}</span><b>{item.value}</b><small>{canContinue ? 'FOLLOW CONNECTION' : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button> : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>canContinue && onOpenRecord(item)} disabled={!canContinue}><i/><span>{item.primary}</span><b>{item.value}</b><small>{canContinue ? (item.secondary||'SOURCE RECORD') : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button>)}
-    {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
-    <div className="bu-graph-hint">CLICK A NODE TO SWITCH · CLICK SELECTED NODE TO CLOSE · SCROLL TO ZOOM · DRAG TO ROTATE</div>
+    <button type="button" className="bu-graph-root" style={{left:startX,top:startY,'--branch-depth':'0px'}} onClick={onReset} title="Return to the full universe">
+      <span>{isRecord ? 'CONNECTED RECORD' : 'CURRENT FOCUS'}</span><b>{current.label}</b><strong>{current.value || ''}</strong>
+      <small>RETURN TO UNIVERSE</small>
+    </button>
+    {children.map(({item,x,y,depth,scale},index)=>isRecord
+      ? <button key={item.id || item.graphNodeId || index} type="button" className="bu-graph-node bu-graph-related" style={{left:x,top:y,'--graph-node-color':item.color || '#71dfff','--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>onSelectNode(item.id || item.graphNodeId)} title="Follow this relationship">
+          <i/><span>{item.label || item.primary}</span><b>{item.value || ''}</b><small>FOLLOW CONNECTION ↔</small>
+        </button>
+      : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:x,top:y,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>onOpenRecord(item)}>
+          <i/><span>{item.primary}</span><b>{item.value}</b><small>{item.secondary || 'OPEN RELATED RECORD'} ↔</small>
+        </button>)}
+    {!branches.length&&<div className="bu-graph-empty" style={{left:startX,top:startY+90}}>No connected records at this level</div>}
+    <div className="bu-graph-hint">BREADCRUMB TO RETURN · FOLLOW LINKS IN BOTH DIRECTIONS · UNIVERSE CONTEXT PRESERVED</div>
   </div>;
 }
-
 export default function Universe2() {
   const [selected, setSelected] = useState('finance');
   const [expandedIds, setExpandedIds] = useState(() => new Set());
