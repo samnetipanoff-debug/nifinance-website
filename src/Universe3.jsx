@@ -623,11 +623,11 @@ function SphereBranchGraph({ selected, trail, rows, relatedNodes, onOpenRecord, 
     return { item, x: Math.max(92, Math.min(width - 92, startX + Math.cos(angle) * orbitX * radius)), y: Math.max(82, Math.min(height - 82, startY + Math.sin(angle) * orbitY * radius)), depth, scale: Math.max(0.78, 1.0 - trail.length * 0.035 - (index % 3) * 0.025) };
   });
   return <div className="bu-sphere-branch-graph" ref={host} aria-label="Connected business graph">
-    <div className="bu-graph-path"><button type="button" onClick={onReset}>UNIVERSE</button>{trail.map((item,index)=><React.Fragment key={index}><i>›</i><button type="button" className={index===trail.length-1?'current':''} onClick={()=>onBreadcrumb(index)}>{item.label}</button></React.Fragment>)}<button className="bu-graph-back" type="button" onClick={onBack}>← BACK</button></div>
+
     <svg className="bu-graph-links" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       {children.map(({item,x,y,depth},index)=><path key={item.id||item.graphNodeId||item.primary||index} className={'bu-graph-link-depth bu-graph-link-depth-'+(index%3)} d={`M ${startX} ${startY} C ${(startX+x)/2} ${startY}, ${(startX+x)/2} ${y}, ${x} ${y}`} />)}
     </svg>
-    <button type="button" className="bu-graph-root" style={{left:width/2+(startX-width/2)*(980-42)/980,top:height/2+(startY-height/2)*(980-42)/980,'--branch-depth':'42px'}} onClick={onBack}><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
+    <button type="button" className="bu-graph-root" style={{left:width/2+(startX-width/2)*(980-42)/980,top:height/2+(startY-height/2)*(980-42)/980,'--branch-depth':'42px'}} onClick={onReset} title="Click to close details"><span>{isRecord?'RECORD NODE':'SELECTED METRIC'}</span><b>{current.label}</b><strong>{current.value||''}</strong></button>
     {children.map(({item,x,y,depth,scale},index)=>isRecord ? <button key={item.id} type="button" className="bu-graph-node bu-graph-related" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':item.color,'--branch-depth':(-depth)+'px','--branch-scale':scale}} onClick={()=>canContinue && onSelectNode(item.id)} disabled={!canContinue}><i/><span>{item.label}</span><b>{item.value}</b><small>{canContinue ? 'FOLLOW CONNECTION' : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button> : <button key={(item.graphNodeId||item.primary)+'-'+index} type="button" className="bu-graph-node" style={{left:width/2+(x-width/2)*(980+depth)/980,top:height/2+(y-height/2)*(980+depth)/980,'--graph-node-color':nodes.find(n=>n.id===current.nodeId)?.color||'#c9ff78','--branch-depth':(-depth)+'px','--branch-scale':scale}} title={item.note||item.secondary} onClick={()=>canContinue && onOpenRecord(item)} disabled={!canContinue}><i/><span>{item.primary}</span><b>{item.value}</b><small>{canContinue ? (item.secondary||'SOURCE RECORD') : 'DEPTH LIMIT · RETURN TO OVERVIEW'}</small></button>)}
     {!branches.length&&<div className="bu-graph-empty" style={{left:childX,top:startY}}>No connected records at this level</div>}
     <div className="bu-graph-hint">{canContinue ? `DEPTH ${trail.length}/${maxDepth} · SCROLL TO ZOOM · DRAG TO ROTATE · UNIVERSE FOR FULL OVERVIEW` : 'MAX DEPTH REACHED · SELECT UNIVERSE TO RETURN TO FULL OVERVIEW'}</div>
@@ -850,14 +850,13 @@ export default function Universe2() {
         onSelectNode={id => {
           const existing = detailTrail.findIndex(item => item.graphNodeId === id || (!item.graphNodeId && item.nodeId === id));
           if (existing >= 0) { setDetailTrail(previous => previous.slice(0, existing + 1)); return; }
-          if (detailTrail.length >= 4) return;
           const graphNode = graphNodeForId(id);
           const type = graphNode?.type || '';
           const mappedId = type === 'contact' ? 'customers' : type === 'deal' ? 'sales' : type === 'transaction' ? 'finance' : (nodes.find(n=>n.id===id)?.id || selected);
           const staticNode = nodes.find(n=>n.id===mappedId);
           setSelected(mappedId);
           setExpandedIds(new Set());
-          setDetailTrail(previous => [...previous, { nodeId: mappedId, graphNodeId: id, label: graphNode?.label || staticNode?.label || id, value: graphNode?.meta?.amount == null ? (graphNode?.meta?.stage || '') : String(graphNode.meta.amount) + ' ' + (graphNode.meta.currency || '') }]);
+          setDetailTrail(previous => { const next = { nodeId: mappedId, graphNodeId: id, label: graphNode?.label || staticNode?.label || id, value: graphNode?.meta?.amount == null ? (graphNode?.meta?.stage || '') : String(graphNode.meta.amount) + ' ' + (graphNode.meta.currency || '') }; const existing = previous.findIndex(item => item.graphNodeId === id); return existing >= 0 ? previous.slice(0, existing) : [next]; });
         }}
         onReset={resetDetailTrail}
         onBack={goBackDetail}
