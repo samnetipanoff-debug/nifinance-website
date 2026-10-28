@@ -196,18 +196,53 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         group.position.copy(p);
         group.lookAt(new THREE.Vector3(0, 0, 0));
         const col = new THREE.Color(node.color);
-        const cube = new THREE.Mesh(
-          new THREE.BoxGeometry(0.19, 0.19, 0.19),
-          new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 1.25, metalness: 0.22, roughness: 0.3 })
+        // Each business driver is represented as a living cloud of data points,
+        // rather than a geometric cube. A few denser points form a readable core.
+        const cloudPositions = [];
+        const cloudColors = [];
+        const particleCount = 150;
+        for (let particle = 0; particle < particleCount; particle++) {
+          const angle = Math.random() * Math.PI * 2;
+          const cosPhi = Math.random() * 2 - 1;
+          const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
+          const radius = 0.12 + Math.pow(Math.random(), 0.72) * 0.43;
+          cloudPositions.push(
+            Math.cos(angle) * sinPhi * radius,
+            cosPhi * radius * 0.82,
+            Math.sin(angle) * sinPhi * radius
+          );
+          const shade = particle % 7 === 0 ? col.clone().lerp(new THREE.Color('#ffffff'), 0.58) : col.clone();
+          cloudColors.push(shade.r, shade.g, shade.b);
+        }
+        const cloudGeometry = new THREE.BufferGeometry();
+        cloudGeometry.setAttribute('position', new THREE.Float32BufferAttribute(cloudPositions, 3));
+        cloudGeometry.setAttribute('color', new THREE.Float32BufferAttribute(cloudColors, 3));
+        const cloudMaterial = new THREE.PointsMaterial({
+          size: 0.055,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.76,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          sizeAttenuation: true
+        });
+        const cloud = new THREE.Points(cloudGeometry, cloudMaterial);
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(0.075, 12, 12),
+          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 })
         );
-        const frame = new THREE.LineSegments(
-          new THREE.EdgesGeometry(new THREE.BoxGeometry(0.32, 0.32, 0.32)),
-          new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.85 })
+        const halo = new THREE.Mesh(
+          new THREE.SphereGeometry(0.47, 18, 18),
+          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.045, depthWrite: false })
         );
-        const halo = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false }));
-        group.add(halo, frame, cube);
+        // Invisible hit target keeps cloud selection reliable without visible cubes.
+        const hitTarget = new THREE.Mesh(
+          new THREE.SphereGeometry(0.5, 10, 10),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
+        );
+        group.add(halo, cloud, core, hitTarget);
         nodeGroup.add(group);
-        const entry = { id: node.id, group, cube, frame, halo, anchor: p.clone() };
+        const entry = { id: node.id, group, cloud, cloudMaterial, core, hitTarget, halo, anchor: p.clone() };
         meshes.push(entry);
         nodeById[node.id] = entry;
         const label = document.createElement('button');
@@ -280,9 +315,9 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
-        const hit = raycaster.intersectObjects(meshes.map(n => n.cube), false)[0];
+        const hit = raycaster.intersectObjects(meshes.map(n => n.hitTarget), false)[0];
         if (hit) {
-          const found = meshes.find(n => n.cube === hit.object);
+          const found = meshes.find(n => n.hitTarget === hit.object);
           if (found) stateRef.current.onSelect(found.id);
         }
       };
@@ -354,7 +389,11 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           const pulse = 1 + Math.sin(t * 2 + i) * 0.05;
           n.group.scale.setScalar(pulse * (active ? 1.35 : onPath ? 1.13 : 1));
           n.halo.material.opacity = active ? 0.19 : onPath ? 0.12 : 0.055;
-          n.frame.material.opacity = active ? 1 : onPath ? 0.95 : 0.52;
+          n.cloudMaterial.opacity = active ? 1 : onPath ? 0.88 : 0.68;
+          n.cloudMaterial.size = active ? 0.067 : onPath ? 0.059 : 0.052;
+          n.core.material.opacity = active ? 1 : onPath ? 0.92 : 0.72;
+          n.cloud.rotation.y = reduced ? 0 : t * (0.035 + i * 0.002) * (i % 2 ? -1 : 1);
+          n.cloud.rotation.x = reduced ? 0 : Math.sin(t * 0.18 + i) * 0.08;
           const worldPos = n.group.getWorldPosition(new THREE.Vector3());
           const projected = worldPos.clone().project(camera);
           const facing = worldPos.clone().normalize().dot(camera.position.clone().normalize());
