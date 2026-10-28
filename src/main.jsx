@@ -7,6 +7,7 @@ import Universe2 from './Universe2.jsx';
 import Universe3 from './Universe3.jsx';
 import DataCenter from './DataCenter.jsx';
 import BusinessHub from './BusinessHub.jsx';
+import UniverseCore from './UniverseCore.jsx';
 
 function WorldEngine() {
   const host = useRef(null);
