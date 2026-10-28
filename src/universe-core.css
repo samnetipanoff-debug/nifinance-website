@@ -46,3 +46,33 @@
 .universe-core .uc-related>button:hover{background:#1b2113;border-color:#c9ff4566}
 .universe-core .uc-window-head>button:hover{border-color:#c9ff4566;background:#1b2113;color:#c9ff45}
 @media(max-width:850px){.universe-core .uc-world-heading h1{letter-spacing:-.05em}}
+
+/* HARD OVERRIDE — NIFINANCE site palette + spatial labels */
+.universe-core{background:#0a0b09!important;color:#f2f2eb!important;font-family:Manrope,Arial,sans-serif!important}
+.universe-core .uc-world{background:radial-gradient(ellipse at 50% 44%,#171d12 0%,#0c0e0a 50%,#080907 100%)!important}
+.universe-core .uc-top{background:rgba(10,11,9,.97)!important;border-bottom:1px solid rgba(201,255,69,.24)!important}
+.universe-core .uc-brand-mark{border:1px solid #c9ff45!important;border-radius:0!important;color:#c9ff45!important}
+.universe-core .uc-brand b,.universe-core .uc-world-heading>span,.universe-core .uc-help-panel>span,.universe-core .uc-edge-toast>span{color:#c9ff45!important}
+.universe-core .uc-live-dot,.universe-core .uc-world-bottom>span:first-child i{background:#c9ff45!important;box-shadow:0 0 10px #c9ff45!important}
+.universe-core .uc-world-heading h1{font-family:'Space Grotesk',Manrope,Arial,sans-serif!important;color:#f2f2eb!important;font-size:clamp(26px,2.2vw,36px)!important;line-height:1.08!important;letter-spacing:-.06em!important}
+.universe-core .uc-world-heading p{color:#b4b6ac!important}
+.universe-core .uc-node-label{background:rgba(10,11,9,.96)!important;border:1px solid rgba(201,255,69,.32)!important;border-radius:2px!important;backdrop-filter:blur(12px)!important}
+.universe-core .uc-node-label:hover,.universe-core .uc-node-label.selected{background:rgba(22,28,15,.98)!important;border-color:#c9ff45!important;box-shadow:0 0 20px rgba(201,255,69,.12)!important}
+.universe-core .uc-node-copy small{color:#96988e!important}.universe-core .uc-node-copy b{color:#f2f2eb!important}.universe-core .uc-node-copy strong{color:#c9ff45!important}.universe-core .uc-node-copy em{color:#b4b6ac!important}
+.universe-core .uc-top-actions button,.universe-core .uc-world-tools button{background:#10120e!important;border:1px solid rgba(201,255,69,.3)!important;border-radius:0!important;color:#f2f2eb!important}
+.universe-core .uc-top-actions button:hover,.universe-core .uc-world-tools button:hover{background:#c9ff45!important;color:#0a0b09!important;border-color:#c9ff45!important}
+.universe-core .uc-world-vignette{background:radial-gradient(ellipse at center,transparent 20%,rgba(3,4,3,.08) 55%,rgba(3,4,3,.52) 100%)!important}
+.universe-core .uc-world-bottom{color:#96988e!important}.universe-core .uc-world-bottom b,.universe-core .uc-footer>span:first-child b{color:#c9ff45!important}
+.universe-core .uc-footer{background:#080907!important;border-top:1px solid rgba(201,255,69,.2)!important;color:#96988e!important}.universe-core .uc-footer i{background:#c9ff45!important}
+.universe-core .uc-search-panel,.universe-core .uc-help-panel,.universe-core .uc-edge-toast,.universe-core .uc-window{background:rgba(12,14,10,.985)!important;border-color:rgba(201,255,69,.3)!important}
+.universe-core .uc-window-head{border-bottom:1px solid rgba(242,242,235,.12)!important}
+.universe-core .uc-window-title small,.universe-core .uc-window-section-title{color:#96988e!important}
+.universe-core .uc-window-title strong,.universe-core .uc-metric>b{color:#f2f2eb!important}
+.universe-core .uc-window-summary,.universe-core .uc-window-insight p,.universe-core .uc-metric>span{color:#b4b6ac!important}
+.universe-core .uc-metric,.universe-core .uc-related>button{background:#10120e!important;border-color:rgba(242,242,235,.13)!important;border-radius:2px!important}
+.universe-core .uc-related>button:hover{background:#1b2113!important;border-color:#c9ff45!important}
+.universe-core .uc-window-head>button:hover{background:#1b2113!important;border-color:#c9ff45!important;color:#c9ff45!important}
+/* Labels must be placed at projected screen coordinates, not stacked in the corner. */
+.universe-core .uc-node-label-layer{position:absolute!important;inset:0!important;overflow:hidden!important;pointer-events:none!important}
+.universe-core .uc-node-label{top:0;left:0;transform:translate(-50%,-50%);will-change:left,top,opacity;pointer-events:auto}
+.universe-core .uc-node-label.behind{visibility:hidden!important}
