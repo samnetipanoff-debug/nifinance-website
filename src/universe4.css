@@ -359,3 +359,16 @@ body:has(.business-universe),
   }
   .business-universe .sphere-direction-details-row { font-size: 7px; }
 }
+
+
+/* Universe4: keep the miniature data artifacts tightly grouped around each business node. */
+.business-universe .business-sphere { cursor: grab; touch-action: none; }
+.business-universe .business-sphere.is-dragging { cursor: grabbing; }
+.business-universe .sphere-node-label {
+  position: absolute;
+  z-index: 7;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  pointer-events: auto;
+}
+.business-universe .sphere-node-label:not(.active) { backdrop-filter: blur(10px); }
