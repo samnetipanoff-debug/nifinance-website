@@ -107,6 +107,13 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       zoomReset.addEventListener('click', () => applyZoom(10.5));
       el.appendChild(zoomControls);
 
+      const onUniverseHome = () => {
+        targetYaw = 0;
+        targetPitch = 0.08;
+        applyZoom(10.5);
+      };
+      window.addEventListener('universe4:home', onUniverseHome);
+
       const onWheelZoom = (e) => {
         e.preventDefault();
         applyZoom(targetZoom + (e.deltaY < 0 ? -0.35 : 0.35));
@@ -401,6 +408,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         cancelAnimationFrame(frame);
         window.removeEventListener('resize', resize);
         el.removeEventListener('wheel', onWheelZoom);
+        window.removeEventListener('universe4:home', onUniverseHome);
         zoomControls.remove();
         el.removeEventListener('click', onClick);
         el.removeEventListener('pointerdown', onPointerDown);
@@ -426,6 +434,27 @@ function BusinessSphere({ selected, onSelect, scenario }) {
 
 export default function Universe4() {
   const [selected, setSelected] = useState('finance');
+  const selectionHistory = useRef([]);
+  const selectDirection = id => {
+    setSelected(current => {
+      if (current !== id) selectionHistory.current.push(current);
+      return id;
+    });
+  };
+  const goBack = () => {
+    const previous = selectionHistory.current.pop();
+    setSelected(previous || 'finance');
+  };
+  const goHome = () => {
+    selectionHistory.current = [];
+    setSelected('finance');
+    window.dispatchEvent(new Event('universe4:home'));
+  };
+  useEffect(() => {
+    const onKeyDown = event => { if (event.key === 'Escape') goBack(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
   const [scenarioKey, setScenarioKey] = useState('growth');
   const [showMap, setShowMap] = useState(true);
   const [neonData, setNeonData] = useState(null);
@@ -486,12 +515,17 @@ export default function Universe4() {
       <div className="bu-live-state"><i /> NORTHSTAR GROWTH <span>·</span> DEMO BUSINESS DATA</div>
       <div className="bu-header-hint">DRAG TO EXPLORE <span>·</span> SELECT A BUSINESS DRIVER</div>
     </div>
+    <nav className="bu-universe-nav" aria-label="Universe navigation">
+      <button type="button" onClick={goHome} aria-label="Return to universe home">⌂ <span>HOME</span></button>
+      <button type="button" onClick={goBack} aria-label="Return to previous direction">← <span>BACK</span></button>
+      <span className="bu-nav-current">{active.label.toUpperCase()}</span>
+    </nav>
 
 
 
     <section className="bu-stage-wrap">
       <div className="bu-stage-grid" />
-      <BusinessSphere selected={selected} onSelect={setSelected} scenario={scenarioKey} />
+      <BusinessSphere selected={selected} onSelect={selectDirection} scenario={scenarioKey} />
       <div className="bu-center-user"><div className="bu-user-orbit" /><div className="bu-user-core"><span>YOU</span><b>◎</b><small>DECISION<br />CENTRE</small></div></div>
       <div className="bu-stage-hud bu-hud-top-left"><span>UNIVERSE / 02</span><b>360°</b></div>
       <div className="bu-stage-hud bu-hud-top-right"><i /> INTERACTIVE MODEL</div>
@@ -508,7 +542,7 @@ export default function Universe4() {
         </div>
         <div className="bu-section-label bu-relations-heading"><span>CONNECTED DIRECTIONS</span><span>SELECT A DIRECTION TO TRACE THE LINK</span></div>
         <div className="bu-related-directions">
-          {active.links.map(id => { const related = nodes.find(n => n.id === id); return related ? <button key={related.id} type="button" className="bu-related-direction" onClick={() => setSelected(related.id)}><i style={{background: related.color}} /><span>{related.label}</span><b>↗</b></button> : null; })}
+          {active.links.map(id => { const related = nodes.find(n => n.id === id); return related ? <button key={related.id} type="button" className="bu-related-direction" onClick={() => selectDirection(related.id)><i style={{background: related.color}} /><span>{related.label}</span><b>↗</b></button> : null; })}
         </div>
         {neonStatus === "error" && <p className="bu-data-message" role="status">Neon data is temporarily unavailable: {neonError}. Direction relationships remain available.</p>}
       </div>
