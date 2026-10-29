@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Business Universe — NIFINANCE</title>
+<style>
+:root{color-scheme:dark;--mu:#849481}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#050805;color:#eaf1e5;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(2,7,5,.84) 100%)}
+.hud{position:fixed;z-index:2}
+.brand{left:24px;top:calc(18px + env(safe-area-inset-top,0px));pointer-events:none}
+.brand b{letter-spacing:.3em;font-size:12px}.brand span{display:block;color:var(--mu);font-size:12px}
+.crumb{top:calc(20px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);color:var(--mu);font-size:13px;white-space:nowrap}
+.crumb a{cursor:pointer;color:#d8f0d1}.crumb a:hover{text-decoration:underline}
+.hint{bottom:70px;left:0;right:0;text-align:center;color:var(--mu);font-size:12px;pointer-events:none;transition:opacity 1s}
+.dock{bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px}
+button{font:inherit;color:inherit;cursor:pointer}
+.dock button{background:rgba(5,8,5,.92);border:1px solid rgba(201,255,120,.24);border-radius:999px;padding:8px 13px;font-size:12px;white-space:nowrap;backdrop-filter:blur(10px);display:flex;gap:7px;align-items:center;transition:background .2s,border-color .2s}
+.dock button:hover,.dock button.on{background:rgba(16,26,17,.92);border-color:rgba(201,255,120,.65)}
+.dock i,.rl i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.panel{right:24px;top:70px;bottom:120px;width:min(380px,calc(100vw - 32px));padding:20px;border-radius:20px;background:rgba(5,8,5,.92);border:1px solid rgba(201,255,120,.2);backdrop-filter:blur(18px);overflow:auto;opacity:0;transform:translateX(30px);pointer-events:none;transition:.6s cubic-bezier(.2,.8,.2,1);scrollbar-width:none}
+.panel.on{opacity:1;transform:none;pointer-events:auto}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-actions{display:flex;gap:6px}.panel-actions button{border:1px solid rgba(201,255,120,.22);background:rgba(201,255,120,.06);border-radius:9px;padding:6px 10px;font-size:11px}.panel-actions button:hover{border-color:#c9ff78;background:rgba(201,255,120,.14)}
+.tag{font-size:11px;letter-spacing:.2em}.panel h2{margin:4px 0 6px;font-size:26px}.panel p{margin:0 0 14px;color:var(--mu)}
+.panel h3{margin:16px 0 8px;font-size:11px;letter-spacing:.16em;color:var(--mu);font-weight:600;text-transform:uppercase}
+.kg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kc{background:rgba(201,255,120,.055);border-radius:12px;padding:10px;display:flex;flex-direction:column}
+.kc span{font-size:11px;color:var(--mu)}.kc b{font-size:18px}.big{font-size:34px;font-weight:700}
+.up{color:#c9ff78;font-style:normal;font-size:12px}.dn{color:#ff9a78;font-style:normal;font-size:12px}
+.sp{width:100%;height:76px;margin-top:12px}.cap{display:flex;justify-content:space-between;font-size:10px;color:var(--mu)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.ch,.rl,.bk{background:rgba(201,255,120,.06);border:1px solid rgba(164,207,148,.2);border-radius:12px;padding:8px 12px;text-align:left}
+.ch:hover,.rl:hover,.bk:hover{background:rgba(16,26,17,.9)}
+.ch small,.rl small{display:block;color:var(--mu);font-size:11px}.rl{display:flex;gap:8px;align-items:center;width:100%;margin-bottom:6px;padding:6px 10px}.rl small{margin-left:auto}
+.bar span{display:flex;justify-content:space-between;font-size:12px;margin-top:8px}.bar u{display:block;height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}.bar s{display:block;height:100%}
+@media(max-width:720px){.brand{left:16px}.panel{top:auto;left:10px;right:10px;width:auto;bottom:76px;height:min(48vh,440px);padding:16px;transform:translateY(20px)}.crumb{top:50px;left:16px;transform:none;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}.dock{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;padding:8px 12px}.dock::-webkit-scrollbar{display:none}.dock button{flex:none}.hint{display:none}}
+</style></head><body>
+<canvas id="c"></canvas><div class="vig"></div>
+<div class="hud brand"><b>BUSINESS UNIVERSE</b><span>ORBITA LTD. · DEMO DATA</span></div>
+<div class="hud crumb" id="crumb"></div>
+<div class="hud hint" id="hint">DRAG: ROTATE · SCROLL: MOVE / ZOOM · CLICK: OPEN · ESC: BACK</div>
+<div class="hud panel" id="panel"></div>
+<div class="hud dock" id="dock"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$('#c'),g=cv.getContext('2d');
+let W,H,DPR;const rs=()=>{DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;g.setTransform(DPR,0,0,DPR,0,0)};addEventListener('resize',rs);rs();
+const R=700,RAD=Math.PI/180,sph=(lo,la,r)=>[r*Math.cos(la*RAD)*Math.sin(lo*RAD),r*Math.sin(la*RAD),r*Math.cos(la*RAD)*Math.cos(lo*RAD)];
+const add=(a,b,k=1)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k],sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],len=a=>Math.hypot(a[0],a[1],a[2]),nrm=a=>{const l=len(a)||1;return[a[0]/l,a[1]/l,a[2]/l]},crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],mix=(a,b,t)=>a+(b-a)*t,cl=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=x=>x*x*(3-2*x);
+const rgba=(h,a)=>{const n=parseInt(h.slice(1),16);return`rgba(${n>>16},${n>>8&255},${n&255},${a})`};
+const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const raw=[
+['Marketing','#c9ff78',0,8,'Demand, brand & lead generation',[['Leads','12 480','+14%'],['CPL','₽312','−6%'],['ROMI','238%','+21%'],['Reach','3,4 млн','+9%']],[['Channels','7 active','+2'],['Content','86 assets','+18%'],['Brand','NPS 54','+3']]],
+['Sales','#ffc66d',38,4,'Pipeline, deals & revenue',[['Выручка','₽48,2 млн','+12%'],['Conversion','18,4%','+2,1%'],['Avg. order value','₽86 тыс','+5%'],['Sales cycle','21 день','−3 д']],[['Pipeline','1 240 сделок','+9%'],['Sales team','92% плана','+4%'],['Forecast','₽52 млн','+8%']]],
+['Customers','#70d6b2',78,14,'Customer base, retention & loyalty',[['Active customers','8 640','+7%'],['Retention','87%','+2%'],['LTV','₽412 тыс','+11%'],['Churn','3,1%','−0,4%']],[['Segments','5 segments','+1'],['Support','CSAT 4,7','+0,2'],['Loyalty','NPS 61','+4']]],
+['Production','#7bb8e8',125,-4,'Output, capacity & quality',[['Output','12 300 ед.','+6%'],['Capacity use','84%','+3%'],['Defect rate','1,2%','−0,3%'],['OEE','76%','+4%']],[['Lines','6 lines','+1'],['Quality','98,8%','+0,3%'],['Downtime','14 ч','−22%']]],
+['Procurement','#b2a0e8',172,12,'Materials, suppliers & inventory',[['Volume','₽19,5 млн','+4%'],['Suppliers','38','+2'],['Inventory turnover','42 дня','−5 д'],['Discounts','6,8%','+0,9%']],[['Поставщики','38 active','+2'],['Inventory','94% точность','+1%'],['Tenders','5 открытых','+2']]],
+['Logistics','#65c9d0',222,-10,'Delivery, routes & timelines',[['Shipments','3 920','+8%'],['On time','96,2%','+1,4%'],['Cost per order','₽214','−7%'],['Returns','1,9%','−0,2%']],[['Routes','112 active','+9'],['Hubs','4 склада','+1'],['Last mile','1,8 дня','−0,3']]],
+['Finance','#a8e66b',285,30,'Cash, liquidity & budget',[['Cash flow','₽7,4 млн','+15%'],['Liquidity','1,8','+0,2'],['Accounts receivable','₽9,1 млн','−8%'],['Loans','₽12 млн','−2%']],[['Budget','91% исполнен','+3%'],['Treasury','₽15,2 млн','+6%'],['Taxes','₽4,1 млн','+2%']]],
+['Economics','#e5d77c',335,38,'Margins, unit economics & profitability',[['Margin','31,4%','+1,8%'],['EBITDA','₽11,6 млн','+14%'],['Unit cost','₽59 тыс','−3%'],['ROI','27%','+4%']],[['Юнит-экономика','LTV/CAC 5,2','+0,6'],['Break-even','7 400 ед.','−4%'],['Scenarios','3 модели','+1']]],
+['People','#e89a78',262,-42,'Team, hiring & performance',[['Employees','186','+9'],['Turnover','8,3%','−1,1%'],['Output per employee','₽259 тыс','+6%'],['eNPS','42','+5']],[['Hiring','12 вакансий','+3'],['Training','64% охвата','+9%'],['Incentives','KPI 88%','+2%']]],
+['Data & IT','#9bb9ad',30,-46,'Systems, analytics & automation',[['Uptime','99,95%','+0,02%'],['Automation','63%','+7%'],['Dashboards','48','+6'],['Incidents','2','−3']],[['CRM / ERP','5 систем','+1'],['Analytics','48 отчётов','+6'],['Integrations','21 API','+4']]]];
+const N=raw.map((r,i)=>({i,name:r[0],col:r[1],pos:sph(r[2],r[3],R),desc:r[4],k:r[5],seed:i+1,open:0,orb:0,right:[1,0,0],up:[0,1,0],dir:[0,0,1],ch:r[6].map((c,j)=>({name:c[0],val:c[1],d:c[2],seed:i*10+j+11}))}));
+const LK=[[0,1,'leads'],[1,2,'deals'],[2,0,'LTV & feedback'],[1,3,'orders'],[3,4,'materials demand'],[4,5,'supplies'],[3,5,'shipments'],[5,2,'customer delivery'],[1,6,'revenue'],[6,7,'budgets'],[7,3,'cost of goods'],[7,1,'pricing & margin'],[8,3,'shifts & payroll'],[8,6,'payroll'],[9,0,'аналитика'],[9,1,'CRM'],[9,7,'reporting']];
+const cam={p:[0,0,-40],yaw:20*RAD,pt:0,zoom:.45},T={p:[0,0,0],yaw:20*RAD,pt:0};
+let foc=null,cx=0,cy=0,hover=null,mx=0,my=0,idle=0,last=performance.now(),spd=0,t=0,F=800,cY,sY,cP,sP,items=[],drag=null,wl=0,noAuto=performance.now()+3000;
+const GRID=[],DUST=[],r0=rng(5);
+for(let lo=0;lo<360;lo+=30)GRID.push(Array.from({length:49},(_,i)=>sph(lo,-90+i*3.75,R)));
+for(let la=-60;la<=60;la+=30)GRID.push(Array.from({length:49},(_,i)=>sph(i*7.5,la,R)));
+for(let i=0;i<900;i++){const sh=i<500,d=sh?sph(r0()*360,Math.asin(r0()*2-1)/RAD,R*1.02):add([0,0,0],nrm([r0()-.5,r0()-.5,r0()-.5]),R*.95*Math.cbrt(r0()));DUST.push({p:d,b:.3+r0()*.7,r:sh?.8:1.4})}
+function pr(p){const a=p[0]-cam.p[0],b=p[1]-cam.p[1],c=p[2]-cam.p[2],x=a*cY-c*sY,z=a*sY+c*cY,y=b*cP-z*sP,w=b*sP+z*cP;if(w<15)return null;const s=F/w;return{x:cx+x*s,y:cy-y*s,z:w,s}}
+function spark(seed,col){const r=rng(seed*97+3);let v=40;const a=Array.from({length:12},()=>v=cl(v+(r()-.38)*18,12,95)),d=a.map((y,i)=>(i?'L':'M')+(i*29.1).toFixed(1)+' '+(70-y*.65).toFixed(1)).join('');
+return`<svg viewBox="0 0 320 76" class="sp"><defs><linearGradient id="g${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs><path d="${d}L320 76L0 76Z" fill="url(#g${seed})"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/></svg><div class="cap"><span>12 MONTHS AGO</span><span>NOW</span></div>`}
+const dc=d=>d[0]=='+'?'up':'dn',rel=i=>LK.filter(l=>l[0]==i||l[1]==i).map(l=>{const o=l[0]==i,x=N[o?l[1]:l[0]];return`<button class="rl" data-n="${x.i}"><i style="background:${x.col}"></i>${o?'→':'←'} ${x.name}<small>${l[2]}</small></button>`}).join('');
+function render(){const P=$('#panel');if(!foc)return;const n=foc.n,c=foc.c;
+if(!c)P.innerHTML=`<div class="panel-head"><div class="tag" style="color:${n.col}">BUSINESS AREA</div><div class="panel-actions"><button data-back="1">← Back</button><button data-h="1">✕ Close</button></div></div><h2>${n.name}</h2><p>${n.desc}</p><div class="kg">${n.k.map(k=>`<div class="kc"><span>${k[0]}</span><b>${k[1]}</b><i class="${dc(k[2])}">${k[2]}</i></div>`).join('')}</div>${spark(n.seed,n.col)}<h3>Explore metrics</h3><div class="row">${n.ch.map((x,j)=>`<button class="ch" data-c="${j}">${x.name}<small>${x.val}</small></button>`).join('')}</div><h3>Connections</h3>${rel(n.i)}`;
+else{const r=rng(c.seed*31+7);P.innerHTML=`<div class="panel-head"><div class="tag" style="color:${n.col}">METRIC · ${n.name.toUpperCase()}</div><div class="panel-actions"><button data-back="1">← Back</button><button data-h="1">✕ Close</button></div></div><h2>${c.name}</h2><div class="big">${c.val}</div><i class="${dc(c.d)}">${c.d} vs. previous period</i>${spark(c.seed,n.col)}<h3>Breakdown</h3>${[['Plan attainment',55+r()*42],['Share of business area',20+r()*60],['Quality index',70+r()*28]].map(b=>`<div class="bar"><span>${b[0]}<b>${b[1]|0}%</b></span><u><s style="width:${b[1]}%;background:${n.col}"></s></u></div>`).join('')}<h3>Влияет на / зависит от</h3>${rel(n.i)}<button class="bk" data-back="1" style="margin-top:8px">← Back to ${n.name}»</button>`}
+P.scrollTop=0}
+function ui(){$('#panel').classList.toggle('on',!!foc);if(foc)render();
+$('#crumb').innerHTML=['<a data-h="1">Universe</a>'].concat(foc?[foc.c?`<a data-n="${foc.n.i}">${foc.n.name}</a>`:foc.n.name]:[]).concat(foc&&foc.c?[foc.c.name]:[]).join(' › ');
+document.querySelectorAll('#dock button[data-n]').forEach(b=>b.classList.toggle('on',!!foc&&+b.dataset.n==foc.n.i))}
+function focusNode(n){if(foc&&foc.n===n&&!foc.c)return;let d=foc&&foc.n===n?n.dir:nrm(sub(n.pos,cam.p));n.dir=d;n.right=nrm(crs([0,1,0],d));n.up=crs(d,n.right);foc={n,c:null,dir:d};ui()}
+function focusChild(n,c){foc={n,c,dir:nrm(sub(c.wp,cam.p))};ui()}
+function home(){foc=null;T.p=[0,0,0];idle=0;noAuto=performance.now()+2500;ui()}
+function back(){foc&&foc.c?focusNode(foc.n):home()}
+$('#dock').innerHTML='<button data-h="1">⌂ Home</button>'+N.map(n=>`<button data-n="${n.i}"><i style="background:${n.col}"></i>${n.name}</button>`).join('');
+document.addEventListener('click',e=>{const b=e.target.closest('[data-n],[data-c],[data-h],[data-back]');if(!b)return;const d=b.dataset;if(d.h)home();else if(d.back)back();else if(d.c!==undefined)focusChild(foc.n,foc.n.ch[+d.c]);else focusNode(N[+d.n])});
+cv.addEventListener('pointerdown',e=>{drag={moved:0};cv.setPointerCapture(e.pointerId);idle=0;$('#hint').style.opacity=0});
+cv.addEventListener('pointermove',e=>{const dx=e.clientX-mx,dy=e.clientY-my;mx=e.clientX;my=e.clientY;if(drag){drag.moved+=Math.abs(dx)+Math.abs(dy);T.yaw-=dx*.0045;T.pt=cl(T.pt+dy*.0045,-1.2,1.2);if(foc){const cp=Math.cos(T.pt),sp=Math.sin(T.pt);foc.dir=[Math.sin(T.yaw)*cp,sp,Math.cos(T.yaw)*cp]}idle=0}});
+cv.addEventListener('pointerup',e=>{if(drag&&drag.moved<6){const it=hit(e.clientX,e.clientY);if(it)it.c?focusChild(it.n,it.c):focusNode(it.n)}drag=null});
+addEventListener('wheel',e=>{e.preventDefault();idle=0;$('#hint').style.opacity=0;const now=performance.now();
+if(foc){if(e.deltaY>30&&now-wl>700){wl=now;back()}return}
+const f=[Math.sin(T.yaw)*Math.cos(T.pt),Math.sin(T.pt),Math.cos(T.yaw)*Math.cos(T.pt)];T.p=add(T.p,f,-e.deltaY*.7);const l=len(T.p);if(l>R*.82)T.p=T.p.map(v=>v*R*.82/l)},{passive:false});
+addEventListener('keydown',e=>{if(e.key=='Escape')back()});
+function hit(x,y){let b=null;for(const it of items)if(it.hot&&Math.hypot(x-it.p.x,y-it.p.y)<it.w*it.p.s*1.25+8&&(!b||it.p.z<b.p.z))b=it;return b}
+function orb(it){const{n,c,p,w,al}=it,col=n.col,r=Math.max(w*p.s,2);g.save();g.globalAlpha=al;
+let rg=g.createRadialGradient(p.x,p.y,r*.3,p.x,p.y,r*2.8);rg.addColorStop(0,rgba(col,.5));rg.addColorStop(1,rgba(col,0));g.fillStyle=rg;g.beginPath();g.arc(p.x,p.y,r*2.8,0,7);g.fill();
+rg=g.createRadialGradient(p.x-r*.35,p.y-r*.4,r*.05,p.x,p.y,r);rg.addColorStop(0,'rgba(255,255,255,.95)');rg.addColorStop(.3,rgba(col,.95));rg.addColorStop(1,rgba(col,.35));g.fillStyle=rg;g.beginPath();g.arc(p.x,p.y,r,0,7);g.fill();
+g.strokeStyle=rgba(col,.5);g.lineWidth=1;g.beginPath();g.ellipse(p.x,p.y,r*1.7,r*.6,-.35,0,7);g.stroke();
+if(hover===it||(foc&&(foc.c?foc.c===c:foc.n===n&&!c))){g.setLineDash([r*.35,r*.25]);g.lineDashOffset=-t*30;g.strokeStyle=rgba(col,.9);g.lineWidth=1.5;g.beginPath();g.arc(p.x,p.y,r*1.3,0,7);g.stroke();g.setLineDash([])}
+const fs=c?cl(11*p.s,11,15):cl(24*p.s,12,24),ly=p.y+r*1.55+fs;g.font=`600 ${fs}px system-ui,sans-serif`;g.textAlign='center';g.fillStyle='#edf6e9';g.shadowColor=rgba(col,.8);g.shadowBlur=10;g.fillText(c?c.name:n.name,p.x,ly);g.shadowBlur=0;
+const L=c?[[c.val,c.d]]:(!foc||foc.n!==n)?n.k.slice(0,p.s>2?3:p.s>1.25?1:0).map(k=>[k[0]+' '+k[1],k[2]]):[],f2=Math.max(11,Math.round(fs*.62));g.globalAlpha=al*(c?1:cl((p.s-1.2)/.4,0,1));g.textAlign='left';g.font=`500 ${f2}px system-ui,sans-serif`;
+L.forEach((l,i)=>{const y=ly+(f2+5)*(i+1),w1=g.measureText(l[0]).width,w2=g.measureText(' '+l[1]).width,x0=p.x-(w1+w2)/2;g.fillStyle='#a9bba6';g.fillText(l[0],x0,y);g.fillStyle=l[1][0]=='+'?'#c9ff78':'#ff9a78';g.fillText(' '+l[1],x0+w1,y)});g.restore()}
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;const port=W<720,ecx=port?W/2:W*(foc?.36:.5),ecy=port?H*(foc?.28:.5):H*.5;if(!cx){cx=ecx;cy=ecy}cx=mix(cx,ecx,1-Math.exp(-dt*3));cy=mix(cy,ecy,1-Math.exp(-dt*3));
+N.forEach(n=>{n.wp=add(n.pos,[0,Math.sin(t*.6+n.i*1.7)*10,0]);n.open=mix(n.open,foc&&foc.n===n?1:0,1-Math.exp(-dt*3));if(foc&&foc.n===n&&!foc.c)n.orb+=dt*.14;const e=ease(n.open);n.ch.forEach((c,j)=>{const a=n.orb+j*6.2832/n.ch.length;c.wp=add(n.wp,add(n.right,n.up,0),0);c.wp=add(add(n.wp,n.right,Math.cos(a)*105*e),n.up,Math.sin(a)*80*e)})});
+if(foc){const e=foc.c||foc.n,D=foc.c?125:330;T.p=add(e.wp,foc.dir,-D);T.yaw=Math.atan2(foc.dir[0],foc.dir[2]);T.pt=Math.asin(foc.dir[1])}else{idle+=dt;if(idle>5)T.yaw+=dt*.03}
+const k=1-Math.exp(-dt*(foc?2.6:3.2)),op=cam.p;cam.p=[mix(op[0],T.p[0],k),mix(op[1],T.p[1],k),mix(op[2],T.p[2],k)];
+cam.yaw+=(((T.yaw-cam.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)*k;cam.pt+=(T.pt-cam.pt)*k;spd=mix(spd,len(sub(cam.p,op))/dt,.1);cam.zoom=mix(cam.zoom,1+cl(spd/1400,0,.3),1-Math.exp(-dt*3));
+F=Math.min(H*.95,W*1.3)*cam.zoom;const ey=cam.yaw+(mx/W-.5)*.05,ep=cam.pt-(my/H-.5)*.035;cY=Math.cos(ey);sY=Math.sin(ey);cP=Math.cos(ep);sP=Math.sin(ep);
+if(!foc&&now>noAuto){const f=[sY*cP,sP,cY*cP];for(const n of N){const d=sub(n.wp,cam.p),l=len(d);if(l<230&&f[0]*d[0]/l+f[1]*d[1]/l+f[2]*d[2]/l>.8){focusNode(n);break}}}
+const bg=g.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.8);bg.addColorStop(0,'#101a11');bg.addColorStop(.6,'#080d08');bg.addColorStop(1,'#030605');g.fillStyle=bg;g.fillRect(0,0,W,H);
+g.fillStyle='#c3d9bd';for(const d of DUST){const p=pr(d.p);if(!p)continue;g.globalAlpha=cl(.12+p.s*.35,.08,.85)*d.b;const r=cl(p.s*d.r,.5,2.8);g.fillRect(p.x,p.y,r,r)}g.globalAlpha=1;
+g.strokeStyle='rgba(132,148,129,.13)';g.lineWidth=1;g.beginPath();for(const ln of GRID){let pv=false;for(const q of ln){const p=pr(q);if(p){pv?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y);pv=true}else pv=false}}g.stroke();
+const hn=hover?hover.n:null;
+LK.forEach(([a,b,lb],li)=>{const A=N[a].wp,B=N[b].wp,C=add(A,B,1).map(v=>v*.18),hl=foc?(foc.n.i==a||foc.n.i==b):(hn&&(hn.i==a||hn.i==b)),pts=[];
+for(let i=0;i<=18;i++){const u=i/18,q=[0,1,2].map(j=>(1-u)*(1-u)*A[j]+2*(1-u)*u*C[j]+u*u*B[j]);pts.push(pr(q))}
+g.strokeStyle=rgba(N[a].col,hl?.7:.14);g.lineWidth=hl?1.6:1;g.beginPath();let pv=false;for(const p of pts){if(p){pv?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y);pv=true}else pv=false}g.stroke();
+for(let j=0;j<3;j++){const p=pts[Math.floor(((t*.12+j/3+li*.13)%1)*18)];if(p){g.fillStyle=rgba(N[a].col,hl?1:.5);g.beginPath();g.arc(p.x,p.y,cl(p.s*1.6,1,3.5)+(hl?1:0),0,7);g.fill()}}
+if(hl&&pts[9]){g.fillStyle='#dbe4ff';g.font='11px system-ui';g.textAlign='center';g.fillText(lb,pts[9].x,pts[9].y-6)}});
+items=[];N.forEach(n=>{const p=pr(n.wp);if(p)items.push({n,p,w:38,al:foc?(foc.n===n?(foc.c?.55:1):.38):1,hot:!foc||foc.n!==n||!!foc.c});
+if(n.open>.03){const o=ease(n.open);n.ch.forEach(c=>{const q=pr(c.wp);if(q)items.push({n,c,p:q,w:15*o,al:(foc&&foc.c&&foc.c!==c?.5:1)*o,hot:n.open>.7})})}});
+hover=drag?null:hit(mx,my);cv.style.cursor=hover?'pointer':drag?'grabbing':'grab';
+items.sort((a,b)=>b.p.z-a.p.z).forEach(orb);
+if(!foc){g.strokeStyle='rgba(201,255,120,.42)';g.lineWidth=1;g.beginPath();g.arc(cx,cy,9,0,7);g.moveTo(cx-16,cy);g.lineTo(cx-12,cy);g.moveTo(cx+12,cy);g.lineTo(cx+16,cy);g.moveTo(cx,cy-16);g.lineTo(cx,cy-12);g.moveTo(cx,cy+12);g.lineTo(cx,cy+16);g.stroke()}
+requestAnimationFrame(frame)}
+ui();requestAnimationFrame(frame);
+</script></body></html>
