@@ -372,3 +372,28 @@ body:has(.business-universe),
   pointer-events: auto;
 }
 .business-universe .sphere-node-label:not(.active) { backdrop-filter: blur(10px); }
+
+
+
+/* Universe4 navigation controls — reuse the original Universe palette and typography. */
+.business-universe .bu-universe-nav {
+  position: absolute; z-index: 12; top: 72px; left: clamp(14px, 2.2vw, 30px);
+  display: flex; align-items: center; gap: 6px; pointer-events: auto;
+}
+.business-universe .bu-universe-nav button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 34px; padding: 0 12px; border: 1px solid rgba(201,255,120,.24);
+  border-radius: 4px; background: rgba(5,8,5,.82); color: #c3d9bd;
+  font: 9px 'DM Mono', monospace; letter-spacing: .09em; backdrop-filter: blur(12px);
+  transition: border-color .18s ease, background .18s ease, color .18s ease;
+}
+.business-universe .bu-universe-nav button:hover { border-color: #c9ff78; background: rgba(16,26,17,.94); color: #eaf1e5; }
+.business-universe .bu-nav-current {
+  margin-left: 5px; padding-left: 11px; border-left: 1px solid var(--line);
+  color: #849481; font: 8px 'DM Mono', monospace; letter-spacing: .1em;
+}
+@media (max-width: 760px) {
+  .business-universe .bu-universe-nav { top: 60px; left: 12px; gap: 5px; }
+  .business-universe .bu-universe-nav button { min-height: 31px; padding: 0 9px; font-size: 8px; }
+  .business-universe .bu-nav-current { font-size: 7px; }
+}
