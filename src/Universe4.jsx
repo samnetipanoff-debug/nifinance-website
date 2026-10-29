@@ -90,10 +90,10 @@ function BusinessSphere({ selected, onSelect, scenario }) {
       const businessElements = new THREE.Group();
       shell.add(businessElements);
       const applyZoom = (value) => {
-        targetZoom = Math.max(6.5, Math.min(17, value));
+        targetZoom = Math.max(3.5, Math.min(17, value));
         const universe = el.closest('.business-universe');
         if (universe) universe.classList.toggle('is-zoomed', targetZoom <= 8.5);
-        zoomReadout.textContent = Math.round(10.5 / targetZoom * 100) + '%';
+        zoomReadout.textContent = Math.round(Math.min(300, 10.5 / targetZoom * 100)) + '%';
       };
       const zoomControls = document.createElement('div');
       zoomControls.className = 'sphere-zoom-controls';
@@ -196,55 +196,41 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         group.position.copy(p);
         group.lookAt(new THREE.Vector3(0, 0, 0));
         const col = new THREE.Color(node.color);
-        // Each business driver is represented as a living cloud of data points,
-        // rather than a geometric cube. A few denser points form a readable core.
-        const cloudPositions = [];
-        const cloudColors = [];
-        const particleCount = 150;
-        for (let particle = 0; particle < particleCount; particle++) {
-          const angle = Math.random() * Math.PI * 2;
-          const cosPhi = Math.random() * 2 - 1;
-          const sinPhi = Math.sqrt(1 - cosPhi * cosPhi);
-          const radius = 0.12 + Math.pow(Math.random(), 0.72) * 0.43;
-          cloudPositions.push(
-            Math.cos(angle) * sinPhi * radius,
-            cosPhi * radius * 0.82,
-            Math.sin(angle) * sinPhi * radius
-          );
-          const shade = particle % 7 === 0 ? col.clone().lerp(new THREE.Color('#ffffff'), 0.58) : col.clone();
-          cloudColors.push(shade.r, shade.g, shade.b);
-        }
-        const cloudGeometry = new THREE.BufferGeometry();
-        cloudGeometry.setAttribute('position', new THREE.Float32BufferAttribute(cloudPositions, 3));
-        cloudGeometry.setAttribute('color', new THREE.Float32BufferAttribute(cloudColors, 3));
-        const cloudMaterial = new THREE.PointsMaterial({
-          size: 0.055,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.76,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-          sizeAttenuation: true
+        // Orbiting miniature business artifacts: charts, tables and trend panels.
+        const dataArtifacts = new THREE.Group(); group.add(dataArtifacts);
+        const artifactMaterials = [];
+        const makeLine = (pts, opacity=0.8) => {
+          const geometry = new THREE.BufferGeometry().setFromPoints(pts.map(([x,y,z])=>new THREE.Vector3(x,y,z)));
+          const material = new THREE.LineBasicMaterial({color:col,transparent:true,opacity,depthWrite:false});
+          artifactMaterials.push(material); return new THREE.Line(geometry,material);
+        };
+        const makeCard = (type,seed) => {
+          const card = new THREE.Group(); const w=type==='table'?0.30:0.27; const h=type==='table'?0.22:0.25;
+          card.add(makeLine([[-w/2,-h/2,0],[w/2,-h/2,0],[w/2,h/2,0],[-w/2,h/2,0],[-w/2,-h/2,0]],0.82));
+          card.add(makeLine([[-w/2+0.025,h/2-0.055,0.002],[w/2-0.025,h/2-0.055,0.002]],0.58));
+          if(type==='chart'){
+            card.add(makeLine([[-w/2+0.035,-h/2+0.035,0.003],[-w/2+0.035,-0.025,0.003],[-0.015,-0.005,0.003],[0.035,0.035,0.003],[w/2-0.03,h/2-0.08,0.003]],0.98));
+            for(let b=0;b<3;b++){const x=-0.055+b*0.052;const bh=0.035+((seed+b)%3)*0.018;card.add(makeLine([[x,-h/2+0.025,0.004],[x,-h/2+0.025+bh,0.004]],0.62));}
+          }else if(type==='table'){
+            for(let row=0;row<3;row++){const y=h/2-0.085-row*0.047;card.add(makeLine([[-w/2+0.025,y,0.003],[w/2-0.025,y,0.003]],0.48));}
+            card.add(makeLine([[-0.025,-h/2+0.02,0.003],[-0.025,h/2-0.075,0.003]],0.42));
+          }else{
+            card.add(makeLine([[-w/2+0.03,0.015,0.003],[-0.035,0.015,0.003],[-0.005,-0.025,0.003],[0.035,0.005,0.003],[w/2-0.03,0.07,0.003]],0.88));
+            card.add(makeLine([[-w/2+0.03,-0.035,0.003],[w/2-0.03,-0.035,0.003]],0.35));
+          } return card;
+        };
+        const artifactTypes=['chart','table','trend','chart','table','trend','chart','table'];
+        const artifacts=[];
+        artifactTypes.forEach((type,k)=>{
+          const angle=k/artifactTypes.length*Math.PI*2; const orbitRadius=0.43+(k%3)*0.12;
+          const card=makeCard(type,idx+k); dataArtifacts.add(card);
+          artifacts.push({card,angle,orbitRadius,speed:(k%2?-1:1)*(0.16+(k%4)*0.035),baseY:Math.sin(angle)*orbitRadius*0.76});
         });
-        const cloud = new THREE.Points(cloudGeometry, cloudMaterial);
-        const core = new THREE.Mesh(
-          new THREE.SphereGeometry(0.075, 12, 12),
-          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 })
-        );
-        const halo = new THREE.Mesh(
-          new THREE.SphereGeometry(0.47, 18, 18),
-          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.045, depthWrite: false })
-        );
-        // Invisible hit target keeps cloud selection reliable without visible cubes.
-        const hitTarget = new THREE.Mesh(
-          new THREE.SphereGeometry(0.5, 10, 10),
-          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
-        );
-        group.add(halo, cloud, core, hitTarget);
-        nodeGroup.add(group);
-        const entry = { id: node.id, group, cloud, cloudMaterial, core, hitTarget, halo, anchor: p.clone() };
-        meshes.push(entry);
-        nodeById[node.id] = entry;
+        const halo=new THREE.Mesh(new THREE.SphereGeometry(0.38,16,16),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,depthWrite:false}));
+        const hitTarget=new THREE.Mesh(new THREE.SphereGeometry(0.5,10,10),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,colorWrite:false}));
+        group.add(halo,hitTarget); nodeGroup.add(group);
+        const entry={id:node.id,group,dataArtifacts,artifacts,artifactMaterials,hitTarget,halo,anchor:p.clone()};
+        meshes.push(entry); nodeById[node.id]=entry;
         const label = document.createElement('button');
         label.className = 'sphere-node-label';
         label.type = 'button';
@@ -386,14 +372,18 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         meshes.forEach((n, i) => {
           const active = n.id === stateRef.current.selected;
           const onPath = pathSet.has(n.id);
-          const pulse = 1 + Math.sin(t * 2 + i) * 0.05;
-          n.group.scale.setScalar(pulse * (active ? 1.35 : onPath ? 1.13 : 1));
-          n.halo.material.opacity = active ? 0.19 : onPath ? 0.12 : 0.055;
-          n.cloudMaterial.opacity = active ? 1 : onPath ? 0.88 : 0.68;
-          n.cloudMaterial.size = active ? 0.067 : onPath ? 0.059 : 0.052;
-          n.core.material.opacity = active ? 1 : onPath ? 0.92 : 0.72;
-          n.cloud.rotation.y = reduced ? 0 : t * (0.035 + i * 0.002) * (i % 2 ? -1 : 1);
-          n.cloud.rotation.x = reduced ? 0 : Math.sin(t * 0.18 + i) * 0.08;
+          // Fixed node scale: no breathing/pulsing. Data artifacts orbit the node.
+          n.group.scale.setScalar(1);
+          n.halo.material.opacity = 0;
+          const zoomScale = THREE.MathUtils.clamp(10.5 / zoomLevel, 0.65, 3);
+          n.dataArtifacts.scale.setScalar(zoomScale);
+          n.dataArtifacts.rotation.y = reduced ? 0 : t * 0.035 * (i % 2 ? -1 : 1);
+          n.dataArtifacts.rotation.x = reduced ? 0 : Math.sin(t * 0.12 + i) * 0.035;
+          n.artifacts.forEach((artifact, artifactIndex) => {
+            const angle = artifact.angle + (reduced ? 0 : t * artifact.speed);
+            artifact.card.position.set(Math.cos(angle) * artifact.orbitRadius, artifact.baseY + Math.sin(angle * 1.4 + i) * 0.025, Math.sin(angle) * artifact.orbitRadius);
+            artifact.card.rotation.z = Math.sin(angle + artifactIndex) * 0.12;
+          });
           const worldPos = n.group.getWorldPosition(new THREE.Vector3());
           const projected = worldPos.clone().project(camera);
           const facing = worldPos.clone().normalize().dot(camera.position.clone().normalize());
