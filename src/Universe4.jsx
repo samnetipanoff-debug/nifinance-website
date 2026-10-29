@@ -282,16 +282,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         linkMeshes.push({ from, to, line, material });
       });
 
-      // A luminous pulse travels through the selected causal chain.
-      const pulseGroup = new THREE.Group();
-      businessElements.add(pulseGroup);
-      const pulses = [];
-      for (let i = 0; i < 3; i++) {
-        const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), new THREE.MeshBasicMaterial({ color: 0xc9ff78 }));
-        pulseGroup.add(pulse);
-        pulses.push(pulse);
-      }
-
       raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
       const onClick = (e) => {
@@ -390,7 +380,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           const visible = projected.z < 1 && projected.z > -1 && facing > Math.min(0.92, 6.0 / zoomLevel);
           const label = labelEls.get(n.id);
           if (label) {
-            const labelScale = Math.max(0.82, Math.min(2.8, 10.5 / zoomLevel));
+            const labelScale = Math.max(0.82, Math.min(3, 10.5 / zoomLevel));
             label.style.setProperty('--label-zoom', labelScale.toFixed(2));
             label.style.transform = 'translate(' + ((projected.x * 0.5 + 0.5) * el.clientWidth) + 'px, ' + ((-projected.y * 0.5 + 0.5) * el.clientHeight) + 'px) translate(-50%, -50%) scale(' + labelScale.toFixed(2) + ')';
             // Node names and headline metrics are always visible at every zoom level.
@@ -403,19 +393,6 @@ function BusinessSphere({ selected, onSelect, scenario }) {
             label.classList.toggle('on-path', onPath);
           }
         });
-        if (activeScenario) {
-          activeScenario.path.slice(0, 3).forEach((id, i) => {
-            const node = nodeById[id];
-            if (!node || !pulses[i]) return;
-            const next = nodeById[activeScenario.path[i + 1]];
-            if (next) {
-              const alpha = (t * 0.34 + i * 0.37) % 1;
-              const p = node.group.position.clone().lerp(next.group.position, alpha);
-              pulses[i].position.copy(p);
-              pulses[i].visible = true;
-            } else pulses[i].visible = false;
-          });
-        }
         renderer.render(scene, camera);
       };
       animate();
