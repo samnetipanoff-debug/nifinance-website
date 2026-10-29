@@ -436,10 +436,8 @@ export default function Universe4() {
   const [selected, setSelected] = useState('finance');
   const selectionHistory = useRef([]);
   const selectDirection = id => {
-    setSelected(current => {
-      if (current !== id) selectionHistory.current.push(current);
-      return id;
-    });
+    if (selected !== id) selectionHistory.current.push(selected);
+    setSelected(id);
   };
   const goBack = () => {
     const previous = selectionHistory.current.pop();
