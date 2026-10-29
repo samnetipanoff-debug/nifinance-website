@@ -61,7 +61,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let isDragging = false, dragMoved = false, suppressClick = false;
     let pointerStartX = 0, pointerStartY = 0, previousPointerX = 0, previousPointerY = 0;
-    let dragVelocityX = 0, dragVelocityY = 0;
+    let dragStartYaw = 0, dragStartPitch = 0;
     try {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(48, el.clientWidth / Math.max(el.clientHeight, 1), 0.1, 120);
@@ -222,7 +222,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         const artifactTypes=['chart','table','trend','chart','table','trend','chart','table'];
         const artifacts=[];
         artifactTypes.forEach((type,k)=>{
-          const angle=k/artifactTypes.length*Math.PI*2; const orbitRadius=0.43+(k%3)*0.12;
+          const angle=k/artifactTypes.length*Math.PI*2; const orbitRadius=0.22+(k%3)*0.055;
           const card=makeCard(type,idx+k); dataArtifacts.add(card);
           artifacts.push({card,angle,orbitRadius,speed:(k%2?-1:1)*(0.16+(k%4)*0.035),baseY:Math.sin(angle)*orbitRadius*0.76});
         });
@@ -312,8 +312,8 @@ function BusinessSphere({ selected, onSelect, scenario }) {
         const dx = e.clientX - previousPointerX;
         const dy = e.clientY - previousPointerY;
         if (Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 4) dragMoved = true;
-        targetYaw = dragStartYaw - (e.clientX - pointerStartX) * 0.0045;
-        targetPitch = THREE.MathUtils.clamp(dragStartPitch + (e.clientY - pointerStartY) * 0.004, -1.05, 1.05);
+        targetYaw = dragStartYaw - (e.clientX - pointerStartX) * 0.0052;
+        targetPitch = THREE.MathUtils.clamp(dragStartPitch + (e.clientY - pointerStartY) * 0.0046, -1.05, 1.05);
         previousPointerX = e.clientX;
         previousPointerY = e.clientY;
       };
@@ -366,7 +366,7 @@ function BusinessSphere({ selected, onSelect, scenario }) {
           n.group.scale.setScalar(1);
           n.halo.material.opacity = 0;
           const zoomScale = THREE.MathUtils.clamp(10.5 / zoomLevel, 0.65, 3);
-          n.dataArtifacts.scale.setScalar(zoomScale);
+          n.dataArtifacts.scale.setScalar(zoomScale * 0.92);
           n.dataArtifacts.rotation.y = reduced ? 0 : t * 0.035 * (i % 2 ? -1 : 1);
           n.dataArtifacts.rotation.x = reduced ? 0 : Math.sin(t * 0.12 + i) * 0.035;
           n.artifacts.forEach((artifact, artifactIndex) => {
