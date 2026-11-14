@@ -29,7 +29,7 @@ let w=0,h=0,dpr=1,cx=0,cy=0,yaw=.35,pitch=.08,targetYaw=yaw,targetPitch=pitch,zo
 function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);cx=w*.5;cy=h*.5;stars=Array.from({length:Math.round(w*h/4200)},(_,i)=>({x:random(i+2)*w,y:random(i+19)*h,r:.35+random(i+43)*.8,a:.14+random(i+61)*.27,phase:random(i+73)*TAU,speed:.25+random(i+89)*.55}));}
 function random(s){const x=Math.sin(s*127.1+311.7)*43758.5453;return x-Math.floor(x);}
 function world(n){return mul(n.base,2.25*(1+Math.sin(time*.17+n.phase)*.002));}
-function project(p){const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),x=p.x*cy-p.z*sy,z=p.x*sy+p.z*cy,y=p.y*cp-z*sp,zz=p.y*sp+z*cp,depth=4.2-zz,s=Math.min(w,h)*.39*zoom/depth;return{x:cx+x*s,y:cy-y*s,z:depth,s};}
+function project(p){const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),x=p.x*cy-p.z*sy,z=p.x*sy+p.z*cy,y=p.y*cp-z*sp,zz=p.y*sp+z*cp,s=Math.min(w,h)*.39*zoom/4.2;return{x:cx+x*s,y:cy-y*s,z:zz,s};}
 function bezier(a,b,c,t){const q=1-t;return add(add(mul(a,q*q),mul(c,2*q*t)),mul(b,t*t));}
 function curvePoint(a,b,c,t){return project(bezier(a,b,c,t));}
 function control(a,b,i){return add(mul(add(a,b),.5),mul(norm(add(a,b)),.28+Math.sin(i*4.3)*.06));}
