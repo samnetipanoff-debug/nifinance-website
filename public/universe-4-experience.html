@@ -3,11 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Business Universe — NIFINANCE</title>
 <style>
-:root{color-scheme:dark;--mu:#849481}
+:root{color-scheme:dark;--mu:#8fa386;--accent:#c9ff78;--panel:#0b110c}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#050805;color:#eaf1e5;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html,body{margin:0;height:100%;overflow:hidden;background:#05070b;color:#eaf1e5;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(2,7,5,.84) 100%)}
+.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 34%,rgba(2,5,10,.78) 100%)}
 .hud{position:fixed;z-index:2}
 .brand{left:24px;top:calc(18px + env(safe-area-inset-top,0px));pointer-events:none}
 .brand b{letter-spacing:.3em;font-size:12px}.brand span{display:block;color:var(--mu);font-size:12px}
@@ -16,10 +16,10 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 .hint{bottom:70px;left:0;right:0;text-align:center;color:var(--mu);font-size:12px;pointer-events:none;transition:opacity 1s}
 .dock{bottom:calc(14px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px}
 button{font:inherit;color:inherit;cursor:pointer}
-.dock button{background:rgba(5,8,5,.92);border:1px solid rgba(201,255,120,.24);border-radius:999px;padding:8px 13px;font-size:12px;white-space:nowrap;backdrop-filter:blur(10px);display:flex;gap:7px;align-items:center;transition:background .2s,border-color .2s}
-.dock button:hover,.dock button.on{background:rgba(16,26,17,.92);border-color:rgba(201,255,120,.65)}
+.dock button{background:rgba(5,8,13,.92);border:1px solid rgba(201,255,120,.24);border-radius:999px;padding:8px 13px;font-size:12px;white-space:nowrap;backdrop-filter:blur(10px);display:flex;gap:7px;align-items:center;transition:background .2s,border-color .2s}
+.dock button:hover,.dock button.on{background:rgba(15,22,32,.94);border-color:rgba(201,255,120,.65)}
 .dock i,.rl i{width:8px;height:8px;border-radius:50%;display:inline-block}
-.panel{right:24px;top:70px;bottom:120px;width:min(380px,calc(100vw - 32px));padding:20px;border-radius:20px;background:rgba(5,8,5,.92);border:1px solid rgba(201,255,120,.2);backdrop-filter:blur(18px);overflow:auto;opacity:0;transform:translateX(30px);pointer-events:none;transition:.6s cubic-bezier(.2,.8,.2,1);scrollbar-width:none}
+.panel{right:24px;top:70px;bottom:120px;width:min(380px,calc(100vw - 32px));padding:20px;border-radius:20px;background:rgba(5,8,13,.92);border:1px solid rgba(201,255,120,.2);backdrop-filter:blur(18px);overflow:auto;opacity:0;transform:translateX(30px);pointer-events:none;transition:.6s cubic-bezier(.2,.8,.2,1);scrollbar-width:none}
 .panel.on{opacity:1;transform:none;pointer-events:auto}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-actions{display:flex;gap:6px}.panel-actions button{border:1px solid rgba(201,255,120,.22);background:rgba(201,255,120,.06);border-radius:9px;padding:6px 10px;font-size:11px}.panel-actions button:hover{border-color:#c9ff78;background:rgba(201,255,120,.14)}
 .tag{font-size:11px;letter-spacing:.2em}.panel h2{margin:4px 0 6px;font-size:26px}.panel p{margin:0 0 14px;color:var(--mu)}
 .panel h3{margin:16px 0 8px;font-size:11px;letter-spacing:.16em;color:var(--mu);font-weight:600;text-transform:uppercase}
@@ -30,7 +30,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sp{width:100%;height:76px;margin-top:12px}.cap{display:flex;justify-content:space-between;font-size:10px;color:var(--mu)}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .ch,.rl,.bk{background:rgba(201,255,120,.06);border:1px solid rgba(164,207,148,.2);border-radius:12px;padding:8px 12px;text-align:left}
-.ch:hover,.rl:hover,.bk:hover{background:rgba(16,26,17,.9)}
+.ch:hover,.rl:hover,.bk:hover{background:rgba(15,22,32,.92)}
 .ch small,.rl small{display:block;color:var(--mu);font-size:11px}.rl{display:flex;gap:8px;align-items:center;width:100%;margin-bottom:6px;padding:6px 10px}.rl small{margin-left:auto}
 .bar span{display:flex;justify-content:space-between;font-size:12px;margin-top:8px}.bar u{display:block;height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}.bar s{display:block;height:100%}
 @media(max-width:720px){.brand{left:16px}.panel{top:auto;left:10px;right:10px;width:auto;bottom:76px;height:min(48vh,440px);padding:16px;transform:translateY(20px)}.crumb{top:50px;left:16px;transform:none;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}.dock{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;padding:8px 12px}.dock::-webkit-scrollbar{display:none}.dock button{flex:none}.hint{display:none}}
@@ -49,16 +49,16 @@ const add=(a,b,k=1)=>[a[0]+b[0]*k,a[1]+b[1]*k,a[2]+b[2]*k],sub=(a,b)=>[a[0]-b[0]
 const rgba=(h,a)=>{const n=parseInt(h.slice(1),16);return`rgba(${n>>16},${n>>8&255},${n&255},${a})`};
 const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
 const raw=[
-['Marketing','#c9ff78',0,8,'Demand, brand & lead generation',[['Leads','12 480','+14%'],['CPL','₽312','−6%'],['ROMI','238%','+21%'],['Reach','3,4 млн','+9%']],[['Channels','7 active','+2'],['Content','86 assets','+18%'],['Brand','NPS 54','+3']]],
-['Sales','#ffc66d',38,4,'Pipeline, deals & revenue',[['Выручка','₽48,2 млн','+12%'],['Conversion','18,4%','+2,1%'],['Avg. order value','₽86 тыс','+5%'],['Sales cycle','21 день','−3 д']],[['Pipeline','1 240 сделок','+9%'],['Sales team','92% плана','+4%'],['Forecast','₽52 млн','+8%']]],
-['Customers','#70d6b2',78,14,'Customer base, retention & loyalty',[['Active customers','8 640','+7%'],['Retention','87%','+2%'],['LTV','₽412 тыс','+11%'],['Churn','3,1%','−0,4%']],[['Segments','5 segments','+1'],['Support','CSAT 4,7','+0,2'],['Loyalty','NPS 61','+4']]],
-['Production','#7bb8e8',125,-4,'Output, capacity & quality',[['Output','12 300 ед.','+6%'],['Capacity use','84%','+3%'],['Defect rate','1,2%','−0,3%'],['OEE','76%','+4%']],[['Lines','6 lines','+1'],['Quality','98,8%','+0,3%'],['Downtime','14 ч','−22%']]],
-['Procurement','#b2a0e8',172,12,'Materials, suppliers & inventory',[['Volume','₽19,5 млн','+4%'],['Suppliers','38','+2'],['Inventory turnover','42 дня','−5 д'],['Discounts','6,8%','+0,9%']],[['Поставщики','38 active','+2'],['Inventory','94% точность','+1%'],['Tenders','5 открытых','+2']]],
-['Logistics','#65c9d0',222,-10,'Delivery, routes & timelines',[['Shipments','3 920','+8%'],['On time','96,2%','+1,4%'],['Cost per order','₽214','−7%'],['Returns','1,9%','−0,2%']],[['Routes','112 active','+9'],['Hubs','4 склада','+1'],['Last mile','1,8 дня','−0,3']]],
-['Finance','#a8e66b',285,30,'Cash, liquidity & budget',[['Cash flow','₽7,4 млн','+15%'],['Liquidity','1,8','+0,2'],['Accounts receivable','₽9,1 млн','−8%'],['Loans','₽12 млн','−2%']],[['Budget','91% исполнен','+3%'],['Treasury','₽15,2 млн','+6%'],['Taxes','₽4,1 млн','+2%']]],
-['Economics','#e5d77c',335,38,'Margins, unit economics & profitability',[['Margin','31,4%','+1,8%'],['EBITDA','₽11,6 млн','+14%'],['Unit cost','₽59 тыс','−3%'],['ROI','27%','+4%']],[['Юнит-экономика','LTV/CAC 5,2','+0,6'],['Break-even','7 400 ед.','−4%'],['Scenarios','3 модели','+1']]],
-['People','#e89a78',262,-42,'Team, hiring & performance',[['Employees','186','+9'],['Turnover','8,3%','−1,1%'],['Output per employee','₽259 тыс','+6%'],['eNPS','42','+5']],[['Hiring','12 вакансий','+3'],['Training','64% охвата','+9%'],['Incentives','KPI 88%','+2%']]],
-['Data & IT','#9bb9ad',30,-46,'Systems, analytics & automation',[['Uptime','99,95%','+0,02%'],['Automation','63%','+7%'],['Dashboards','48','+6'],['Incidents','2','−3']],[['CRM / ERP','5 систем','+1'],['Analytics','48 отчётов','+6'],['Integrations','21 API','+4']]]];
+['Marketing','#71dfff',0,8,'Demand, brand & lead generation',[['Leads','12 480','+14%'],['CPL','₽312','−6%'],['ROMI','238%','+21%'],['Reach','3,4 млн','+9%']],[['Channels','7 active','+2'],['Content','86 assets','+18%'],['Brand','NPS 54','+3']]],
+['Sales','#b9a0ff',38,4,'Pipeline, deals & revenue',[['Выручка','₽48,2 млн','+12%'],['Conversion','18,4%','+2,1%'],['Avg. order value','₽86 тыс','+5%'],['Sales cycle','21 день','−3 д']],[['Pipeline','1 240 сделок','+9%'],['Sales team','92% плана','+4%'],['Forecast','₽52 млн','+8%']]],
+['Customers','#f3e66d',78,14,'Customer base, retention & loyalty',[['Active customers','8 640','+7%'],['Retention','87%','+2%'],['LTV','₽412 тыс','+11%'],['Churn','3,1%','−0,4%']],[['Segments','5 segments','+1'],['Support','CSAT 4,7','+0,2'],['Loyalty','NPS 61','+4']]],
+['Production','#ff8c70',125,-4,'Output, capacity & quality',[['Output','12 300 ед.','+6%'],['Capacity use','84%','+3%'],['Defect rate','1,2%','−0,3%'],['OEE','76%','+4%']],[['Lines','6 lines','+1'],['Quality','98,8%','+0,3%'],['Downtime','14 ч','−22%']]],
+['Procurement','#ffbf69',172,12,'Materials, suppliers & inventory',[['Volume','₽19,5 млн','+4%'],['Suppliers','38','+2'],['Inventory turnover','42 дня','−5 д'],['Discounts','6,8%','+0,9%']],[['Поставщики','38 active','+2'],['Inventory','94% точность','+1%'],['Tenders','5 открытых','+2']]],
+['Logistics','#70d6b2',222,-10,'Delivery, routes & timelines',[['Shipments','3 920','+8%'],['On time','96,2%','+1,4%'],['Cost per order','₽214','−7%'],['Returns','1,9%','−0,2%']],[['Routes','112 active','+9'],['Hubs','4 склада','+1'],['Last mile','1,8 дня','−0,3']]],
+['Finance','#e8f3df',285,30,'Cash, liquidity & budget',[['Cash flow','₽7,4 млн','+15%'],['Liquidity','1,8','+0,2'],['Accounts receivable','₽9,1 млн','−8%'],['Loans','₽12 млн','−2%']],[['Budget','91% исполнен','+3%'],['Treasury','₽15,2 млн','+6%'],['Taxes','₽4,1 млн','+2%']]],
+['Economics','#9dff8c',335,38,'Margins, unit economics & profitability',[['Margin','31,4%','+1,8%'],['EBITDA','₽11,6 млн','+14%'],['Unit cost','₽59 тыс','−3%'],['ROI','27%','+4%']],[['Юнит-экономика','LTV/CAC 5,2','+0,6'],['Break-even','7 400 ед.','−4%'],['Scenarios','3 модели','+1']]],
+['People','#b9a0ff',262,-42,'Team, hiring & performance',[['Employees','186','+9'],['Turnover','8,3%','−1,1%'],['Output per employee','₽259 тыс','+6%'],['eNPS','42','+5']],[['Hiring','12 вакансий','+3'],['Training','64% охвата','+9%'],['Incentives','KPI 88%','+2%']]],
+['Data & IT','#71dfff',30,-46,'Systems, analytics & automation',[['Uptime','99,95%','+0,02%'],['Automation','63%','+7%'],['Dashboards','48','+6'],['Incidents','2','−3']],[['CRM / ERP','5 систем','+1'],['Analytics','48 отчётов','+6'],['Integrations','21 API','+4']]]];
 const N=raw.map((r,i)=>({i,name:r[0],col:r[1],pos:sph(r[2],r[3],R),desc:r[4],k:r[5],seed:i+1,open:0,orb:0,right:[1,0,0],up:[0,1,0],dir:[0,0,1],ch:r[6].map((c,j)=>({name:c[0],val:c[1],d:c[2],seed:i*10+j+11}))}));
 const LK=[[0,1,'leads'],[1,2,'deals'],[2,0,'LTV & feedback'],[1,3,'orders'],[3,4,'materials demand'],[4,5,'supplies'],[3,5,'shipments'],[5,2,'customer delivery'],[1,6,'revenue'],[6,7,'budgets'],[7,3,'cost of goods'],[7,1,'pricing & margin'],[8,3,'shifts & payroll'],[8,6,'payroll'],[9,0,'аналитика'],[9,1,'CRM'],[9,7,'reporting']];
 const cam={p:[0,0,-40],yaw:20*RAD,pt:0,zoom:.45},T={p:[0,0,0],yaw:20*RAD,pt:0};
@@ -67,6 +67,8 @@ const GRID=[],DUST=[],r0=rng(5);
 for(let lo=0;lo<360;lo+=30)GRID.push(Array.from({length:49},(_,i)=>sph(lo,-90+i*3.75,R)));
 for(let la=-60;la<=60;la+=30)GRID.push(Array.from({length:49},(_,i)=>sph(i*7.5,la,R)));
 for(let i=0;i<900;i++){const sh=i<500,d=sh?sph(r0()*360,Math.asin(r0()*2-1)/RAD,R*1.02):add([0,0,0],nrm([r0()-.5,r0()-.5,r0()-.5]),R*.95*Math.cbrt(r0()));DUST.push({p:d,b:.3+r0()*.7,r:sh?.8:1.4})}
+const STAR_COLORS=['#e8f3df','#71dfff','#b9a0ff','#f3e66d','#ffbf69','#ff8c70'];
+const STARS=Array.from({length:280},(_,i)=>({x:r0(),y:r0(),r:.35+r0()*1.15,a:.22+r0()*.62,phase:r0()*Math.PI*2,color:STAR_COLORS[i%STAR_COLORS.length]}));
 function pr(p){const a=p[0]-cam.p[0],b=p[1]-cam.p[1],c=p[2]-cam.p[2],x=a*cY-c*sY,z=a*sY+c*cY,y=b*cP-z*sP,w=b*sP+z*cP;if(w<15)return null;const s=F/w;return{x:cx+x*s,y:cy-y*s,z:w,s}}
 function spark(seed,col){const r=rng(seed*97+3);let v=40;const a=Array.from({length:12},()=>v=cl(v+(r()-.38)*18,12,95)),d=a.map((y,i)=>(i?'L':'M')+(i*29.1).toFixed(1)+' '+(70-y*.65).toFixed(1)).join('');
 return`<svg viewBox="0 0 320 76" class="sp"><defs><linearGradient id="g${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs><path d="${d}L320 76L0 76Z" fill="url(#g${seed})"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/></svg><div class="cap"><span>12 MONTHS AGO</span><span>NOW</span></div>`}
@@ -107,7 +109,8 @@ const k=1-Math.exp(-dt*(foc?2.6:3.2)),op=cam.p;cam.p=[mix(op[0],T.p[0],k),mix(op
 cam.yaw+=(((T.yaw-cam.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI)*k;cam.pt+=(T.pt-cam.pt)*k;spd=mix(spd,len(sub(cam.p,op))/dt,.1);cam.zoom=mix(cam.zoom,1+cl(spd/1400,0,.3),1-Math.exp(-dt*3));
 F=Math.min(H*.95,W*1.3)*cam.zoom;const ey=cam.yaw+(mx/W-.5)*.05,ep=cam.pt-(my/H-.5)*.035;cY=Math.cos(ey);sY=Math.sin(ey);cP=Math.cos(ep);sP=Math.sin(ep);
 if(!foc&&now>noAuto){const f=[sY*cP,sP,cY*cP];for(const n of N){const d=sub(n.wp,cam.p),l=len(d);if(l<230&&f[0]*d[0]/l+f[1]*d[1]/l+f[2]*d[2]/l>.8){focusNode(n);break}}}
-const bg=g.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.8);bg.addColorStop(0,'#101a11');bg.addColorStop(.6,'#080d08');bg.addColorStop(1,'#030605');g.fillStyle=bg;g.fillRect(0,0,W,H);
+const bg=g.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H)*.85);bg.addColorStop(0,'#10151e');bg.addColorStop(.48,'#080d16');bg.addColorStop(1,'#02040a');g.fillStyle=bg;g.fillRect(0,0,W,H);
+for(const star of STARS){const twinkle=.72+.28*Math.sin(t*1.15+star.phase);g.globalAlpha=star.a*twinkle;g.fillStyle=star.color;g.beginPath();g.arc(star.x*W,star.y*H,star.r,0,Math.PI*2);g.fill();if(star.r>1.05){g.globalAlpha*=.22;g.fillRect(star.x*W-2.2,star.y*H-.35,4.4,.7);g.fillRect(star.x*W-.35,star.y*H-2.2,.7,4.4)}}g.globalAlpha=1;
 g.fillStyle='#c3d9bd';for(const d of DUST){const p=pr(d.p);if(!p)continue;g.globalAlpha=cl(.12+p.s*.35,.08,.85)*d.b;const r=cl(p.s*d.r,.5,2.8);g.fillRect(p.x,p.y,r,r)}g.globalAlpha=1;
 g.strokeStyle='rgba(132,148,129,.13)';g.lineWidth=1;g.beginPath();for(const ln of GRID){let pv=false;for(const q of ln){const p=pr(q);if(p){pv?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y);pv=true}else pv=false}}g.stroke();
 const hn=hover?hover.n:null;
