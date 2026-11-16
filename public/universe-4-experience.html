@@ -50,6 +50,10 @@ canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,moved:0}
 canvas.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.moved+=Math.abs(dx)+Math.abs(dy);targetYaw-=dx*.005;targetPitch=clamp(targetPitch+dy*.004,-1.15,1.15);drag.x=e.clientX;drag.y=e.clientY;}else{hover=null;let best=Infinity;for(const p of canvas._hits||[]){const d=Math.hypot(e.clientX-p.x,e.clientY-p.y);if(d<p.r&&d<best){best=d;hover=p.id;}}canvas.style.cursor=hover===null?'grab':'pointer';}});
 canvas.addEventListener('pointerup',e=>{if(drag&&drag.moved<8){let found=null,best=Infinity;for(const p of canvas._hits||[]){const d=Math.hypot(e.clientX-p.x,e.clientY-p.y);if(d<Math.max(22,p.r)&&d<best){best=d;found=p.id;}}if(found!==null)select(found);}drag=null;});
 canvas.addEventListener('wheel',e=>{e.preventDefault();targetZoom=clamp(targetZoom*(e.deltaY>0?.90:1.11),.55,4.0);},{passive:false});
+let pinch=null;
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===2){const a=e.touches[0],b=e.touches[1];pinch={distance:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),zoom:targetZoom};}},{passive:false});
+canvas.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinch){e.preventDefault();const a=e.touches[0],b=e.touches[1],distance=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);targetZoom=clamp(pinch.zoom*(distance/pinch.distance),.55,4.0);}}, {passive:false});
+canvas.addEventListener('touchend',e=>{if(e.touches.length<2)pinch=null;},{passive:false});
 window.addEventListener('keydown',e=>{if(e.key==='Escape')clear();});window.addEventListener('resize',resize);resize();frame();
 })();
 </script></body></html>
