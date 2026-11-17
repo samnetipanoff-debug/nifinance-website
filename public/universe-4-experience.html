@@ -50,7 +50,7 @@ dock.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)retur
 panel.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const el=b.closest('.panel'),id=el?Number(el.dataset.panel):null;if(id===null)return;focusPanel(id);if(b.hasAttribute('data-close'))closePanel(id);else if(b.hasAttribute('data-home'))clear();else if(b.dataset.select!==undefined)openPanel(Number(b.dataset.select));});
 panel.addEventListener('pointerdown',e=>{const head=e.target.closest('[data-drag]'),el=e.target.closest('.panel');if(!head||!el||e.target.closest('button'))return;const id=Number(el.dataset.panel),p=panelFor(id);if(!p)return;focusPanel(id);panelDrag={id,el,startX:e.clientX,startY:e.clientY,x:p.x,y:p.y};el.setPointerCapture?.(e.pointerId);e.preventDefault();});
 panel.addEventListener('pointermove',e=>{if(!panelDrag)return;const p=panelFor(panelDrag.id);if(!p)return;p.x=clamp(panelDrag.x+e.clientX-panelDrag.startX,6,window.innerWidth-elWidth(panelDrag.el)-6);p.y=clamp(panelDrag.y+e.clientY-panelDrag.startY,6,window.innerHeight-elHeight(panelDrag.el)-6);panelDrag.el.style.left=p.x+'px';panelDrag.el.style.top=p.y+'px';});
-panel.addEventListener('pointerup',()=>{panelDrag=null;});
+panel.addEventListener('pointerup',e=>{if(e.target.closest('[data-close]')){const el=e.target.closest('.panel'),id=el?Number(el.dataset.panel):null;if(id!==null){e.preventDefault();focusPanel(id);closePanel(id);}}panelDrag=null;});
 panel.addEventListener('pointercancel',()=>{panelDrag=null;});
 function elWidth(el){return el.getBoundingClientRect().width;}
 function elHeight(el){return el.getBoundingClientRect().height;}
