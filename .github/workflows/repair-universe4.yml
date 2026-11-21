@@ -1,0 +1,25 @@
+name: Repair Universe 4 HTML
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore HTML if gzip payload is present
+        run: |
+          if gzip -t public/universe-4-experience.html 2>/dev/null; then
+            gzip -cd public/universe-4-experience.html > /tmp/universe-4-experience.html
+            mv /tmp/universe-4-experience.html public/universe-4-experience.html
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add public/universe-4-experience.html
+            git commit -m "Restore Universe 4 HTML payload"
+            git push
+          else
+            echo "Universe 4 is already plain HTML"
+          fi
