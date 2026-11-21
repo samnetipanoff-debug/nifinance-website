@@ -1,0 +1,4 @@
+length=8370
+first32_hex=1f8b0808b910026b0203756e697665727365345f6e65772e68746d6c00a43ad9
+raw_gzip=fail:error:Error -3 while decompressing data: invalid distance too far back
+b64_gzip=fail:Error:Invalid base64-encoded string: number of data characters (2125) cannot be 1 more than a multiple of 4
