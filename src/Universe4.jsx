@@ -81,7 +81,7 @@ export default function Universe4(){
    }
    const shellGeo=new THREE.BufferGeometry();shellGeo.setAttribute('position',new THREE.BufferAttribute(shellPos,3));shellGeo.setAttribute('color',new THREE.BufferAttribute(shellCol,3));shellGeo.setAttribute('aSeed',new THREE.BufferAttribute(shellSeed,1));
    const shellMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{uTime:{value:0},uSize:{value:2.4}},vertexShader:`
-    uniform float uTime;uniform float uSize;attribute float aSeed;varying vec3 vColor;varying float vAlpha;
+    uniform float uTime;uniform float uSize;attribute float aSeed;attribute vec3 color;varying vec3 vColor;varying float vAlpha;
     void main(){vec3 p=position;vec3 n=normalize(p);vec3 drift=vec3(sin(p.y*1.8+uTime*.24+aSeed),cos(p.z*1.45-uTime*.19+aSeed),sin(p.x*1.65+uTime*.22+aSeed));drift-=n*dot(drift,n);p+=normalize(drift+vec3(.0001))*.055*sin(uTime*.32+aSeed);
     vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uSize*(360./max(1.,-mv.z));vColor=color;vAlpha=.42+.48*(.5+.5*sin(uTime*1.15+aSeed));}
    `,fragmentShader:`
