@@ -54,11 +54,11 @@
     },
     {
       "source": "/universe-4",
-      "destination": "/index.html"
+      "destination": "/universe-4-experience.html"
     },
     {
       "source": "/universe-4/",
-      "destination": "/index.html"
+      "destination": "/universe-4-experience.html"
     }
   ]
 }
