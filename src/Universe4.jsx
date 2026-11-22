@@ -96,6 +96,10 @@ function makeCurve(a,b,index,radius){
   const bend=new THREE.Vector3(Math.sin(index*2.13),Math.cos(index*1.71),Math.sin(index*.91)).multiplyScalar(.22);
   return new THREE.CatmullRomCurve3([a,a.clone().lerp(lift,.38).add(bend),lift.clone().add(bend),b.clone().lerp(lift,.38).add(bend),b]);
 }
+function seeded(i){
+  const x=Math.sin(i*12.9898)*43758.5453;
+  return x-Math.floor(x);
+}
 function spherePoint(i,count,r){
   const y=1-(i/(count-1))*2, rr=Math.sqrt(Math.max(0,1-y*y)), theta=Math.PI*(3-Math.sqrt(5))*i;
   return new THREE.Vector3(Math.cos(theta)*rr, y, Math.sin(theta)*rr).multiplyScalar(r);
