@@ -228,7 +228,7 @@ export default function Universe4(){
    const zoomIn=()=>{targetZoom=Math.min(3.1,targetZoom+.2);setZoom(Math.round(targetZoom*100))},zoomOut=()=>{targetZoom=Math.max(.48,targetZoom-.2);setZoom(Math.round(targetZoom*100))};
    el.querySelector('[data-zoom-in]').addEventListener('click',zoomIn);el.querySelector('[data-zoom-out]').addEventListener('click',zoomOut);el.querySelector('[data-zoom-reset]').addEventListener('click',()=>{targetZoom=1;setZoom(100)});
    const clock=new THREE.Clock();
-   const animate=()=>{raf=requestAnimationFrame(animate);const t=clock.getElapsedTime(),dt=Math.min(clock.getDelta(),.04);shellMat.uniforms.uTime.value=t;currentZoom+=(targetZoom-currentZoom)*(1-Math.exp(-dt*4.5));camera.position.z=10.7/currentZoom;
+   const animate=()=>{raf=requestAnimationFrame(animate);const t=clock.getElapsedTime(),dt=Math.min(clock.getDelta(),.04);currentZoom+=(targetZoom-currentZoom)*(1-Math.exp(-dt*4.5));camera.position.z=10.7/currentZoom;
     if(!dragging){root.rotation.y+=velocityX;root.rotation.x+=velocityY;velocityX*=.94;velocityY*=.94;if(Math.abs(velocityX)<.00001)velocityX=0;if(Math.abs(velocityY)<.00001)velocityY=0;root.rotation.y+=dt*.012}
     orbits.rotation.y=t*.018;orbits.rotation.z=Math.sin(t*.12)*.025;core.rotation.y=t*.13;core.rotation.x=Math.sin(t*.4)*.08;
     nodeObjects.forEach((n,i)=>{const pulse=1+Math.sin(t*1.4+i*.8)*.045;n.group.scale.setScalar(pulse);n.ring.rotation.z=t*.16+i;});
