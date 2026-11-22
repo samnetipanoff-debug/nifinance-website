@@ -102,28 +102,45 @@ function spherePoint(i,count,r){
 }
 
 export default function Universe4(){
- const host=useRef(null),[selected,setSelected]=useState(null),[zoom,setZoom]=useState(100);
+ const host=useRef(null),[selected,setSelected]=useState(null),[zoom,setZoom]=useState(100),[windows,setWindows]=useState([]),zTop=useRef(20),openRecordRef=useRef(null);
+ 
+ const openRecord=record=>{
+   setWindows(prev=>{
+     zTop.current+=1;
+     const existing=prev.find(w=>w.id===record.id);
+     if(existing)return prev.map(w=>w.id===record.id?{...w,z:zTop.current}:w);
+     const offset=(prev.length%5)*28,width=Math.min(380,Math.max(280,window.innerWidth*.28)),height=Math.min(310,Math.max(220,window.innerHeight*.34));
+     return [...prev,{id:record.id,record,x:Math.min(35+offset,window.innerWidth-width-10),y:Math.min(80+offset,window.innerHeight-height-55),width,height,z:zTop.current}];
+   });
+   setSelected(record.directionId);
+ };
+ openRecordRef.current=openRecord;
+ const closeWindow=id=>setWindows(prev=>prev.filter(w=>w.id!==id));
+ const frontWindow=id=>setWindows(prev=>{zTop.current+=1;return prev.map(w=>w.id===id?{...w,z:zTop.current}:w)});
+ const moveWindow=(id,x,y)=>setWindows(prev=>prev.map(w=>w.id===id?{...w,x:Math.max(4,Math.min(x,window.innerWidth-w.width-4)),y:Math.max(50,Math.min(y,window.innerHeight-w.height-45))}:w));
+ const resizeWindow=(id,width,height)=>setWindows(prev=>prev.map(w=>w.id===id?{...w,width:Math.min(width,window.innerWidth-8),height:Math.min(height,window.innerHeight-65)}:w));
+
  useEffect(()=>{
   const el=host.current;if(!el)return;
   let renderer,scene,camera,raf,resizeObserver;
   const disposables=[];
   const labels=new Map();
-  let dragging=false,lastX=0,lastY=0,velocityX=0,velocityY=0,targetZoom=1,currentZoom=1;
+  let dragging=false,lastX=0,lastY=0,velocityX=0,velocityY=0,targetZoom=1,currentZoom=1,downX=0,downY=0;
   const root=new THREE.Group(),surface=new THREE.Group(),graph=new THREE.Group(),orbits=new THREE.Group();
-  const nodeObjects=[],edgeObjects=[],raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+  const nodeObjects=[],edgeObjects=[],recordObjects=[],raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
   let selectedId=null;
   try{
    scene=new THREE.Scene();scene.background=new THREE.Color(0x020403);
    camera=new THREE.PerspectiveCamera(42,1,.1,100);camera.position.set(0,0,10.7);
    renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
-   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
+   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
    el.prepend(renderer.domElement);scene.add(root);root.add(surface,graph,orbits);
-   scene.add(new THREE.AmbientLight(0xc8d9c5,1.25));
-   const key=new THREE.PointLight(0xc9ff9b,24,22);key.position.set(1.8,2.5,5);scene.add(key);
-   const rim=new THREE.PointLight(0x5b9fff,12,20);rim.position.set(-4,-2,-4);scene.add(rim);
-   const coreLight=new THREE.PointLight(0xbaff87,9,8);coreLight.position.set(0,0,0);scene.add(coreLight);
+   scene.add(new THREE.AmbientLight(0xc8d9c5,.55));
+   const key=new THREE.PointLight(0xc9ff9b,7,22);key.position.set(1.8,2.5,5);scene.add(key);
+   const rim=new THREE.PointLight(0x5b9fff,3,20);rim.position.set(-4,-2,-4);scene.add(rim);
+   const coreLight=new THREE.PointLight(0xbaff87,2.5,8);coreLight.position.set(0,0,0);scene.add(coreLight);
    // A dense point-cloud shell gives the sphere its true volumetric silhouette.
-   const shellCount=11200,shellPos=new Float32Array(shellCount*3),shellCol=new Float32Array(shellCount*3),shellSeed=new Float32Array(shellCount);
+   const shellCount=17000,shellPos=new Float32Array(shellCount*3),shellCol=new Float32Array(shellCount*3),shellSeed=new Float32Array(shellCount);
    const ca=new THREE.Color('#d9f8d0'),cb=new THREE.Color('#83a98a'),cc=new THREE.Color('#c9ff78');
    for(let i=0;i<shellCount;i++){
     const p=spherePoint(i,shellCount,3.18);shellPos.set(p.toArray(),i*3);
@@ -139,7 +156,7 @@ export default function Universe4(){
    `});
    surface.add(new THREE.Points(shellGeo,shellMat));disposables.push(shellGeo,shellMat);
    // Inner network particles create depth, not a flat wireframe.
-   const innerCount=2400,innerPos=new Float32Array(innerCount*3),innerColors=new Float32Array(innerCount*3);
+   const innerCount=5200,innerPos=new Float32Array(innerCount*3),innerColors=new Float32Array(innerCount*3);
    for(let i=0;i<innerCount;i++){const p=spherePoint(i,innerCount,Math.pow(Math.random(),.72)*2.82);innerPos.set(p.toArray(),i*3);const c=new THREE.Color(Math.random()>.65?'#c9ff78':'#8bb4a0');innerColors.set([c.r,c.g,c.b],i*3)}
    const innerGeo=new THREE.BufferGeometry();innerGeo.setAttribute('position',new THREE.BufferAttribute(innerPos,3));innerGeo.setAttribute('color',new THREE.BufferAttribute(innerColors,3));
    const innerMat=new THREE.PointsMaterial({size:.018,vertexColors:true,transparent:true,opacity:.55,depthWrite:false,sizeAttenuation:true});surface.add(new THREE.Points(innerGeo,innerMat));disposables.push(innerGeo,innerMat);
@@ -165,13 +182,44 @@ export default function Universe4(){
     nodeObjects.push({id:d.id,index:i,group,halo,body,ring,color});
     const label=document.createElement('button');label.type='button';label.className='u4-label';label.style.setProperty('--c',d.color);label.innerHTML='<b>'+d.name+'</b><small>'+d.metric+'</small>';label.addEventListener('click',()=>{selectedId=d.id;setSelected(d.id);});el.querySelector('.u4-labels').appendChild(label);labels.set(d.id,label);
    });
+
+   // Every inner point is a real trial record. Zoom reveals the operating layer rather than an empty cloud.
+   const recordPositions=new Map();
+   RECORDS.forEach((record,index)=>{
+     const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
+     const base=nodeVectors[di].clone().normalize();
+     const tangent=new THREE.Vector3(-base.z*.82, seeded(index+31)-.5, base.x*.82).normalize();
+     const tangent2=base.clone().cross(tangent).normalize();
+     const theta=(index%24)/24*Math.PI*2;
+     const radius=2.15+seeded(index+80)*1.0;
+     const p=base.clone().multiplyScalar(radius)
+       .add(tangent.clone().multiplyScalar(Math.cos(theta)*(.38+seeded(index+50)*.55)))
+       .add(tangent2.clone().multiplyScalar(Math.sin(theta)*(.38+seeded(index+60)*.55)));
+     recordPositions.set(record.id,p);
+     const g=new THREE.Group();g.position.copy(p);g.userData={recordId:record.id,kind:'record'};graph.add(g);
+     const color=new THREE.Color(DIRECTIONS[di].color);
+     const body=new THREE.Mesh(new THREE.SphereGeometry(.035+(index%3)*.008,8,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92}));
+     const halo=new THREE.Mesh(new THREE.SphereGeometry(.065,8,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.055,depthWrite:false}));
+     g.add(halo,body);
+     recordObjects.push({record,g,body,halo});
+   });
+   // Direction-to-record traces. They become denser as the user moves into the data layer.
+   RECORDS.forEach((record,index)=>{
+     if(index%2!==0)return;
+     const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
+     const curve=makeCurve(nodeVectors[di],recordPositions.get(record.id),index+80,3.2);
+     const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
+     const mat=new THREE.LineBasicMaterial({color:new THREE.Color(DIRECTIONS[di].color),transparent:true,opacity:.075,depthWrite:false});
+     graph.add(new THREE.Line(geo,mat));disposables.push(geo,mat);
+   });
+
    // Curved 3D relationships, with multiple light traces per business connection.
    EDGES.forEach(([ai,bi],i)=>{
     const a=nodeVectors[ai],b=nodeVectors[bi],curve=makeCurve(a,b,i,3.18),points=curve.getPoints(72);
     const geo=new THREE.BufferGeometry().setFromPoints(points);
-    const lineMat=new THREE.LineBasicMaterial({color:0x91b49a,transparent:true,opacity:.24,depthWrite:false});
+    const lineMat=new THREE.LineBasicMaterial({color:0x91b49a,transparent:true,opacity:.16,depthWrite:false});
     const line=new THREE.Line(geo,lineMat);graph.add(line);
-    const glowGeo=new THREE.TubeGeometry(curve,72,.018,5,false),glowMat=new THREE.MeshBasicMaterial({color:0x9dff8c,transparent:true,opacity:.045,depthWrite:false,blending:THREE.AdditiveBlending});graph.add(new THREE.Mesh(glowGeo,glowMat));
+    const glowGeo=new THREE.TubeGeometry(curve,72,.018,5,false),glowMat=new THREE.MeshBasicMaterial({color:0x9dff8c,transparent:true,opacity:.018,depthWrite:false,blending:THREE.AdditiveBlending});graph.add(new THREE.Mesh(glowGeo,glowMat));
     const particles=[];
     for(let k=0;k<2;k++){const p=new THREE.Mesh(new THREE.SphereGeometry(.027,10,10),new THREE.MeshBasicMaterial({color:k===0?0xd9ffd0:0xa8d9ff,transparent:true,opacity:.95}));graph.add(p);particles.push(p)}
     edgeObjects.push({ai,bi,curve,lineMat,particles});disposables.push(geo,lineMat,glowGeo,glowMat);
@@ -180,13 +228,13 @@ export default function Universe4(){
    const filamentCount=260,filamentPositions=[];
    for(let i=0;i<filamentCount;i++){const a=spherePoint(i,filamentCount,2.55),b=spherePoint((i*37+83)%filamentCount,filamentCount,2.55);filamentPositions.push(a,b)}
    const filamentGeo=new THREE.BufferGeometry().setFromPoints(filamentPositions);const filamentMat=new THREE.LineBasicMaterial({color:0x7aa88a,transparent:true,opacity:.055,depthWrite:false});surface.add(new THREE.LineSegments(filamentGeo,filamentMat));disposables.push(filamentGeo,filamentMat);
-   const onDown=e=>{if(e.target.closest('.u4-label,.u4-controls'))return;dragging=true;lastX=e.clientX;lastY=e.clientY;el.setPointerCapture?.(e.pointerId)};
+   const onDown=e=>{if(e.target.closest('.u4-label,.u4-controls,.u4-window'))return;dragging=true;lastX=e.clientX;lastY=e.clientY;downX=e.clientX;downY=e.clientY;el.setPointerCapture?.(e.pointerId)};
    const onMove=e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;root.rotation.y+=dx*.006;root.rotation.x=Math.max(-1.25,Math.min(1.25,root.rotation.x+dy*.006));velocityX=dx*.0008;velocityY=dy*.0008;lastX=e.clientX;lastY=e.clientY};
-   const onUp=()=>{dragging=false};
-   const onWheel=e=>{e.preventDefault();targetZoom=THREE.MathUtils.clamp(targetZoom+(e.deltaY<0?.12:-.12),.58,2.35);setZoom(Math.round(targetZoom*100))};
+   const onUp=e=>{if(!dragging)return;const moved=Math.hypot(e.clientX-downX,e.clientY-downY);dragging=false;if(moved>6)return;const rect=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-rect.left)/rect.width)*2-1;pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;root.updateMatrixWorld(true);raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(recordObjects.map(x=>x.body),false)[0];if(hit){const item=recordObjects.find(x=>x.body===hit.object);if(item){selectedId=item.record.directionId;setSelected(item.record.directionId);openRecordRef.current?.(item.record)}}};
+   const onWheel=e=>{e.preventDefault();targetZoom=THREE.MathUtils.clamp(targetZoom+(e.deltaY<0?.16:-.16),.48,3.1);setZoom(Math.round(targetZoom*100))};
    const onResize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)};
    el.addEventListener('pointerdown',onDown);el.addEventListener('pointermove',onMove);el.addEventListener('pointerup',onUp);el.addEventListener('pointercancel',onUp);el.addEventListener('wheel',onWheel,{passive:false});window.addEventListener('resize',onResize);
-   const zoomIn=()=>{targetZoom=Math.min(2.35,targetZoom+.15);setZoom(Math.round(targetZoom*100))},zoomOut=()=>{targetZoom=Math.max(.58,targetZoom-.15);setZoom(Math.round(targetZoom*100))};
+   const zoomIn=()=>{targetZoom=Math.min(3.1,targetZoom+.2);setZoom(Math.round(targetZoom*100))},zoomOut=()=>{targetZoom=Math.max(.48,targetZoom-.2);setZoom(Math.round(targetZoom*100))};
    el.querySelector('[data-zoom-in]').addEventListener('click',zoomIn);el.querySelector('[data-zoom-out]').addEventListener('click',zoomOut);el.querySelector('[data-zoom-reset]').addEventListener('click',()=>{targetZoom=1;setZoom(100)});
    const clock=new THREE.Clock();
    const animate=()=>{raf=requestAnimationFrame(animate);const t=clock.getElapsedTime(),dt=Math.min(clock.getDelta(),.04);shellMat.uniforms.uTime.value=t;currentZoom+=(targetZoom-currentZoom)*(1-Math.exp(-dt*4.5));camera.position.z=10.7/currentZoom;
@@ -205,9 +253,9 @@ export default function Universe4(){
  const active=DIRECTIONS.find(x=>x.id===selected);
  return <main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS UNIVERSE</div><div className="u4-sub">NIFINANCE · INTERACTIVE SYSTEM</div></div>
-  <div className="u4-live"><i/>LIVE MODEL</div><div className="u4-labels"/>
+  <div className="u4-live"><i/>DATA MODEL · 250 RECORDS</div><div className="u4-labels"/>
   {active&&<div className="u4-selection" style={{'--c':active.color}}><strong>{active.name.toUpperCase()}</strong><span>{active.metric.toUpperCase()}</span></div>}
-  <div className="u4-hint">DRAG TO ROTATE · SCROLL TO EXPLORE</div>
+  <div className="u4-hint">DRAG TO ROTATE · SCROLL TO EXPLORE · CLICK DATA POINTS</div>
   <div className="u4-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span>{zoom}%</span><button type="button" data-zoom-in aria-label="Zoom in">+</button><button type="button" data-zoom-reset aria-label="Reset zoom">↺</button></div>
- </main>;
+ <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
 }
