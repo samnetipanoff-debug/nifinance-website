@@ -143,38 +143,24 @@ export default function Universe4(){
    const key=new THREE.PointLight(0xc9ff9b,7,22);key.position.set(1.8,2.5,5);scene.add(key);
    const rim=new THREE.PointLight(0x5b9fff,3,20);rim.position.set(-4,-2,-4);scene.add(rim);
    const coreLight=new THREE.PointLight(0xbaff87,2.5,8);coreLight.position.set(0,0,0);scene.add(coreLight);
-   // A dense point-cloud shell gives the sphere its true volumetric silhouette.
-   const shellCount=17000,shellPos=new Float32Array(shellCount*3),shellCol=new Float32Array(shellCount*3),shellSeed=new Float32Array(shellCount);
-   const ca=new THREE.Color('#d9f8d0'),cb=new THREE.Color('#83a98a'),cc=new THREE.Color('#c9ff78');
-   for(let i=0;i<shellCount;i++){
-    const p=spherePoint(i,shellCount,3.18);shellPos.set(p.toArray(),i*3);
-    const col=Math.random()>.83?cc:Math.random()>.52?ca:cb;shellCol.set([col.r,col.g,col.b],i*3);shellSeed[i]=Math.random()*6.28;
-   }
-   const shellGeo=new THREE.BufferGeometry();shellGeo.setAttribute('position',new THREE.BufferAttribute(shellPos,3));shellGeo.setAttribute('color',new THREE.BufferAttribute(shellCol,3));shellGeo.setAttribute('aSeed',new THREE.BufferAttribute(shellSeed,1));
-   const shellMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,uniforms:{uTime:{value:0},uSize:{value:2.4}},vertexShader:`
-    uniform float uTime;uniform float uSize;attribute float aSeed;attribute vec3 color;varying vec3 vColor;varying float vAlpha;
-    void main(){vec3 p=position;vec3 n=normalize(p);vec3 drift=vec3(sin(p.y*1.8+uTime*.24+aSeed),cos(p.z*1.45-uTime*.19+aSeed),sin(p.x*1.65+uTime*.22+aSeed));drift-=n*dot(drift,n);p+=normalize(drift+vec3(.0001))*.055*sin(uTime*.32+aSeed);
-    vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=uSize*(360./max(1.,-mv.z));vColor=color;vAlpha=.42+.48*(.5+.5*sin(uTime*1.15+aSeed));}
-   `,fragmentShader:`
-    varying vec3 vColor;varying float vAlpha;void main(){float d=length(gl_PointCoord-.5);float a=1.-smoothstep(.18,.5,d);if(a<.02)discard;gl_FragColor=vec4(vColor,a*vAlpha*.9);}
-   `});
-   surface.add(new THREE.Points(shellGeo,shellMat));disposables.push(shellGeo,shellMat);
-   // Inner network particles create depth, not a flat wireframe.
-   const innerCount=5200,innerPos=new Float32Array(innerCount*3),innerColors=new Float32Array(innerCount*3);
-   for(let i=0;i<innerCount;i++){const p=spherePoint(i,innerCount,Math.pow(Math.random(),.72)*2.82);innerPos.set(p.toArray(),i*3);const c=new THREE.Color(Math.random()>.65?'#c9ff78':'#8bb4a0');innerColors.set([c.r,c.g,c.b],i*3)}
-   const innerGeo=new THREE.BufferGeometry();innerGeo.setAttribute('position',new THREE.BufferAttribute(innerPos,3));innerGeo.setAttribute('color',new THREE.BufferAttribute(innerColors,3));
-   const innerMat=new THREE.PointsMaterial({size:.018,vertexColors:true,transparent:true,opacity:.55,depthWrite:false,sizeAttenuation:true});surface.add(new THREE.Points(innerGeo,innerMat));disposables.push(innerGeo,innerMat);
+   // The network is intentionally volumetric: no enclosing point-cloud shell. The nodes and their links define the form.
+
    // Bright central nucleus with layered translucent shells.
    const core=new THREE.Group();surface.add(core);
    const coreBall=new THREE.Mesh(new THREE.IcosahedronGeometry(.31,3),new THREE.MeshBasicMaterial({color:0xe1ffd1}));core.add(coreBall);
    [[.48,.055,.18],[.72,.025,.085],[1.05,.012,.035]].forEach(([r,t,o],i)=>{const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,2),new THREE.MeshBasicMaterial({color:i===0?0xc9ff78:0x9fd6a2,wireframe:true,transparent:true,opacity:o,depthWrite:false}));core.add(m);});
-   // Fine latitude-free orbital trajectories.
-   [[3.85,.55,.2,.14],[4.05,-.75,1.05,.09],[3.72,1.08,-.65,.075]].forEach(([rad,x,y,op],i)=>{const curve=new THREE.EllipseCurve(0,0,rad,rad*(.34+i*.045),0,Math.PI*2,false,0);const pts=curve.getPoints(220).map(p=>new THREE.Vector3(p.x,p.y,0));const geo=new THREE.BufferGeometry().setFromPoints(pts);const line=new THREE.LineLoop(geo,new THREE.LineBasicMaterial({color:i===1?0x79a8ff:0xb7e99b,transparent:true,opacity:op}));line.rotation.set(x,y,.25+i*.42);orbits.add(line);disposables.push(geo,line.material);});
+   // No decorative latitude or longitude rings: spatial depth comes from the graph itself.
+
    // Background stars: many tiny, low-contrast points with a gentle drift.
    const starN=1900,starPos=new Float32Array(starN*3);for(let i=0;i<starN;i++){const rr=12+Math.random()*22,a=Math.random()*Math.PI*2,z=(Math.random()-.5)*26;starPos.set([Math.cos(a)*rr,Math.sin(a)*rr,z],i*3)}
    const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));const starMat=new THREE.PointsMaterial({color:0xc8e7cf,size:.022,transparent:true,opacity:.68,depthWrite:false});scene.add(new THREE.Points(starGeo,starMat));disposables.push(starGeo,starMat);
    // Business nodes distributed around the spherical surface.
-   const nodeVectors=DIRECTIONS.map((d,i)=>spherePoint(i,DIRECTIONS.length,2.88).applyAxisAngle(new THREE.Vector3(0,1,0),-.6));
+   const clusterLayout=[
+    [-2.55,1.15,.35],[-.95,.35,1.95],[1.25,1.45,.65],[2.55,.25,-.55],
+    [1.75,-1.35,1.05],[-.35,-1.95,.25],[-2.15,-1.15,-.85],[-.15,.65,-2.15],
+    [1.05,-.45,-1.8],[-1.35,1.65,-1.25]
+   ];
+   const nodeVectors=DIRECTIONS.map((d,i)=>new THREE.Vector3(...clusterLayout[i]));
    DIRECTIONS.forEach((d,i)=>{
     const group=new THREE.Group();group.position.copy(nodeVectors[i]);graph.add(group);
     const color=new THREE.Color(d.color);
@@ -191,29 +177,32 @@ export default function Universe4(){
    const recordPositions=new Map();
    TRIAL_RECORDS.forEach((record,index)=>{
      const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
-     const base=nodeVectors[di].clone().normalize();
+     const center=nodeVectors[di];
+     const base=center.clone().normalize();
      const tangent=new THREE.Vector3(-base.z*.82, seeded(index+31)-.5, base.x*.82).normalize();
      const tangent2=base.clone().cross(tangent).normalize();
-     const theta=(index%24)/24*Math.PI*2;
-     const radius=2.15+seeded(index+80)*1.0;
-     const p=base.clone().multiplyScalar(radius)
-       .add(tangent.clone().multiplyScalar(Math.cos(theta)*(.38+seeded(index+50)*.55)))
-       .add(tangent2.clone().multiplyScalar(Math.sin(theta)*(.38+seeded(index+60)*.55)));
+     const theta=seeded(index+17)*Math.PI*2;
+     const spread=.16+seeded(index+80)*.58;
+     const depth=(seeded(index+91)-.5)*.72;
+     const p=center.clone()
+       .add(tangent.clone().multiplyScalar(Math.cos(theta)*spread))
+       .add(tangent2.clone().multiplyScalar(Math.sin(theta)*spread))
+       .add(base.clone().multiplyScalar(depth));
      recordPositions.set(record.id,p);
      const g=new THREE.Group();g.position.copy(p);g.userData={recordId:record.id,kind:'record'};graph.add(g);
      const color=new THREE.Color(DIRECTIONS[di].color);
-     const body=new THREE.Mesh(new THREE.SphereGeometry(.035+(index%3)*.008,8,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92}));
-     const halo=new THREE.Mesh(new THREE.SphereGeometry(.065,8,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.055,depthWrite:false}));
+     const body=new THREE.Mesh(new THREE.SphereGeometry(.052+(index%3)*.009,10,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92}));
+     const halo=new THREE.Mesh(new THREE.SphereGeometry(.105,10,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.055,depthWrite:false}));
      g.add(halo,body);
      recordObjects.push({record,g,body,halo});
    });
    // Direction-to-record traces. They become denser as the user moves into the data layer.
    TRIAL_RECORDS.forEach((record,index)=>{
-     if(index%2!==0)return;
+     if(index%3!==0)return;
      const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
      const curve=makeCurve(nodeVectors[di],recordPositions.get(record.id),index+80,3.2);
      const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
-     const mat=new THREE.LineBasicMaterial({color:new THREE.Color(DIRECTIONS[di].color),transparent:true,opacity:.075,depthWrite:false});
+     const mat=new THREE.LineBasicMaterial({color:new THREE.Color(DIRECTIONS[di].color),transparent:true,opacity:.095,depthWrite:false});
      graph.add(new THREE.Line(geo,mat));disposables.push(geo,mat);
    });
 
@@ -221,17 +210,15 @@ export default function Universe4(){
    EDGES.forEach(([ai,bi],i)=>{
     const a=nodeVectors[ai],b=nodeVectors[bi],curve=makeCurve(a,b,i,3.18),points=curve.getPoints(72);
     const geo=new THREE.BufferGeometry().setFromPoints(points);
-    const lineMat=new THREE.LineBasicMaterial({color:0x91b49a,transparent:true,opacity:.16,depthWrite:false});
+    const lineMat=new THREE.LineBasicMaterial({color:0x91b49a,transparent:true,opacity:.22,depthWrite:false});
     const line=new THREE.Line(geo,lineMat);graph.add(line);
     const glowGeo=new THREE.TubeGeometry(curve,72,.018,5,false),glowMat=new THREE.MeshBasicMaterial({color:0x9dff8c,transparent:true,opacity:.018,depthWrite:false,blending:THREE.AdditiveBlending});graph.add(new THREE.Mesh(glowGeo,glowMat));
     const particles=[];
     for(let k=0;k<2;k++){const p=new THREE.Mesh(new THREE.SphereGeometry(.027,10,10),new THREE.MeshBasicMaterial({color:k===0?0xd9ffd0:0xa8d9ff,transparent:true,opacity:.95}));graph.add(p);particles.push(p)}
     edgeObjects.push({ai,bi,curve,lineMat,particles});disposables.push(geo,lineMat,glowGeo,glowMat);
    });
-   // A few thousand fine filaments in the inner volume suggest a living connected system.
-   const filamentCount=260,filamentPositions=[];
-   for(let i=0;i<filamentCount;i++){const a=spherePoint(i,filamentCount,2.55),b=spherePoint((i*37+83)%filamentCount,filamentCount,2.55);filamentPositions.push(a,b)}
-   const filamentGeo=new THREE.BufferGeometry().setFromPoints(filamentPositions);const filamentMat=new THREE.LineBasicMaterial({color:0x7aa88a,transparent:true,opacity:.055,depthWrite:false});surface.add(new THREE.LineSegments(filamentGeo,filamentMat));disposables.push(filamentGeo,filamentMat);
+   // Relationships are carried by the explicit curved edges and record traces.
+
    const onDown=e=>{if(e.target.closest('.u4-label,.u4-controls,.u4-window'))return;dragging=true;lastX=e.clientX;lastY=e.clientY;downX=e.clientX;downY=e.clientY;el.setPointerCapture?.(e.pointerId)};
    const onMove=e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;root.rotation.y+=dx*.006;root.rotation.x=Math.max(-1.25,Math.min(1.25,root.rotation.x+dy*.006));velocityX=dx*.0008;velocityY=dy*.0008;lastX=e.clientX;lastY=e.clientY};
    const onUp=e=>{if(!dragging)return;const moved=Math.hypot(e.clientX-downX,e.clientY-downY);dragging=false;if(moved>6)return;const rect=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-rect.left)/rect.width)*2-1;pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;root.updateMatrixWorld(true);raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(recordObjects.map(x=>x.body),false)[0];if(hit){const item=recordObjects.find(x=>x.body===hit.object);if(item){selectedId=item.record.directionId;setSelected(item.record.directionId);openRecordRef.current?.(item.record)}}};
