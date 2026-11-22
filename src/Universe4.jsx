@@ -185,7 +185,7 @@ export default function Universe4(){
 
    // Every inner point is a real trial record. Zoom reveals the operating layer rather than an empty cloud.
    const recordPositions=new Map();
-   RECORDS.forEach((record,index)=>{
+   TRIAL_RECORDS.forEach((record,index)=>{
      const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
      const base=nodeVectors[di].clone().normalize();
      const tangent=new THREE.Vector3(-base.z*.82, seeded(index+31)-.5, base.x*.82).normalize();
@@ -204,7 +204,7 @@ export default function Universe4(){
      recordObjects.push({record,g,body,halo});
    });
    // Direction-to-record traces. They become denser as the user moves into the data layer.
-   RECORDS.forEach((record,index)=>{
+   TRIAL_RECORDS.forEach((record,index)=>{
      if(index%2!==0)return;
      const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
      const curve=makeCurve(nodeVectors[di],recordPositions.get(record.id),index+80,3.2);
@@ -253,7 +253,7 @@ export default function Universe4(){
  const active=DIRECTIONS.find(x=>x.id===selected);
  return <main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS UNIVERSE</div><div className="u4-sub">NIFINANCE · INTERACTIVE SYSTEM</div></div>
-  <div className="u4-live"><i/>DATA MODEL · 250 RECORDS</div><div className="u4-labels"/>
+  <div className="u4-live"><i/>DATA MODEL · 240 RECORDS</div><div className="u4-labels"/>
   {active&&<div className="u4-selection" style={{'--c':active.color}}><strong>{active.name.toUpperCase()}</strong><span>{active.metric.toUpperCase()}</span></div>}
   <div className="u4-hint">DRAG TO ROTATE · SCROLL TO EXPLORE · CLICK DATA POINTS</div>
   <div className="u4-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span>{zoom}%</span><button type="button" data-zoom-in aria-label="Zoom in">+</button><button type="button" data-zoom-reset aria-label="Reset zoom">↺</button></div>
