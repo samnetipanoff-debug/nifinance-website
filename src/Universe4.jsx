@@ -14,6 +14,44 @@ const DIRECTIONS = [
   { id:'data', name:'Data & IT', color:'#71dfff', metric:'Technology infrastructure', value:'10' }
 ];
 const EDGES = [[0,1],[1,2],[2,0],[1,3],[3,4],[4,5],[5,3],[5,2],[1,6],[6,7],[7,3],[7,1],[8,3],[8,6],[9,0],[9,1],[9,7],[0,6],[2,6],[4,6],[5,9],[8,1],[3,6],[7,9]];
+
+const TRIAL_RECORDS = Array.from({length: 240}, (_, i) => {
+  const d = DIRECTIONS[i % DIRECTIONS.length];
+  const templates = ['Client receipt','Supplier payment','Campaign spend','CRM deal','Payroll operation','Cloud invoice','Support ticket','SEO delivery','Bank import','API event'];
+  const amount = Math.round((250 + ((i * 7919) % 13700) + (i % 17) * 31.37) * 100) / 100;
+  return {
+    id: 'u4-record-' + i,
+    directionId: d.id,
+    direction: d.name,
+    title: templates[i % templates.length] + ' ' + String(i + 1).padStart(3,'0'),
+    type: ['transaction','operation','record','metric'][i % 4],
+    status: ['completed','processing','pending','review'][i % 4],
+    date: '2026-03-' + String(1 + (i % 27)).padStart(2,'0'),
+    amount,
+    currency: i % 5 === 0 ? 'USD' : 'EUR',
+    counterparty: ['Northstar','Acme','Nova','Atlas','Delta','Orion','Vertex','Internal'][i % 8],
+    reference: 'U4-' + String(10000 + i),
+    description: 'Trial record linked to ' + d.name + '. It represents a concrete operation in the business graph.'
+  };
+});
+
+function DataWindow({win,onClose,onFront,onMove,onResize}){
+  const drag=useRef(null), resize=useRef(null);
+  const move=e=>{if(!drag.current)return;onMove(win.id,drag.current.left+e.clientX-drag.current.x,drag.current.top+e.clientY-drag.current.y)};
+  const rmove=e=>{if(!resize.current)return;onResize(win.id,resize.current.width+e.clientX-resize.current.x,resize.current.height+e.clientY-resize.current.y)};
+  const end=()=>{drag.current=null;resize.current=null;window.removeEventListener('pointermove',move);window.removeEventListener('pointermove',rmove);window.removeEventListener('pointerup',end)};
+  const startDrag=e=>{e.preventDefault();onFront(win.id);drag.current={x:e.clientX,y:e.clientY,left:win.x,top:win.y};window.addEventListener('pointermove',move);window.addEventListener('pointerup',end)};
+  const startResize=e=>{e.preventDefault();e.stopPropagation();onFront(win.id);resize.current={x:e.clientX,y:e.clientY,width:win.width,height:win.height};window.addEventListener('pointermove',rmove);window.addEventListener('pointerup',end)};
+  const r=win.record, d=DIRECTIONS.find(x=>x.id===r.directionId);
+  return <section className="u4-window" style={{left:win.x,top:win.y,width:win.width,height:win.height,zIndex:win.z,'--c':d.color}}>
+    <header className="u4-window-head" onPointerDown={startDrag}><i className="u4-window-dot"/><div className="u4-window-title"><b>{r.title}</b><small>{r.type.toUpperCase()} · {r.reference}</small></div><button className="u4-window-close" onPointerDown={e=>e.stopPropagation()} onClick={()=>onClose(win.id)}>×</button></header>
+    <div className="u4-window-body"><div className="u4-window-kpi"><span>{r.direction.toUpperCase()} · {r.status.toUpperCase()}</span><strong>{r.amount.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})} {r.currency}</strong></div>
+      <div className="u4-row"><b>Date</b><span>{r.date}</span></div><div className="u4-row"><b>Counterparty</b><span>{r.counterparty}</span></div><div className="u4-row"><b>Operation</b><span>{r.type}</span></div><div className="u4-row"><b>Reference</b><span>{r.reference}</span></div>
+      <p className="u4-note">{r.description}</p><p className="u4-note">TRIAL DATA · every visible data point is a concrete operation, transaction, record, KPI or system event.</p>
+    </div><div className="u4-resize" onPointerDown={startResize}/>
+  </section>
+}
+
 const css = `
 .u4{position:fixed;inset:0;background:#020403;color:#eaf4e8;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
 .u4 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:0}
@@ -37,6 +75,18 @@ const css = `
 .u4-selection{position:absolute;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);min-width:180px;text-align:center;pointer-events:none}
 .u4-selection strong{display:block;color:var(--c,#c9ff78);font:600 10px ui-monospace,monospace;letter-spacing:.18em}
 .u4-selection span{display:block;margin-top:5px;color:#788b79;font:8px ui-monospace,monospace;letter-spacing:.12em}
+.u4-windows{position:absolute;inset:0;z-index:20;pointer-events:none}
+.u4-window{position:absolute;min-width:260px;min-height:180px;width:360px;height:270px;border:1px solid #78947c55;border-radius:5px;background:rgba(4,10,7,.96);box-shadow:0 18px 60px #000b;backdrop-filter:blur(16px);pointer-events:auto;overflow:hidden}
+.u4-window-head{height:40px;display:flex;align-items:center;gap:9px;padding:0 10px;border-bottom:1px solid #8aa08a22;cursor:grab;user-select:none}
+.u4-window-dot{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.u4-window-title{min-width:0;flex:1}.u4-window-title b{display:block;color:#dfe9df;font:600 9px ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.u4-window-title small{display:block;margin-top:3px;color:#68796a;font:7px ui-monospace,monospace}
+.u4-window-close{width:24px;height:24px;border:0;background:transparent;color:#819081;font-size:16px;cursor:pointer}
+.u4-window-body{height:calc(100% - 40px);overflow:auto;padding:12px}
+.u4-window-kpi{display:flex;justify-content:space-between;gap:12px;padding-bottom:11px;margin-bottom:10px;border-bottom:1px solid #8aa08a20}.u4-window-kpi span{color:#667767;font:7px ui-monospace,monospace}.u4-window-kpi strong{color:var(--c);font:600 15px ui-monospace,monospace}
+.u4-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:7px 0;border-bottom:1px solid #8aa08a12}.u4-row b{font:8px ui-monospace,monospace;color:#c3d0c2}.u4-row span{font:8px ui-monospace,monospace;color:#829083;text-align:right}
+.u4-note{margin-top:11px;color:#647466;font:8px/1.55 ui-monospace,monospace}.u4-resize{position:absolute;right:1px;bottom:1px;width:16px;height:16px;cursor:nwse-resize}.u4-resize:after{content:"";position:absolute;right:2px;bottom:2px;width:7px;height:7px;border-right:1px solid #91a88a66;border-bottom:1px solid #91a88a66}
+@media(max-width:700px){.u4-window{width:88vw;height:55vh}}
+
 @media(max-width:700px){.u4-head{top:16px;left:16px}.u4-kicker{font-size:9px}.u4-sub{font-size:7px}.u4-live{top:18px;right:15px;font-size:7px}.u4-label{min-width:0;padding:6px 7px}.u4-label b{font-size:7px}.u4-label small{display:none}.u4-controls{right:12px;bottom:14px}.u4-hint{left:15px;bottom:23px;font-size:6px;max-width:115px;line-height:1.6}.u4-selection{bottom:19px}.u4-selection span{font-size:7px}}
 `;
 
