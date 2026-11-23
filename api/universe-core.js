@@ -13,7 +13,7 @@ export default async function handler(req,res){
   const w=await sql`SELECT token_hash FROM public.dc_workspaces WHERE workspace_id=${workspaceId}::uuid LIMIT 1`;
   if(!w[0]||!workspaceTokenMatches(w[0].token_hash,token))return send(res,401,{error:'Workspace credential was not accepted'});
   const [deals,contacts,tasks,findings,activities,financialRows]=await Promise.all([
-   sql`SELECT stage,COUNT(*)::int AS count,COALESCE(SUM(amount),0)::numeric AS amount,COALESCE(SUM(amount*probability/100),0)::numeric AS weighted_amount FROM public.bh_deals WHERE workspace_id=${workspaceId}::uuid GROUP BY stage,currency`,
+   sql`SELECT stage,currency,COUNT(*)::int AS count,COALESCE(SUM(amount),0)::numeric AS amount,COALESCE(SUM(amount*probability/100),0)::numeric AS weighted_amount FROM public.bh_deals WHERE workspace_id=${workspaceId}::uuid GROUP BY stage,currency`,
    sql`SELECT kind,status,COUNT(*)::int AS count FROM public.bh_contacts WHERE workspace_id=${workspaceId}::uuid GROUP BY kind,status`,
    sql`SELECT status,priority,COUNT(*)::int AS count FROM public.bh_tasks WHERE workspace_id=${workspaceId}::uuid GROUP BY status,priority`,
    sql`SELECT finding_type,title,summary,severity,confidence,evidence,assumptions,proposed_action,created_at FROM public.bh_core_findings WHERE workspace_id=${workspaceId}::uuid AND status='open' ORDER BY created_at DESC LIMIT 15`,
