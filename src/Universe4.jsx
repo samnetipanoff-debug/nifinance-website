@@ -82,10 +82,44 @@ const css = `
 .u4-selection{display:none}
 .u4-controls{display:none}
 @media(max-width:700px){.u4-legend{width:150px;left:8px;top:42px;padding:4px}.u4-legend button{font-size:9px;padding:4px 5px}.u4-live{font-size:7px;right:10px;top:13px}.u4-head{top:12px;left:12px}.u4-kicker{font-size:8px}.u4-hint{left:10px;bottom:8px;font-size:6px}}
+
+.u4-core-trigger{position:absolute;z-index:8;right:18px;top:42px;padding:7px 10px;border:1px solid #77778a55;border-radius:5px;background:rgba(14,14,22,.82);color:#d5d5e2;font:9px ui-monospace,monospace;letter-spacing:.08em;cursor:pointer;backdrop-filter:blur(8px)}
+.u4-core-trigger:hover{background:#25253a;border-color:#aaaacb}
+.u4-core-panel{position:absolute;z-index:16;right:18px;top:76px;width:min(420px,calc(100vw - 36px));max-height:calc(100% - 110px);overflow:auto;padding:14px;border:1px solid #343444;border-radius:8px;background:rgba(10,10,17,.96);box-shadow:0 18px 60px #000b;backdrop-filter:blur(14px);color:#bfc0d0}
+.u4-core-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid #ffffff18}
+.u4-core-head b{font:600 10px ui-monospace,monospace;letter-spacing:.12em;color:#f1f1fa}
+.u4-core-head button{border:0;background:transparent;color:#aaa;font-size:18px;cursor:pointer}
+.u4-core-sub{margin:8px 0 12px;color:#737388;font:8px ui-monospace,monospace}
+.u4-core-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.u4-core-kpi{padding:9px;border:1px solid #ffffff12;border-radius:5px;background:#ffffff06}
+.u4-core-kpi small{display:block;color:#77778d;font:8px ui-monospace,monospace}
+.u4-core-kpi strong{display:block;margin-top:5px;color:#e5e5ef;font:600 13px ui-monospace,monospace;overflow-wrap:anywhere}
+.u4-core-section{margin-top:14px}
+.u4-core-section h4{margin:0 0 7px;color:#a8a8bd;font:600 8px ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}
+.u4-core-item{padding:8px 0;border-top:1px solid #ffffff10}
+.u4-core-item b{display:block;color:#e0e0eb;font:600 9px ui-monospace,monospace}
+.u4-core-item p{margin:4px 0 0;color:#89899d;font:9px/1.5 ui-monospace,monospace}
+.u4-core-loading,.u4-core-error{padding:16px 4px;color:#a3a3b8;font:9px ui-monospace,monospace}
+.u4-core-error{color:#ff9b9b}
+@media(max-width:700px){.u4-core-trigger{right:8px;top:36px;padding:6px 7px;font-size:7px}.u4-core-panel{right:5vw;top:68px;width:90vw;max-height:calc(100% - 85px);padding:10px}}
+
 `;
 
 export default function Universe4(){
  const host=useRef(null),[selected,setSelected]=useState(null),[zoom,setZoom]=useState(100),[windows,setWindows]=useState([]),zTop=useRef(20),openRecordRef=useRef(null);
+ const [coreOpen,setCoreOpen]=useState(false),[coreData,setCoreData]=useState(null),[coreLoading,setCoreLoading]=useState(false),[coreError,setCoreError]=useState('');
+ const loadCore=async()=>{
+  setCoreLoading(true);setCoreError('');
+  try{
+   const credentials=JSON.parse(localStorage.getItem('nifinance-data-center-credentials-v1')||'null');
+   if(!credentials?.workspaceId||!credentials?.token)throw new Error('Open Data Center first to connect a Neon workspace.');
+   const response=await fetch('/api/universe-core',{method:'POST',headers:{'Content-Type':'application/json','X-Workspace-Id':credentials.workspaceId,'X-Workspace-Token':credentials.token},body:JSON.stringify({})});
+   const result=await response.json();if(!response.ok)throw new Error(result.error||'Core analysis is unavailable');
+   setCoreData(result);
+  }catch(error){setCoreError(error.message||'Could not load analysis');}
+  finally{setCoreLoading(false);}
+ };
+
  
  const openRecord=record=>{
    setWindows(prev=>{
@@ -198,6 +232,25 @@ export default function Universe4(){
  return <main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS MAP · EVERYTHING IS CONNECTED</div></div>
   <div className="u4-live"><i/>CONNECTING TO NEON</div>
+  <button className="u4-core-trigger" type="button" onClick={()=>{const next=!coreOpen;setCoreOpen(next);if(next)loadCore();}}>CORE ANALYSIS ↗</button>
+  {coreOpen&&<aside className="u4-core-panel">
+   <div className="u4-core-head"><b>UNIVERSE CORE / BUSINESS ANALYSIS</b><button type="button" onClick={()=>setCoreOpen(false)}>×</button></div>
+   {coreLoading&&<div className="u4-core-loading">CALCULATING FROM LIVE WORKSPACE DATA…</div>}
+   {coreError&&<div className="u4-core-error">{coreError}</div>}
+   {coreData?.snapshot&&(()=>{const x=coreData.snapshot,fin=x.finance||{},cash=fin.cash||{},accrual=fin.managementPnl||{},pipe=x.pipeline||{},tasks=x.tasks||{};const money=v=>v===null||v===undefined?'MULTI-CURRENCY':Number(v).toLocaleString('en-GB',{maximumFractionDigits:2});return <><div className="u4-core-sub">{coreData.mode==='ai-assisted'?'AI-ASSISTED ANALYSIS':'DETERMINISTIC ANALYSIS'} · {new Date(x.generatedAt).toLocaleString()}</div>
+    <div className="u4-core-grid">
+     <div className="u4-core-kpi"><small>CASH INFLOWS</small><strong>{money(cash.inflows)}</strong></div><div className="u4-core-kpi"><small>CASH OUTFLOWS</small><strong>{money(cash.outflows)}</strong></div>
+     <div className="u4-core-kpi"><small>NET CASH MOVEMENT</small><strong>{money(cash.netCashMovement)}</strong></div><div className="u4-core-kpi"><small>ACCRUAL RESULT</small><strong>{accrual.status==='provisional'?money(accrual.netResultBeforeValidatedAdjustments):String(accrual.status||'UNAVAILABLE').toUpperCase()}</strong></div>
+     <div className="u4-core-kpi"><small>ACTIVE PIPELINE</small><strong>{Number(pipe.activeDealCount||0)} DEALS</strong></div><div className="u4-core-kpi"><small>WEIGHTED PIPELINE</small><strong>{money(pipe.weightedPipelineAmount)}</strong></div>
+     <div className="u4-core-kpi"><small>OPEN TASKS</small><strong>{Number(tasks.open||0)}</strong></div><div className="u4-core-kpi"><small>BLOCKED TASKS</small><strong>{Number(tasks.blocked||0)}</strong></div>
+    </div>
+    <div className="u4-core-section"><h4>Analytical observations</h4>{coreData.briefing?.headline&&<div className="u4-core-item"><b>{coreData.briefing.headline}</b></div>}{(coreData.briefing?.observations||[]).map((o,i)=><div className="u4-core-item" key={i}><b>{o.label} · {o.kind} · {o.confidence}</b><p>{o.evidence}</p></div>)}{!coreData.briefing&&<div className="u4-core-item"><p>AI explanation is not configured; deterministic metrics are available.</p></div>}</div>
+    <div className="u4-core-section"><h4>Recommended next steps</h4>{(coreData.briefing?.recommended_next_steps||[]).map((o,i)=><div className="u4-core-item" key={i}><b>{o.priority.toUpperCase()} · {o.action}</b><p>{o.reason} · Approval required</p></div>)}</div>
+    <div className="u4-core-section"><h4>Data quality / Alerts</h4>{(fin.alerts||[]).map((o,i)=><div className="u4-core-item" key={i}><b>{o.severity.toUpperCase()} · {o.title}</b><p>{o.explanation}</p></div>)}{(coreData.briefing?.data_gaps||[]).map((o,i)=><div className="u4-core-item" key={'gap'+i}><p>{o}</p></div>)}</div>
+    <div className="u4-core-sub">CASH / ACCRUAL ARE KEPT SEPARATE · NO AUTOMATIC FX · HUMAN APPROVAL REQUIRED.</div>
+   </>})()}
+   <button className="u4-core-trigger" style={{position:'static',marginTop:12}} type="button" onClick={loadCore}>REFRESH ANALYSIS ↻</button>
+  </aside>}
   <div className="u4-hint">DRAG TO ROTATE · WHEEL TO ZOOM · CLICK A NODE TO FOCUS / OPEN ITS DATA</div>
   <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
 }
