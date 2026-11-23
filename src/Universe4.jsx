@@ -11,25 +11,7 @@ const DIRECTIONS = [
  {id:'strategy',name:'Strategy',color:'#d0d0e0',metric:'Direction & investment',items:['Goals','Market','Competitors','Risks','Investments']}
 ];
 const LINKS = [['Traffic','Leads'],['Leads','Sales funnel'],['Sales funnel','Revenue'],['Revenue','Margin'],['Raw materials','Margin'],['Defects','Margin'],['Quality','Reviews'],['Reviews','Brand'],['Brand','Traffic'],['Price','Average check'],['Average check','Revenue'],['Hiring','Capacity'],['Motivation','Sales team'],['Sales team','Sales funnel'],['Suppliers','Raw materials'],['Capacity','Inventory'],['Inventory','Delivery'],['Cash flow','Budget'],['Budget','Advertising'],['Automation','Processes'],['Processes','Quality'],['Training','Quality'],['Turnover','Hiring'],['Repeat sales','Revenue'],['Assortment','Capacity'],['Service','Repeat sales'],['Analytics','Budget'],['Content','SEO'],['SEO','Traffic'],['Advertising','Traffic'],['Positioning','Brand'],['Regulations','Processes'],['Taxes','Cash flow'],['Debt','Cash flow'],['Managers','Motivation'],['Market','Positioning'],['Goals','Budget'],['Investments','Capacity'],['Competitors','Price'],['Risks','Investments'],['CRM','Analytics'],['Revenue','Cash flow']];
-const TRIAL_RECORDS = Array.from({length: 240}, (_, i) => {
-  const d = DIRECTIONS[i % DIRECTIONS.length];
-  const templates = ['Client receipt','Supplier payment','Campaign spend','CRM deal','Payroll operation','Cloud invoice','Support ticket','SEO delivery','Bank import','API event'];
-  const amount = Math.round((250 + ((i * 7919) % 13700) + (i % 17) * 31.37) * 100) / 100;
-  return {
-    id: 'u4-record-' + i,
-    directionId: d.id,
-    direction: d.name,
-    title: templates[i % templates.length] + ' ' + String(i + 1).padStart(3,'0'),
-    type: ['transaction','operation','record','metric'][i % 4],
-    status: ['completed','processing','pending','review'][i % 4],
-    date: '2026-03-' + String(1 + (i % 27)).padStart(2,'0'),
-    amount,
-    currency: i % 5 === 0 ? 'USD' : 'EUR',
-    counterparty: ['Northstar','Acme','Nova','Atlas','Delta','Orion','Vertex','Internal'][i % 8],
-    reference: 'U4-' + String(10000 + i),
-    description: 'Trial record linked to ' + d.name + '. It represents a concrete operation in the business graph.'
-  };
-});
+const TRIAL_RECORDS = [];
 
 function DataWindow({win,onClose,onFront,onMove,onResize}){
   const drag=useRef(null), resize=useRef(null);
@@ -38,12 +20,13 @@ function DataWindow({win,onClose,onFront,onMove,onResize}){
   const end=()=>{drag.current=null;resize.current=null;window.removeEventListener('pointermove',move);window.removeEventListener('pointermove',rmove);window.removeEventListener('pointerup',end)};
   const startDrag=e=>{e.preventDefault();onFront(win.id);drag.current={x:e.clientX,y:e.clientY,left:win.x,top:win.y};window.addEventListener('pointermove',move);window.addEventListener('pointerup',end)};
   const startResize=e=>{e.preventDefault();e.stopPropagation();onFront(win.id);resize.current={x:e.clientX,y:e.clientY,width:win.width,height:win.height};window.addEventListener('pointermove',rmove);window.addEventListener('pointerup',end)};
-  const r=win.record, d=DIRECTIONS.find(x=>x.id===r.directionId);
+  const r=win.record, d=DIRECTIONS.find(x=>x.id===r.directionId)||DIRECTIONS[0];
+  const amount=r.amount===null||r.amount===undefined||r.amount===''?null:Number(r.amount);
   return <section className="u4-window" style={{left:win.x,top:win.y,width:win.width,height:win.height,zIndex:win.z,'--c':d.color}}>
     <header className="u4-window-head" onPointerDown={startDrag}><i className="u4-window-dot"/><div className="u4-window-title"><b>{r.title}</b><small>{r.type.toUpperCase()} · {r.reference}</small></div><button className="u4-window-close" onPointerDown={e=>e.stopPropagation()} onClick={()=>onClose(win.id)}>×</button></header>
-    <div className="u4-window-body"><div className="u4-window-kpi"><span>{r.direction.toUpperCase()} · {r.status.toUpperCase()}</span><strong>{r.amount.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})} {r.currency}</strong></div>
-      <div className="u4-row"><b>Date</b><span>{r.date}</span></div><div className="u4-row"><b>Counterparty</b><span>{r.counterparty}</span></div><div className="u4-row"><b>Operation</b><span>{r.type}</span></div><div className="u4-row"><b>Reference</b><span>{r.reference}</span></div>
-      <p className="u4-note">{r.description}</p><p className="u4-note">TRIAL DATA · every visible data point is a concrete operation, transaction, record, KPI or system event.</p>
+    <div className="u4-window-body"><div className="u4-window-kpi"><span>{r.direction.toUpperCase()} · {r.status.toUpperCase()}</span><strong>{Number.isFinite(amount)?amount.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(r.currency||''):String(r.meta?.status||r.meta?.stage||r.status||'RECORD').toUpperCase()}</strong></div>
+      <div className="u4-row"><b>Type</b><span>{r.type}</span></div><div className="u4-row"><b>Date</b><span>{r.date||'—'}</span></div><div className="u4-row"><b>Counterparty</b><span>{r.counterparty||'—'}</span></div><div className="u4-row"><b>Category</b><span>{r.meta?.category||'—'}</span></div><div className="u4-row"><b>Reference</b><span>{r.reference||'—'}</span></div><div className="u4-row"><b>Status</b><span>{r.status||r.meta?.status||r.meta?.stage||'—'}</span></div>
+      <p className="u4-note">{r.description||JSON.stringify(r.meta||{})}</p><p className="u4-note">LIVE WORKSPACE DATA · details are loaded from the authenticated Neon workspace.</p>
     </div><div className="u4-resize" onPointerDown={startResize}/>
   </section>
 }
@@ -142,6 +125,48 @@ export default function Universe4(){
   });
   const deps=[];LINKS.forEach(([a,b])=>{const A=byName[a],B=byName[b];if(!A||!B)return;const e={a:A,b:B,t:2,ph:rnd()};edges.push(e);deps.push(e);A.out.push(B);B.inn.push(A)});
   const named=nodes.filter(n=>!n.dust);
+  let graphCancelled=false;
+  const loadBusinessGraph=async()=>{
+   try{
+    const credentials=JSON.parse(localStorage.getItem('nifinance-data-center-credentials-v1')||'null');
+    if(!credentials?.workspaceId||!credentials?.token){if(status)status.innerHTML='<i></i>OPEN DATA CENTER TO CONNECT NEON';return}
+    const response=await fetch('/api/universe-graph',{headers:{'X-Workspace-Id':credentials.workspaceId,'X-Workspace-Token':credentials.token}});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.error||'Could not load business graph');
+    if(graphCancelled)return;
+    const apiNodeMap=new Map();
+    const directionIndex=item=>{
+     const meta=item.meta||{},text=[item.label,meta.category,meta.counterparty,meta.kind,(meta.roles||[]).join(' ')].join(' ').toLowerCase();
+     if(item.type==='contact'||item.type==='deal')return 1;
+     if(item.type==='counterparty')return /client|customer|lead/.test(text)?1:6;
+     if(item.type==='category')return 3;
+     if(item.type==='task'||item.type==='channel')return 6;
+     if(item.type==='finding')return 7;
+     if(/campaign|advert|seo|marketing|content/.test(text))return 0;
+     if(/salary|payroll|employee|hiring/.test(text))return 4;
+     if(/supplier|delivery|inventory|purchase/.test(text))return 6;
+     if(/sales|client|customer|revenue|invoice/.test(text))return 1;
+     return 3;
+    };
+    (data.nodes||[]).forEach(item=>{
+     const dirIndex=directionIndex(item),center=DIRECTIONS[dirIndex].p,meta=item.meta||{};
+     const node={dir:dirIndex,name:item.label||item.type,r:item.type==='transaction'?3.2:item.type==='finding'?4.2:3.7,
+      x:center.x+gauss()*52,y:center.y+gauss()*52,z:center.z+gauss()*52,out:[],inn:[],apiId:item.id,apiType:item.type,meta};
+     nodes.push(node);apiNodeMap.set(item.id,node);
+     recordForNode.set(node,{id:item.id,directionId:DIRECTIONS[dirIndex].id,direction:DIRECTIONS[dirIndex].name,title:item.label||item.type,
+      type:item.type,date:meta.date||null,amount:meta.amount??null,currency:meta.currency||'',counterparty:meta.counterparty||meta.company||'',
+      reference:meta.reference||meta.transactionKey||item.id,status:meta.status||meta.stage||'',description:meta.description||meta.email||meta.findingType||'Workspace business object loaded from Neon.',meta});
+    });
+    (data.edges||[]).forEach(item=>{
+     const a=apiNodeMap.get(item.from),b=apiNodeMap.get(item.to);if(!a||!b)return;
+     edges.push({a,b,t:2,ph:rnd(),kind:item.kind,label:item.label});a.out.push(b);b.inn.push(a);
+    });
+    const transactionCount=Number(data.summary?.transactions||0),crmCount=Number(data.summary?.contacts||0)+Number(data.summary?.deals||0);
+    if(status)status.innerHTML='<i></i>NEON LIVE · '+transactionCount+' TRANSACTIONS · '+crmCount+' CRM OBJECTS · '+(data.edges||[]).length+' DATA LINKS';
+    if(!data.nodes?.length&&status)status.innerHTML='<i></i>NEON CONNECTED · NO BUSINESS RECORDS YET';
+   }catch(error){if(!graphCancelled&&status)status.innerHTML='<i></i>NEON DATA UNAVAILABLE · '+String(error.message||'API ERROR').slice(0,70)}
+  };
+  loadBusinessGraph();
   const status=el.querySelector('.u4-live');if(status)status.innerHTML='<i></i>'+DIRECTIONS.length+' DIRECTIONS · '+named.filter(n=>!n.hub).length+' ELEMENTS · '+deps.length+' CONNECTIONS';
   const legend=document.createElement('div');legend.className='u4-legend';el.appendChild(legend);
   let yaw=.4,pitch=.25,D=720,Dt=720,T={x:0,y:0,z:0},Tt={x:0,y:0,z:0},drag=null,idle=0,sel=null,hov=null,focus=-1,mx=-1,my=-1;
@@ -173,7 +198,7 @@ export default function Universe4(){
  const active=DIRECTIONS.find(x=>x.id===selected);
  return <main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS MAP · EVERYTHING IS CONNECTED</div></div>
-  <div className="u4-live"><i/>LOADING NETWORK</div>
+  <div className="u4-live"><i/>CONNECTING TO NEON</div>
   <div className="u4-hint">DRAG TO ROTATE · WHEEL TO ZOOM · CLICK A NODE TO FOCUS / OPEN ITS DATA</div>
   <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
 }
