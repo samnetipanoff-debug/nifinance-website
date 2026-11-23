@@ -3,7 +3,7 @@
 ## Decisions
 
 - One business-event registry shared by accounting books.
-- Parallel posting books: management, RAS (РСБУ), IFRS, and US GAAP (МСФО).
+- Parallel posting books: management, RAS (РСБУ), IFRS (МСФО), and US GAAP.
 - Hybrid management accounting: a dedicated management book plus extensible analytical dimensions.
 - Multi-entity support from the foundation.
 - Human approval before posting.
