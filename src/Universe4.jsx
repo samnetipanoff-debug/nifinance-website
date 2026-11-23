@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
 
 const DIRECTIONS = [
  {id:'marketing',name:'Marketing',color:'#ff9f43',metric:'Demand generation',items:['Brand','Traffic','Content','Advertising','SEO','Analytics']},
@@ -175,7 +174,7 @@ export default function Universe4(){
    hov=null;let best=14;named.forEach(n=>{const p=P.get(n);if(!p)return;const d=Math.hypot(p.x-mx,p.y-my);if(d<Math.max(best,n.r*p.k*2)&&live(n)){best=d;hov=n}});canvas.style.cursor=hov?'pointer':drag?'grabbing':'grab';
    named.forEach(n=>{const p=P.get(n);if(!p)return;const c=DIRECTIONS[n.dir].color,show=n.hub?(focus<0||focus===n.dir)&&!sel||n===sel:(D<420||n===hov||n===sel||(sel&&rel(n))||focus===n.dir);if(!show||!live(n)&&n!==sel)return;pill(n.name,p.x,p.y-(n.hub?16:12),c,Math.min(1,p.f+.2),n.hub)});
    if(sel){const p=P.get(sel);if(p){const c=DIRECTIONS[sel.dir].color,R=16+Math.sin(ts/400)*1.5,a0=ts/700;ctx.lineWidth=2.5;[[0,1.6,c],[2.4,3.3,'#ffffff'],[4,5,c]].forEach(([s0,s1,col])=>{ctx.beginPath();ctx.arc(p.x,p.y,R,a0+s0,a0+s1);ctx.strokeStyle=rgba(col,.9);ctx.stroke()});ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,R+7,0,7);ctx.strokeStyle=rgba(c,.25);ctx.stroke();const l1=sel.hub?'direction':DIRECTIONS[sel.dir].name,l2='influences: '+(sel.out.map(x=>x.name).join(', ')||'—'),l3='depends on: '+(sel.inn.map(x=>x.name).join(', ')||'—');ctx.font='10px ui-monospace,Menlo,monospace';const w=Math.min(300,Math.max(ctx.measureText(l2).width,ctx.measureText(l3).width,110)+22),bx=Math.min(W-w-12,p.x+26),by=Math.min(H-80,p.y+20);ctx.fillStyle='rgba(10,10,16,.88)';ctx.strokeStyle=rgba(c,.6);ctx.lineWidth=1;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(bx,by,w,62,7);else ctx.rect(bx,by,w,62);ctx.fill();ctx.stroke();ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px ui-monospace,Menlo,monospace';ctx.fillText(sel.name,bx+10,by+14);ctx.font='10px ui-monospace,Menlo,monospace';ctx.fillStyle=rgba(c,1);ctx.fillText(l1,bx+10,by+28);ctx.fillStyle='#9a9aae';ctx.fillText(l2.slice(0,44),bx+10,by+42);ctx.fillText(l3.slice(0,44),bx+10,by+55)}}
-   requestAnimationFrame(frame)
+   raf=requestAnimationFrame(frame)
   }
   const pos=e=>{const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
   const onDown=e=>{canvas.setPointerCapture(e.pointerId);[mx,my]=pos(e);drag={x:mx,y:my,moved:0};idle=0};
