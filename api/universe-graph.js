@@ -35,7 +35,7 @@ export default async function handler(req,res){
    else await sql`INSERT INTO public.dc_transaction_matches(workspace_id,transaction_id,match_type,matched_record_type,matched_record_id,confidence,status,match_data) VALUES(${workspaceId}::uuid,${tx[0].id}::uuid,'manual',${recordType},${recordId},1,'confirmed',jsonb_build_object('source','Business Universe manual review'))`;
    return send(res,200,{ok:true,transactionKey,matchedRecordType:recordType,matchedRecordId:recordId,status:'confirmed'});
   }
-  const [contacts,deals,tasks,channels,findings,chatSummary,manualMatches]=await Promise.all([
+  const [contacts,deals,tasks,channels,findings,chatSummary,manualMatches,normalizedTransactions,counterparties,categories]=await Promise.all([
    sql`SELECT id,name,company,kind,status,email FROM public.bh_contacts WHERE workspace_id=${workspaceId}::uuid ORDER BY updated_at DESC LIMIT 150`,
    sql`SELECT d.id,d.title,d.stage,d.amount,d.currency,d.contact_id,c.name AS contact_name,c.company AS contact_company FROM public.bh_deals d LEFT JOIN public.bh_contacts c ON c.id=d.contact_id AND c.workspace_id=d.workspace_id WHERE d.workspace_id=${workspaceId}::uuid ORDER BY d.updated_at DESC LIMIT 150`,
    sql`SELECT id,title,status,priority,linked_object_type,linked_object_id FROM public.bh_tasks WHERE workspace_id=${workspaceId}::uuid ORDER BY updated_at DESC LIMIT 150`,
@@ -47,9 +47,6 @@ export default async function handler(req,res){
    sql`SELECT id,display_name,normalized_name,roles FROM public.dc_counterparties WHERE workspace_id=${workspaceId}::uuid ORDER BY display_name LIMIT 500`,
    sql`SELECT id,name,kind FROM public.dc_categories WHERE workspace_id=${workspaceId}::uuid ORDER BY name LIMIT 300`
   ]);
-  const normalizedTransactions=await sql`SELECT id,transaction_key,transaction_date,amount,currency,direction,counterparty_id,counterparty_name,description,reference,category_id,category_name,status,source,source_data FROM public.dc_transactions WHERE workspace_id=${workspaceId}::uuid ORDER BY transaction_date DESC NULLS LAST,updated_at DESC LIMIT 1000`;
-  const counterparties=await sql`SELECT id,display_name,normalized_name,roles FROM public.dc_counterparties WHERE workspace_id=${workspaceId}::uuid ORDER BY display_name LIMIT 500`;
-  const categories=await sql`SELECT id,name,kind FROM public.dc_categories WHERE workspace_id=${workspaceId}::uuid ORDER BY name LIMIT 300`;
 
   const nodes=[],edges=[],seen=new Set();
   const add=(type,id,label,meta={})=>{if(!id)return;const key=objectKey(type,id);if(seen.has(key))return;seen.add(key);nodes.push({id:key,type,label:clean(label),meta});};
