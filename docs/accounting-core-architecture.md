@@ -3,7 +3,7 @@
 ## Decisions
 
 - One business-event registry shared by accounting books.
-- Parallel posting books: management, RAS (РСБУ), and IFRS (МСФО).
+- Parallel posting books: management, RAS (РСБУ), IFRS, and US GAAP (МСФО).
 - Hybrid management accounting: a dedicated management book plus extensible analytical dimensions.
 - Multi-entity support from the foundation.
 - Human approval before posting.
@@ -55,7 +55,7 @@ Apply in this order, in a controlled Neon migration session. These migrations ar
 
 ## Important implementation boundary
 
-This is the database foundation, not a claim of complete RAS/IFRS compliance. The initial schema does not yet implement standard-specific recognition/measurement rules, depreciation, tax, provisions, FX revaluation, period close, consolidation eliminations, or statutory report calculations. Those are subsequent accounting-engine and reporting milestones and require versioned policies and validated domain rules.
+This is the database foundation, not a claim of complete RAS/IFRS/US GAAP compliance. The initial schema does not yet implement standard-specific recognition/measurement rules, depreciation, tax, provisions, FX revaluation, period close, consolidation eliminations, or statutory report calculations. Those are subsequent accounting-engine and reporting milestones and require versioned policies and validated domain rules.
 
 ## Next implementation slices
 
@@ -66,7 +66,7 @@ This is the database foundation, not a claim of complete RAS/IFRS compliance. Th
 5. Implement posting through `acc_post_journal_entry` only.
 6. Add ledger queries and trial balance.
 7. Reconcile accruals and cash settlements.
-8. Add management reports, then RAS and IFRS policy/report packs.
+8. Add management reports, then RAS, IFRS and US GAAP policy/report packs.
 9. Add period close, FX revaluation and multi-entity consolidation.
 
 ## Deployment safety
