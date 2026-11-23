@@ -51,10 +51,10 @@ export default async function handler(req,res){
   const nodes=[],edges=[],seen=new Set();
   const add=(type,id,label,meta={})=>{if(!id)return;const key=objectKey(type,id);if(seen.has(key))return;seen.add(key);nodes.push({id:key,type,label:clean(label),meta});};
   const edge=(from,to,kind,label)=>{if(!from||!to||from===to)return;edges.push({id:`${kind}:${from}:${to}`,from,to,kind,label:clean(label,80)});};
-  contacts.forEach(c=>add('contact',c.id,c.name,{kind:c.kind,status:c.status}));
-  deals.forEach(d=>{add('deal',d.id,d.title,{stage:d.stage,amount:d.amount==null?null:Number(d.amount),currency:d.currency?.trim()||null});if(d.contact_id)edge(objectKey('contact',d.contact_id),objectKey('deal',d.id),'contact-deal','owns / associated with');});
-  tasks.forEach(t=>{add('task',t.id,t.title,{status:t.status,priority:t.priority});const target=objectKey(t.linked_object_type,t.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('task',t.id),'linked-task','has task');});
-  channels.forEach(c=>{add('channel',c.id,c.name,{channelType:c.channel_type});const target=objectKey(c.linked_object_type,c.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('channel',c.id),'linked-channel','discussed in');});
+  contacts.forEach(c=>add('contact',c.id,c.name,{kind:c.kind,status:c.status,company:c.company,email:c.email}));
+  deals.forEach(d=>{add('deal',d.id,d.title,{stage:d.stage,amount:d.amount==null?null:Number(d.amount),currency:d.currency?.trim()||null,contactName:d.contact_name});if(d.contact_id)edge(objectKey('contact',d.contact_id),objectKey('deal',d.id),'contact-deal','owns / associated with');});
+  tasks.forEach(t=>{add('task',t.id,t.title,{status:t.status,priority:t.priority,linkedObjectType:t.linked_object_type});const target=objectKey(t.linked_object_type,t.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('task',t.id),'linked-task','has task');});
+  channels.forEach(c=>{add('channel',c.id,c.name,{channelType:c.channel_type,linkedObjectType:c.linked_object_type});const target=objectKey(c.linked_object_type,c.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('channel',c.id),'linked-channel','discussed in');});
   findings.forEach(f=>{add('finding',f.id,f.title,{findingType:f.finding_type,severity:f.severity,status:f.status});});
   const transactions=normalizedTransactions.length?normalizedTransactions:(Array.isArray(w[0].payload?.transactions)?w[0].payload.transactions:[]);
   const normalizedContacts=contacts.map(c=>({id:c.id,keys:[norm(c.name),norm(c.company)].filter(Boolean)}));
