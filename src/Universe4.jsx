@@ -125,6 +125,7 @@ export default function Universe4(){
   });
   const deps=[];LINKS.forEach(([a,b])=>{const A=byName[a],B=byName[b];if(!A||!B)return;const e={a:A,b:B,t:2,ph:rnd()};edges.push(e);deps.push(e);A.out.push(B);B.inn.push(A)});
   const named=nodes.filter(n=>!n.dust);
+  const status=el.querySelector('.u4-live');
   let graphCancelled=false;
   const loadBusinessGraph=async()=>{
    try{
