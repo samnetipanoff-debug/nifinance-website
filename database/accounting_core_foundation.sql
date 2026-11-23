@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS acc_books (
   organization_id uuid NOT NULL REFERENCES acc_organizations(id),
   entity_id uuid NOT NULL,
   policy_id uuid NOT NULL,
-  book_type text NOT NULL CHECK (book_type IN ('management','rsbu','ifrs')),
+  book_type text NOT NULL CHECK (book_type IN ('management','rsbu','ifrs','us_gaap')),
   name text NOT NULL,
   functional_currency char(3) NOT NULL,
   presentation_currency char(3),
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS acc_account_mappings (
 
 CREATE TABLE IF NOT EXISTS acc_reporting_frameworks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text NOT NULL UNIQUE CHECK (code IN ('management','rsbu','ifrs')),
+  code text NOT NULL UNIQUE CHECK (code IN ('management','rsbu','ifrs','us_gaap')),
   name text NOT NULL,
   jurisdiction_code char(2),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived'))
