@@ -117,8 +117,6 @@ export default function Universe4(){
    d.items.forEach((name,j)=>{
     const nd={dir:i,name,r:3.6,x:d.p.x+gauss()*85,y:d.p.y+gauss()*85,z:d.p.z+gauss()*85,out:[],inn:[]};
     nodes.push(nd);byName[name]=nd;edges.push({a:d.hub,b:nd,t:0});
-    const records=TRIAL_RECORDS.filter(r=>r.directionId===d.id);
-    if(records.length)recordForNode.set(nd,records[j%records.length]);
    });
    const its=nodes.filter(n=>n.dir===i&&!n.hub);
    for(let j=0;j<46;j++){const nd={dir:i,dust:1,r:1+rnd()*1.2,x:d.p.x+gauss()*95,y:d.p.y+gauss()*95,z:d.p.z+gauss()*95};nodes.push(nd);if(rnd()<.6)edges.push({a:its[(rnd()*its.length)|0],b:nd,t:1})}
@@ -168,7 +166,7 @@ export default function Universe4(){
    }catch(error){if(!graphCancelled&&status)status.innerHTML='<i></i>NEON DATA UNAVAILABLE · '+String(error.message||'API ERROR').slice(0,70)}
   };
   loadBusinessGraph();
-  const status=el.querySelector('.u4-live');if(status)status.innerHTML='<i></i>'+DIRECTIONS.length+' DIRECTIONS · '+named.filter(n=>!n.hub).length+' ELEMENTS · '+deps.length+' CONNECTIONS';
+   if(status)status.innerHTML='<i></i>'+DIRECTIONS.length+' DIRECTIONS · '+named.filter(n=>!n.hub).length+' MODEL ELEMENTS · '+deps.length+' MODEL LINKS';
   const legend=document.createElement('div');legend.className='u4-legend';el.appendChild(legend);
   let yaw=.4,pitch=.25,D=720,Dt=720,T={x:0,y:0,z:0},Tt={x:0,y:0,z:0},drag=null,idle=0,sel=null,hov=null,focus=-1,mx=-1,my=-1;
   DIRECTIONS.forEach((d,i)=>{const item=document.createElement('button');item.type='button';item.innerHTML='<i style="--c:'+d.color+'"></i><span>'+d.name+'</span><b>'+d.items.length+'</b>';item.addEventListener('click',()=>{sel=null;if(focus===i){focus=-1;Tt={x:0,y:0,z:0};Dt=720}else{focus=i;Tt={...d.p};Dt=330}Array.from(legend.children).forEach((x,j)=>x.classList.toggle('on',j===focus))});legend.appendChild(item)});
