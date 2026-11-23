@@ -199,8 +199,8 @@ export default function Universe4(){
     if(!data.nodes?.length&&status)status.innerHTML='<i></i>NEON CONNECTED · NO BUSINESS RECORDS YET';
    }catch(error){if(!graphCancelled&&status)status.innerHTML='<i></i>NEON DATA UNAVAILABLE · '+String(error.message||'API ERROR').slice(0,70)}
   };
-  loadBusinessGraph();
    if(status)status.innerHTML='<i></i>'+DIRECTIONS.length+' DIRECTIONS · '+named.filter(n=>!n.hub).length+' MODEL ELEMENTS · '+deps.length+' MODEL LINKS';
+   loadBusinessGraph();
   const legend=document.createElement('div');legend.className='u4-legend';el.appendChild(legend);
   let yaw=.4,pitch=.25,D=720,Dt=720,T={x:0,y:0,z:0},Tt={x:0,y:0,z:0},drag=null,idle=0,sel=null,hov=null,focus=-1,mx=-1,my=-1;
   DIRECTIONS.forEach((d,i)=>{const item=document.createElement('button');item.type='button';item.innerHTML='<i style="--c:'+d.color+'"></i><span>'+d.name+'</span><b>'+d.items.length+'</b>';item.addEventListener('click',()=>{sel=null;if(focus===i){focus=-1;Tt={x:0,y:0,z:0};Dt=720}else{focus=i;Tt={...d.p};Dt=330}Array.from(legend.children).forEach((x,j)=>x.classList.toggle('on',j===focus))});legend.appendChild(item)});
