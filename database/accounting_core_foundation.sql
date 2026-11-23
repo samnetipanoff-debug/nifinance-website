@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS acc_accounting_policies (
   organization_id uuid NOT NULL REFERENCES acc_organizations(id),
   entity_id uuid,
   name text NOT NULL,
-  framework text NOT NULL CHECK (framework IN ('management','rsbu','ifrs')),
+  framework text NOT NULL CHECK (framework IN ('management','rsbu','ifrs','us_gaap')),
   jurisdiction_code char(2),
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','active','archived')),
   created_at timestamptz NOT NULL DEFAULT now(),
