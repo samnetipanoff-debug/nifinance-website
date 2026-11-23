@@ -13,7 +13,7 @@ export default async function handler(req,res){
   const w=await sql`SELECT token_hash FROM public.dc_workspaces WHERE workspace_id=${workspaceId}::uuid LIMIT 1`;
   if(!w[0]||!workspaceTokenMatches(w[0].token_hash,token))return send(res,401,{error:'Workspace credential was not accepted'});
   const [deals,contacts,tasks,findings,activities,financialRows]=await Promise.all([
-   sql`SELECT stage,COUNT(*)::int AS count,COALESCE(SUM(amount),0)::numeric AS amount,COALESCE(SUM(amount*probability/100),0)::numeric AS weighted_amount FROM public.bh_deals WHERE workspace_id=${workspaceId}::uuid GROUP BY stage`,
+   sql`SELECT stage,COUNT(*)::int AS count,COALESCE(SUM(amount),0)::numeric AS amount,COALESCE(SUM(amount*probability/100),0)::numeric AS weighted_amount FROM public.bh_deals WHERE workspace_id=${workspaceId}::uuid GROUP BY stage,currency`,
    sql`SELECT kind,status,COUNT(*)::int AS count FROM public.bh_contacts WHERE workspace_id=${workspaceId}::uuid GROUP BY kind,status`,
    sql`SELECT status,priority,COUNT(*)::int AS count FROM public.bh_tasks WHERE workspace_id=${workspaceId}::uuid GROUP BY status,priority`,
    sql`SELECT finding_type,title,summary,severity,confidence,evidence,assumptions,proposed_action,created_at FROM public.bh_core_findings WHERE workspace_id=${workspaceId}::uuid AND status='open' ORDER BY created_at DESC LIMIT 15`,
@@ -23,7 +23,11 @@ export default async function handler(req,res){
   const communication=await sql`SELECT COUNT(DISTINCT c.id)::int AS channels,COUNT(DISTINCT m.id)::int AS messages,COUNT(DISTINCT m.id) FILTER(WHERE m.created_at>NOW()-INTERVAL '30 days')::int AS messages_30d FROM public.bh_chat_channels c LEFT JOIN public.bh_chat_messages m ON m.channel_id=c.id AND m.workspace_id=c.workspace_id AND m.deleted_at IS NULL WHERE c.workspace_id=${workspaceId}::uuid AND c.archived_at IS NULL`;
   const linkedTasks=await sql`SELECT COUNT(*)::int AS count FROM public.bh_tasks WHERE workspace_id=${workspaceId}::uuid AND linked_object_id IS NOT NULL AND status NOT IN ('done','cancelled')`;
   const activeDeals=deals.filter(d=>!['won','lost'].includes(d.stage));
-  const pipeline={activeDealCount:activeDeals.reduce((s,d)=>s+Number(d.count),0),activePipelineAmount:activeDeals.reduce((s,d)=>s+Number(d.amount||0),0),weightedPipelineAmount:activeDeals.reduce((s,d)=>s+Number(d.weighted_amount||0),0),byStage:deals};
+  const pipelineCurrencyMap=new Map();
+  activeDeals.forEach(d=>{const currency=String(d.currency||'UNSPECIFIED').trim().toUpperCase()||'UNSPECIFIED';const item=pipelineCurrencyMap.get(currency)||{currency,dealCount:0,amount:0,weightedAmount:0};item.dealCount+=Number(d.count||0);item.amount+=Number(d.amount||0);item.weightedAmount+=Number(d.weighted_amount||0);pipelineCurrencyMap.set(currency,item);});
+  const pipelineByCurrency=[...pipelineCurrencyMap.values()];
+  const pipelineSingleCurrency=pipelineByCurrency.length<=1;
+  const pipeline={activeDealCount:activeDeals.reduce((s,d)=>s+Number(d.count),0),activePipelineAmount:pipelineSingleCurrency?(pipelineByCurrency[0]?.amount||0):null,weightedPipelineAmount:pipelineSingleCurrency?(pipelineByCurrency[0]?.weightedAmount||0):null,byCurrency:pipelineByCurrency,byStage:deals};
   const taskSummary={open:tasks.filter(t=>!['done','cancelled'].includes(t.status)).reduce((s,t)=>s+Number(t.count),0),blocked:tasks.filter(t=>t.status==='blocked').reduce((s,t)=>s+Number(t.count),0),urgent:tasks.filter(t=>t.priority==='urgent'&&!['done','cancelled'].includes(t.status)).reduce((s,t)=>s+Number(t.count),0),byStatusAndPriority:tasks};
   const contactSummary={total:contacts.reduce((s,c)=>s+Number(c.count),0),leads:contacts.filter(c=>c.kind==='lead').reduce((s,c)=>s+Number(c.count),0),byKindAndStatus:contacts};
   const finance=summarizeFinance(financialRows);
