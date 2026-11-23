@@ -49,22 +49,6 @@ function DataWindow({win,onClose,onFront,onMove,onResize}){
 }
 
 const css = `
-.u4{background:radial-gradient(ellipse at 50% 45%,#10101a,#07070b 70%);color:#9a9aae;font:11px/1.4 ui-monospace,Menlo,Consolas,monospace}
-.u4:before{display:none}
-.u4 .u4-network-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
-.u4-head{z-index:3;top:14px;left:18px}.u4-kicker{color:#c9c9d6;letter-spacing:.08em}.u4-sub{display:none}
-.u4-live{top:14px;right:18px;color:#6c6c80;letter-spacing:.04em}
-.u4-live i{background:#6c6c80;box-shadow:none}
-.u4-legend{position:absolute;z-index:4;left:14px;top:44px;width:190px;max-height:calc(100% - 100px);overflow:auto;background:rgba(14,14,22,.78);border:1px solid #23232f;border-radius:8px;padding:6px;backdrop-filter:blur(6px)}
-.u4-legend button{width:100%;display:flex;align-items:center;gap:8px;padding:5px 7px;border:0;border-radius:5px;background:transparent;cursor:pointer;color:#8a8a9e;text-align:left;font:11px ui-monospace,Menlo,monospace}
-.u4-legend button:hover,.u4-legend button.on{background:#25253a;color:#fff}
-.u4-legend i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--c);box-shadow:0 0 8px var(--c)}
-.u4-legend b{margin-left:auto;font-weight:400;color:#555568}
-.u4-hint{left:18px;bottom:12px;color:#555568;letter-spacing:0}
-.u4-selection{display:none}
-.u4-controls{display:none}
-@media(max-width:700px){.u4-legend{width:150px;left:8px;top:42px;padding:4px}.u4-legend button{font-size:9px;padding:4px 5px}.u4-live{font-size:7px;right:10px;top:13px}.u4-head{top:12px;left:12px}.u4-kicker{font-size:8px}.u4-hint{left:10px;bottom:8px;font-size:6px}}
-
 .u4{position:fixed;inset:0;background:#020403;color:#eaf4e8;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
 .u4 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:0}
 .u4:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 20%,rgba(0,0,0,.12) 62%,#000 100%)}
@@ -100,6 +84,23 @@ const css = `
 @media(max-width:700px){.u4-window{width:88vw;height:55vh}}
 
 @media(max-width:700px){.u4-head{top:16px;left:16px}.u4-kicker{font-size:9px}.u4-sub{font-size:7px}.u4-live{top:18px;right:15px;font-size:7px}.u4-label{min-width:0;padding:6px 7px}.u4-label b{font-size:7px}.u4-label small{display:none}.u4-controls{right:12px;bottom:14px}.u4-hint{left:15px;bottom:23px;font-size:6px;max-width:115px;line-height:1.6}.u4-selection{bottom:19px}.u4-selection span{font-size:7px}}
+
+`
+.u4{background:radial-gradient(ellipse at 50% 45%,#10101a,#07070b 70%);color:#9a9aae;font:11px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.u4:before{display:none}
+.u4 .u4-network-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.u4-head{z-index:3;top:14px;left:18px}.u4-kicker{color:#c9c9d6;letter-spacing:.08em}.u4-sub{display:none}
+.u4-live{top:14px;right:18px;color:#6c6c80;letter-spacing:.04em}
+.u4-live i{background:#6c6c80;box-shadow:none}
+.u4-legend{position:absolute;z-index:4;left:14px;top:44px;width:190px;max-height:calc(100% - 100px);overflow:auto;background:rgba(14,14,22,.78);border:1px solid #23232f;border-radius:8px;padding:6px;backdrop-filter:blur(6px)}
+.u4-legend button{width:100%;display:flex;align-items:center;gap:8px;padding:5px 7px;border:0;border-radius:5px;background:transparent;cursor:pointer;color:#8a8a9e;text-align:left;font:11px ui-monospace,Menlo,monospace}
+.u4-legend button:hover,.u4-legend button.on{background:#25253a;color:#fff}
+.u4-legend i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--c);box-shadow:0 0 8px var(--c)}
+.u4-legend b{margin-left:auto;font-weight:400;color:#555568}
+.u4-hint{left:18px;bottom:12px;color:#555568;letter-spacing:0}
+.u4-selection{display:none}
+.u4-controls{display:none}
+@media(max-width:700px){.u4-legend{width:150px;left:8px;top:42px;padding:4px}.u4-legend button{font-size:9px;padding:4px 5px}.u4-live{font-size:7px;right:10px;top:13px}.u4-head{top:12px;left:12px}.u4-kicker{font-size:8px}.u4-hint{left:10px;bottom:8px;font-size:6px}}
 `;
 
 function makeCurve(a,b,index,radius){
