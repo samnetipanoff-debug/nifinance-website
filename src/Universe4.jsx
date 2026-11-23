@@ -151,7 +151,7 @@ export default function Universe4(){
      const dirIndex=directionIndex(item),center=DIRECTIONS[dirIndex].p,meta=item.meta||{};
      const node={dir:dirIndex,name:item.label||item.type,r:item.type==='transaction'?3.2:item.type==='finding'?4.2:3.7,
       x:center.x+gauss()*52,y:center.y+gauss()*52,z:center.z+gauss()*52,out:[],inn:[],apiId:item.id,apiType:item.type,meta};
-     nodes.push(node);apiNodeMap.set(item.id,node);
+     nodes.push(node);named.push(node);apiNodeMap.set(item.id,node);
      recordForNode.set(node,{id:item.id,directionId:DIRECTIONS[dirIndex].id,direction:DIRECTIONS[dirIndex].name,title:item.label||item.type,
       type:item.type,date:meta.date||null,amount:meta.amount??null,currency:meta.currency||'',counterparty:meta.counterparty||meta.company||'',
       reference:meta.reference||meta.transactionKey||item.id,status:meta.status||meta.stage||'',description:meta.description||meta.email||meta.findingType||'Workspace business object loaded from Neon.',meta});
@@ -192,7 +192,7 @@ export default function Universe4(){
   const onWheel=e=>{e.preventDefault();Dt=Math.max(90,Math.min(1100,Dt*(1+e.deltaY*.0012)));idle=0};
   canvas.addEventListener('pointerdown',onDown);canvas.addEventListener('pointermove',onMove);canvas.addEventListener('pointerup',onUp);canvas.addEventListener('pointercancel',onUp);canvas.addEventListener('pointerleave',onLeave);canvas.addEventListener('wheel',onWheel,{passive:false});
   raf=requestAnimationFrame(frame);
-  return ()=>{cancelAnimationFrame(raf);ro.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);canvas.removeEventListener('pointerleave',onLeave);canvas.removeEventListener('wheel',onWheel);legend.remove();canvas.remove()};
+  return ()=>{graphCancelled=true;cancelAnimationFrame(raf);ro.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);canvas.removeEventListener('pointerleave',onLeave);canvas.removeEventListener('wheel',onWheel);legend.remove();canvas.remove()};
  },[]);
  const active=DIRECTIONS.find(x=>x.id===selected);
  return <main className="u4" ref={host}>
