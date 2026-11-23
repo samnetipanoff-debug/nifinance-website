@@ -36,14 +36,21 @@ export default async function handler(req,res){
    return send(res,200,{ok:true,transactionKey,matchedRecordType:recordType,matchedRecordId:recordId,status:'confirmed'});
   }
   const [contacts,deals,tasks,channels,findings,chatSummary,manualMatches]=await Promise.all([
-   sql`SELECT id,name,kind,status FROM public.bh_contacts WHERE workspace_id=${workspaceId}::uuid ORDER BY updated_at DESC LIMIT 150`,
+   sql`SELECT id,name,company,kind,status,email FROM public.bh_contacts WHERE workspace_id=${workspaceId}::uuid ORDER BY updated_at DESC LIMIT 150`,
    sql`SELECT d.id,d.title,d.stage,d.amount,d.currency,d.contact_id,c.name AS contact_name,c.company AS contact_company FROM public.bh_deals d LEFT JOIN public.bh_contacts c ON c.id=d.contact_id AND c.workspace_id=d.workspace_id WHERE d.workspace_id=${workspaceId}::uuid ORDER BY d.updated_at DESC LIMIT 150`,
    sql`SELECT id,title,status,priority,linked_object_type,linked_object_id FROM public.bh_tasks WHERE workspace_id=${workspaceId}::uuid ORDER BY updated_at DESC LIMIT 150`,
    sql`SELECT id,name,channel_type,linked_object_type,linked_object_id FROM public.bh_chat_channels WHERE workspace_id=${workspaceId}::uuid AND archived_at IS NULL ORDER BY updated_at DESC LIMIT 100`,
    sql`SELECT id,title,finding_type,severity,status FROM public.bh_core_findings WHERE workspace_id=${workspaceId}::uuid ORDER BY created_at DESC LIMIT 100`,
    sql`SELECT COUNT(DISTINCT c.id)::int AS channels,COUNT(m.id)::int AS messages,COUNT(m.id) FILTER(WHERE m.created_at>NOW()-INTERVAL '30 days')::int AS messages_30d FROM public.bh_chat_channels c LEFT JOIN public.bh_chat_messages m ON m.channel_id=c.id AND m.workspace_id=c.workspace_id AND m.deleted_at IS NULL WHERE c.workspace_id=${workspaceId}::uuid AND c.archived_at IS NULL`,
-   sql`SELECT t.transaction_key,m.matched_record_type,m.matched_record_id,m.status FROM public.dc_transaction_matches m JOIN public.dc_transactions t ON t.id=m.transaction_id AND t.workspace_id=m.workspace_id WHERE m.workspace_id=${workspaceId}::uuid AND m.status IN ('confirmed','accepted','linked')`
+   sql`SELECT t.transaction_key,m.matched_record_type,m.matched_record_id,m.status FROM public.dc_transaction_matches m JOIN public.dc_transactions t ON t.id=m.transaction_id AND t.workspace_id=m.workspace_id WHERE m.workspace_id=${workspaceId}::uuid AND m.status IN ('confirmed','accepted','linked')`,
+   sql`SELECT id,transaction_key,transaction_date,amount,currency,direction,counterparty_id,counterparty_name,description,reference,category_id,category_name,status,source,source_data FROM public.dc_transactions WHERE workspace_id=${workspaceId}::uuid ORDER BY transaction_date DESC NULLS LAST,updated_at DESC LIMIT 1000`,
+   sql`SELECT id,display_name,normalized_name,roles FROM public.dc_counterparties WHERE workspace_id=${workspaceId}::uuid ORDER BY display_name LIMIT 500`,
+   sql`SELECT id,name,kind FROM public.dc_categories WHERE workspace_id=${workspaceId}::uuid ORDER BY name LIMIT 300`
   ]);
+  const normalizedTransactions=await sql`SELECT id,transaction_key,transaction_date,amount,currency,direction,counterparty_id,counterparty_name,description,reference,category_id,category_name,status,source,source_data FROM public.dc_transactions WHERE workspace_id=${workspaceId}::uuid ORDER BY transaction_date DESC NULLS LAST,updated_at DESC LIMIT 1000`;
+  const counterparties=await sql`SELECT id,display_name,normalized_name,roles FROM public.dc_counterparties WHERE workspace_id=${workspaceId}::uuid ORDER BY display_name LIMIT 500`;
+  const categories=await sql`SELECT id,name,kind FROM public.dc_categories WHERE workspace_id=${workspaceId}::uuid ORDER BY name LIMIT 300`;
+
   const nodes=[],edges=[],seen=new Set();
   const add=(type,id,label,meta={})=>{if(!id)return;const key=objectKey(type,id);if(seen.has(key))return;seen.add(key);nodes.push({id:key,type,label:clean(label),meta});};
   const edge=(from,to,kind,label)=>{if(!from||!to||from===to)return;edges.push({id:`${kind}:${from}:${to}`,from,to,kind,label:clean(label,80)});};
@@ -52,23 +59,32 @@ export default async function handler(req,res){
   tasks.forEach(t=>{add('task',t.id,t.title,{status:t.status,priority:t.priority});const target=objectKey(t.linked_object_type,t.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('task',t.id),'linked-task','has task');});
   channels.forEach(c=>{add('channel',c.id,c.name,{channelType:c.channel_type});const target=objectKey(c.linked_object_type,c.linked_object_id);if(target&&seen.has(target))edge(target,objectKey('channel',c.id),'linked-channel','discussed in');});
   findings.forEach(f=>{add('finding',f.id,f.title,{findingType:f.finding_type,severity:f.severity,status:f.status});});
-  const transactions=Array.isArray(w[0].payload?.transactions)?w[0].payload.transactions:[];
+  const transactions=normalizedTransactions.length?normalizedTransactions:(Array.isArray(w[0].payload?.transactions)?w[0].payload.transactions:[]);
   const normalizedContacts=contacts.map(c=>({id:c.id,keys:[norm(c.name),norm(c.company)].filter(Boolean)}));
   const normalizedDeals=deals.map(d=>({id:d.id,keys:[norm(d.title),norm(d.contact_name),norm(d.contact_company)].filter(Boolean)}));
   const manualByKey=new Map();
   manualMatches.forEach(match=>{const key=String(match.transaction_key);if(!manualByKey.has(key))manualByKey.set(key,[]);manualByKey.get(key).push(match);});
-  const financeNodes=transactions.slice(0,500).map((tx,index)=>{
-   const id=String(tx.id||tx.fingerprint||`legacy-${index}`);
+  counterparties.forEach(c=>add('counterparty',c.id,c.display_name,{roles:c.roles||[]}));
+  categories.forEach(c=>add('category',c.id,c.name,{kind:c.kind}));
+  const financeNodes=transactions.slice(0,1000).map((tx,index)=>{
+   const id=String(tx.transaction_key||tx.id||tx.fingerprint||`legacy-${index}`);
    const nodeId=objectKey('transaction',id);
-   const label=clean(tx.description||tx.counterparty||tx.counterparty_name||tx.category||tx.categoryName||`Transaction ${index+1}`,180);
-   const basis=String(tx.basis||tx.accountingBasis||tx.sourceBasis||tx.sourceType||'unknown');
-   add('transaction',id,label,{transactionKey:id,date:tx.date||tx.transaction_date||null,amount:Number(tx.amount||0),currency:String(tx.currency||'').toUpperCase()||'UNSPECIFIED',direction:tx.direction||null,category:tx.category||tx.categoryName||'Needs review',counterparty:tx.counterparty||tx.counterparty_name||null,basis,source:tx.source||null,status:tx.status||null,description:clean(tx.description||'',500)});
+   const date=tx.transaction_date||tx.date||null;
+   const counterparty=tx.counterparty_name||tx.counterparty||null;
+   const category=tx.category_name||tx.category||tx.categoryName||'Needs review';
+   const sourceData=tx.source_data||{};
+   const basis=String(sourceData.basis||sourceData.accountingBasis||sourceData.sourceBasis||sourceData.sourceType||tx.basis||tx.accountingBasis||tx.sourceBasis||tx.sourceType||'unknown');
+   const currency=String(tx.currency||'').toUpperCase()||'UNSPECIFIED';
+   const label=clean(tx.description||counterparty||category||`Transaction ${index+1}`,180);
+   add('transaction',id,label,{transactionKey:id,date,amount:Number(tx.amount||0),currency,direction:tx.direction||null,category,counterparty,basis,source:tx.source||null,status:tx.status||null,reference:tx.reference||null,description:clean(tx.description||'',500)});
+   if(tx.counterparty_id){edge(objectKey('counterparty',tx.counterparty_id),nodeId,'counterparty-transaction','counterparty of transaction');}
+   if(tx.category_id){edge(objectKey('category',tx.category_id),nodeId,'category-transaction','classified as');}
    let linkedToCrm=false;
    const confirmed=manualByKey.get(id)||[];
    if(confirmed.length){
     confirmed.forEach(match=>{const target=objectKey(match.matched_record_type,match.matched_record_id);if(seen.has(target)){edge(target,nodeId,'manual-finance-link','manually confirmed relationship');linkedToCrm=true;}});
    }else{
-    const cp=norm(tx.counterparty||tx.counterparty_name||'');
+    const cp=norm(counterparty||'');
     if(cp){
      const matches=normalizedContacts.filter(c=>c.keys.includes(cp));
      if(matches.length===1){const target=objectKey('contact',matches[0].id);edge(target,nodeId,'counterparty-transaction','exact counterparty match');linkedToCrm=true;}
@@ -76,11 +92,11 @@ export default async function handler(req,res){
      if(matchingDeals.length===1){edge(objectKey('deal',matchingDeals[0].id),nodeId,'deal-transaction','exact deal/contact match');linkedToCrm=true;}
     }
    }
-   return {id:nodeId,transactionKey:id,date:tx.date||tx.transaction_date||null,amount:Number(tx.amount||0),currency:String(tx.currency||'').toUpperCase()||'UNSPECIFIED',basis,category:tx.category||tx.categoryName||'Needs review',counterparty:tx.counterparty||tx.counterparty_name||null,label,linkedToCrm};
+   return {id:nodeId,transactionKey:id,date,amount:Number(tx.amount||0),currency,basis,category,counterparty,label,linkedToCrm,reference:tx.reference||null,status:tx.status||null,description:clean(tx.description||'',500)};
   });
   const uniqueEdges=[...new Map(edges.map(e=>[e.id,e])).values()];
-  const financeSummary=summarizeFinance(transactions);
-  const summary={contacts:contacts.length,deals:deals.length,tasks:tasks.length,channels:channels.length,findings:findings.length,transactions:transactions.length,messages30d:Number(chatSummary[0]?.messages_30d||0),messagesTotal:Number(chatSummary[0]?.messages||0),matchedTransactions:financeNodes.filter(tx=>tx.linkedToCrm).length};
-  return send(res,200,{generatedAt:new Date().toISOString(),scope:'workspace-only',summary,nodes,edges:uniqueEdges,transactions:financeNodes,unlinkedTransactions:financeNodes.filter(tx=>!tx.linkedToCrm).slice(0,50),financialSummary:financeSummary,limits:{contacts:150,deals:150,tasks:150,channels:100,findings:100,transactions:500},notes:['CRM, tasks, channels and financial transactions are scoped to the same authenticated Data Center workspace.','Transactions link automatically only on an exact, unique normalized CRM name/company match. Ambiguous/unmatched records can be linked manually and the confirmed link is persisted in dc_transaction_matches.','Cash-basis and accrual-basis totals remain separate; mixed currencies are not added together.','Chat message bodies are not returned; only activity counts are included.']});
+  const financeSummary=summarizeFinance(transactions.map(tx=>({...tx,date:tx.transaction_date||tx.date,category:tx.category_name||tx.category||tx.categoryName,counterparty:tx.counterparty_name||tx.counterparty,basis:tx.source_data?.basis||tx.source_data?.accountingBasis||tx.basis||tx.accountingBasis})));
+  const summary={contacts:contacts.length,deals:deals.length,tasks:tasks.length,channels:channels.length,findings:findings.length,transactions:financeNodes.length,counterparties:counterparties.length,categories:categories.length,messages30d:Number(chatSummary[0]?.messages_30d||0),messagesTotal:Number(chatSummary[0]?.messages||0),matchedTransactions:financeNodes.filter(tx=>tx.linkedToCrm).length};
+  return send(res,200,{generatedAt:new Date().toISOString(),scope:'workspace-only',dataSource:normalizedTransactions.length?'normalized-neon':'legacy-workspace-payload',summary,nodes,edges:uniqueEdges,transactions:financeNodes,unlinkedTransactions:financeNodes.filter(tx=>!tx.linkedToCrm).slice(0,50),financialSummary:financeSummary,limits:{contacts:150,deals:150,tasks:150,channels:100,findings:100,transactions:1000,counterparties:500,categories:300},notes:['Graph is built from normalized Neon transactions, counterparties, categories, CRM records and confirmed transaction matches.','Transactions link to counterparties and categories by stored foreign keys. Automatic CRM matching is limited to exact, unique normalized names; ambiguous records require manual confirmation.','Cash-basis and accrual-basis totals remain separate; mixed currencies are not added together.','Chat message bodies are not returned; only activity counts are included.']});
  }catch(error){console.error('Universe graph failed:',error);return send(res,500,{error:'Could not build the workspace business graph'});}
 }
