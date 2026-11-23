@@ -2,19 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 const DIRECTIONS = [
-  { id:'marketing', name:'Marketing', color:'#71dfff', metric:'Demand generation', value:'01' },
-  { id:'sales', name:'Sales', color:'#b9a0ff', metric:'Commercial conversion', value:'02' },
-  { id:'customers', name:'Customers', color:'#f3e66d', metric:'Client relationships', value:'03' },
-  { id:'production', name:'Production', color:'#ff8c70', metric:'Service delivery', value:'04' },
-  { id:'procurement', name:'Procurement', color:'#ffbf69', metric:'Resources & suppliers', value:'05' },
-  { id:'logistics', name:'Logistics', color:'#70d6b2', metric:'Operations flow', value:'06' },
-  { id:'finance', name:'Finance', color:'#e8f3df', metric:'Capital & performance', value:'07' },
-  { id:'economics', name:'Economics', color:'#9dff8c', metric:'Business intelligence', value:'08' },
-  { id:'people', name:'People', color:'#c2a4ff', metric:'Team & organisation', value:'09' },
-  { id:'data', name:'Data & IT', color:'#71dfff', metric:'Technology infrastructure', value:'10' }
+ {id:'marketing',name:'Marketing',color:'#ff9f43',metric:'Demand generation',items:['Brand','Traffic','Content','Advertising','SEO','Analytics']},
+ {id:'sales',name:'Sales',color:'#4dd4ac',metric:'Commercial conversion',items:['Leads','CRM','Sales funnel','Average check','Repeat sales','Sales team']},
+ {id:'production',name:'Production',color:'#5aa9ff',metric:'Service delivery',items:['Raw materials','Capacity','Quality','Defects','Inventory']},
+ {id:'finance',name:'Finance',color:'#f5d547',metric:'Capital & performance',items:['Revenue','Margin','Cash flow','Budget','Debt','Taxes']},
+ {id:'people',name:'People',color:'#ff6b8a',metric:'Team & organisation',items:['Hiring','Training','Motivation','Turnover','Managers']},
+ {id:'product',name:'Product',color:'#b58cff',metric:'Product & customer value',items:['Assortment','Price','Positioning','Service','Reviews']},
+ {id:'operations',name:'Operations',color:'#7ee0ff',metric:'Operational flow',items:['Processes','Suppliers','Delivery','Automation','Regulations']},
+ {id:'strategy',name:'Strategy',color:'#d0d0e0',metric:'Direction & investment',items:['Goals','Market','Competitors','Risks','Investments']}
 ];
-const EDGES = [[0,1],[1,2],[2,0],[1,3],[3,4],[4,5],[5,3],[5,2],[1,6],[6,7],[7,3],[7,1],[8,3],[8,6],[9,0],[9,1],[9,7],[0,6],[2,6],[4,6],[5,9],[8,1],[3,6],[7,9]];
-
+const LINKS = [['Traffic','Leads'],['Leads','Sales funnel'],['Sales funnel','Revenue'],['Revenue','Margin'],['Raw materials','Margin'],['Defects','Margin'],['Quality','Reviews'],['Reviews','Brand'],['Brand','Traffic'],['Price','Average check'],['Average check','Revenue'],['Hiring','Capacity'],['Motivation','Sales team'],['Sales team','Sales funnel'],['Suppliers','Raw materials'],['Capacity','Inventory'],['Inventory','Delivery'],['Cash flow','Budget'],['Budget','Advertising'],['Automation','Processes'],['Processes','Quality'],['Training','Quality'],['Turnover','Hiring'],['Repeat sales','Revenue'],['Assortment','Capacity'],['Service','Repeat sales'],['Analytics','Budget'],['Content','SEO'],['SEO','Traffic'],['Advertising','Traffic'],['Positioning','Brand'],['Regulations','Processes'],['Taxes','Cash flow'],['Debt','Cash flow'],['Managers','Motivation'],['Market','Positioning'],['Goals','Budget'],['Investments','Capacity'],['Competitors','Price'],['Risks','Investments'],['CRM','Analytics'],['Revenue','Cash flow']];
 const TRIAL_RECORDS = Array.from({length: 240}, (_, i) => {
   const d = DIRECTIONS[i % DIRECTIONS.length];
   const templates = ['Client receipt','Supplier payment','Campaign spend','CRM deal','Payroll operation','Cloud invoice','Support ticket','SEO delivery','Bank import','API event'];
@@ -53,6 +50,22 @@ function DataWindow({win,onClose,onFront,onMove,onResize}){
 }
 
 const css = `
+.u4{background:radial-gradient(ellipse at 50% 45%,#10101a,#07070b 70%);color:#9a9aae;font:11px/1.4 ui-monospace,Menlo,Consolas,monospace}
+.u4:before{display:none}
+.u4 .u4-network-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.u4-head{z-index:3;top:14px;left:18px}.u4-kicker{color:#c9c9d6;letter-spacing:.08em}.u4-sub{display:none}
+.u4-live{top:14px;right:18px;color:#6c6c80;letter-spacing:.04em}
+.u4-live i{background:#6c6c80;box-shadow:none}
+.u4-legend{position:absolute;z-index:4;left:14px;top:44px;width:190px;max-height:calc(100% - 100px);overflow:auto;background:rgba(14,14,22,.78);border:1px solid #23232f;border-radius:8px;padding:6px;backdrop-filter:blur(6px)}
+.u4-legend button{width:100%;display:flex;align-items:center;gap:8px;padding:5px 7px;border:0;border-radius:5px;background:transparent;cursor:pointer;color:#8a8a9e;text-align:left;font:11px ui-monospace,Menlo,monospace}
+.u4-legend button:hover,.u4-legend button.on{background:#25253a;color:#fff}
+.u4-legend i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--c);box-shadow:0 0 8px var(--c)}
+.u4-legend b{margin-left:auto;font-weight:400;color:#555568}
+.u4-hint{left:18px;bottom:12px;color:#555568;letter-spacing:0}
+.u4-selection{display:none}
+.u4-controls{display:none}
+@media(max-width:700px){.u4-legend{width:150px;left:8px;top:42px;padding:4px}.u4-legend button{font-size:9px;padding:4px 5px}.u4-live{font-size:7px;right:10px;top:13px}.u4-head{top:12px;left:12px}.u4-kicker{font-size:8px}.u4-hint{left:10px;bottom:8px;font-size:6px}}
+
 .u4{position:fixed;inset:0;background:#020403;color:#eaf4e8;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
 .u4 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:0}
 .u4:before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 20%,rgba(0,0,0,.12) 62%,#000 100%)}
@@ -126,127 +139,58 @@ export default function Universe4(){
 
  useEffect(()=>{
   const el=host.current;if(!el)return;
-  let renderer,scene,camera,raf,resizeObserver;
-  const disposables=[];
-  const labels=new Map();
-  let dragging=false,lastX=0,lastY=0,velocityX=0,velocityY=0,targetZoom=1,currentZoom=1,downX=0,downY=0;
-  const root=new THREE.Group(),surface=new THREE.Group(),graph=new THREE.Group(),orbits=new THREE.Group();
-  const nodeObjects=[],edgeObjects=[],recordObjects=[],raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-  let selectedId=null;
-  try{
-   scene=new THREE.Scene();scene.background=new THREE.Color(0x020403);
-   camera=new THREE.PerspectiveCamera(42,1,.1,100);camera.position.set(0,0,10.7);
-   renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
-   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
-   el.prepend(renderer.domElement);scene.add(root);root.add(surface,graph,orbits);
-   scene.add(new THREE.AmbientLight(0xc8d9c5,.55));
-   const key=new THREE.PointLight(0xc9ff9b,7,22);key.position.set(1.8,2.5,5);scene.add(key);
-   const rim=new THREE.PointLight(0x5b9fff,3,20);rim.position.set(-4,-2,-4);scene.add(rim);
-   const coreLight=new THREE.PointLight(0xbaff87,2.5,8);coreLight.position.set(0,0,0);scene.add(coreLight);
-   // The network is intentionally volumetric: no enclosing point-cloud shell. The nodes and their links define the form.
-
-   // Bright central nucleus with layered translucent shells.
-   const core=new THREE.Group();surface.add(core);
-   const coreBall=new THREE.Mesh(new THREE.IcosahedronGeometry(.31,3),new THREE.MeshBasicMaterial({color:0xe1ffd1}));core.add(coreBall);
-   [[.48,.055,.18],[.72,.025,.085],[1.05,.012,.035]].forEach(([r,t,o],i)=>{const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,2),new THREE.MeshBasicMaterial({color:i===0?0xc9ff78:0x9fd6a2,wireframe:true,transparent:true,opacity:o,depthWrite:false}));core.add(m);});
-   // No decorative latitude or longitude rings: spatial depth comes from the graph itself.
-
-   // Background stars: many tiny, low-contrast points with a gentle drift.
-   const starN=1900,starPos=new Float32Array(starN*3);for(let i=0;i<starN;i++){const rr=12+Math.random()*22,a=Math.random()*Math.PI*2,z=(Math.random()-.5)*26;starPos.set([Math.cos(a)*rr,Math.sin(a)*rr,z],i*3)}
-   const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));const starMat=new THREE.PointsMaterial({color:0xc8e7cf,size:.022,transparent:true,opacity:.68,depthWrite:false});scene.add(new THREE.Points(starGeo,starMat));disposables.push(starGeo,starMat);
-   // Business nodes distributed around the spherical surface.
-   const clusterLayout=[
-    [-2.55,1.15,.35],[-.95,.35,1.95],[1.25,1.45,.65],[2.55,.25,-.55],
-    [1.75,-1.35,1.05],[-.35,-1.95,.25],[-2.15,-1.15,-.85],[-.15,.65,-2.15],
-    [1.05,-.45,-1.8],[-1.35,1.65,-1.25]
-   ];
-   const nodeVectors=DIRECTIONS.map((d,i)=>new THREE.Vector3(...clusterLayout[i]));
-   DIRECTIONS.forEach((d,i)=>{
-    const group=new THREE.Group();group.position.copy(nodeVectors[i]);graph.add(group);
-    const color=new THREE.Color(d.color);
-    const halo=new THREE.Mesh(new THREE.SphereGeometry(.19,20,20),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.13,depthWrite:false}));
-    const body=new THREE.Mesh(new THREE.IcosahedronGeometry(.075,2),new THREE.MeshBasicMaterial({color}));
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(.135,.006,5,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.78}));
-    ring.rotation.set(.5+i*.27,.8-i*.16,.2);
-    group.add(halo,body,ring);group.userData.directionId=d.id;
-    nodeObjects.push({id:d.id,index:i,group,halo,body,ring,color});
-    const label=document.createElement('button');label.type='button';label.className='u4-label';label.style.setProperty('--c',d.color);label.innerHTML='<b>'+d.name+'</b><small>'+d.metric+'</small>';label.addEventListener('click',()=>{selectedId=d.id;setSelected(d.id);});el.querySelector('.u4-labels').appendChild(label);labels.set(d.id,label);
+  const canvas=document.createElement('canvas');canvas.className='u4-network-canvas';el.prepend(canvas);
+  const ctx=canvas.getContext('2d');let W=0,H=0,dpr=1,F=1,raf=0,t0=0;
+  let seed=7;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const gauss=()=>(rnd()+rnd()+rnd()-1.5)*1.4;
+  const nodes=[],edges=[],byName={},recordForNode=new Map();
+  DIRECTIONS.forEach((d,i)=>{
+   const k=(i+.5)/DIRECTIONS.length,phi=Math.acos(1-2*k),th=i*2.4;
+   d.p={x:270*Math.sin(phi)*Math.cos(th),y:210*Math.cos(phi),z:270*Math.sin(phi)*Math.sin(th)};
+   d.hub={dir:i,hub:1,name:d.name,r:6,...d.p,out:[],inn:[]};nodes.push(d.hub);
+   d.items.forEach((name,j)=>{
+    const nd={dir:i,name,r:3.6,x:d.p.x+gauss()*85,y:d.p.y+gauss()*85,z:d.p.z+gauss()*85,out:[],inn:[]};
+    nodes.push(nd);byName[name]=nd;edges.push({a:d.hub,b:nd,t:0});
+    const records=TRIAL_RECORDS.filter(r=>r.directionId===d.id);
+    if(records.length)recordForNode.set(nd,records[j%records.length]);
    });
-
-   // Every inner point is a real trial record. Zoom reveals the operating layer rather than an empty cloud.
-   const recordPositions=new Map();
-   TRIAL_RECORDS.forEach((record,index)=>{
-     const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
-     const center=nodeVectors[di];
-     const base=center.clone().normalize();
-     const tangent=new THREE.Vector3(-base.z*.82, seeded(index+31)-.5, base.x*.82).normalize();
-     const tangent2=base.clone().cross(tangent).normalize();
-     const theta=seeded(index+17)*Math.PI*2;
-     const spread=.16+seeded(index+80)*.58;
-     const depth=(seeded(index+91)-.5)*.72;
-     const p=center.clone()
-       .add(tangent.clone().multiplyScalar(Math.cos(theta)*spread))
-       .add(tangent2.clone().multiplyScalar(Math.sin(theta)*spread))
-       .add(base.clone().multiplyScalar(depth));
-     recordPositions.set(record.id,p);
-     const g=new THREE.Group();g.position.copy(p);g.userData={recordId:record.id,kind:'record'};graph.add(g);
-     const color=new THREE.Color(DIRECTIONS[di].color);
-     const body=new THREE.Mesh(new THREE.SphereGeometry(.052+(index%3)*.009,10,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92}));
-     const halo=new THREE.Mesh(new THREE.SphereGeometry(.105,10,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.055,depthWrite:false}));
-     g.add(halo,body);
-     recordObjects.push({record,g,body,halo});
-   });
-   // Direction-to-record traces. They become denser as the user moves into the data layer.
-   TRIAL_RECORDS.forEach((record,index)=>{
-     if(index%3!==0)return;
-     const di=DIRECTIONS.findIndex(d=>d.id===record.directionId);
-     const curve=makeCurve(nodeVectors[di],recordPositions.get(record.id),index+80,3.2);
-     const geo=new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
-     const mat=new THREE.LineBasicMaterial({color:new THREE.Color(DIRECTIONS[di].color),transparent:true,opacity:.095,depthWrite:false});
-     graph.add(new THREE.Line(geo,mat));disposables.push(geo,mat);
-   });
-
-   // Curved 3D relationships, with multiple light traces per business connection.
-   EDGES.forEach(([ai,bi],i)=>{
-    const a=nodeVectors[ai],b=nodeVectors[bi],curve=makeCurve(a,b,i,3.18),points=curve.getPoints(72);
-    const geo=new THREE.BufferGeometry().setFromPoints(points);
-    const lineMat=new THREE.LineBasicMaterial({color:0x91b49a,transparent:true,opacity:.22,depthWrite:false});
-    const line=new THREE.Line(geo,lineMat);graph.add(line);
-    const glowGeo=new THREE.TubeGeometry(curve,72,.018,5,false),glowMat=new THREE.MeshBasicMaterial({color:0x9dff8c,transparent:true,opacity:.018,depthWrite:false,blending:THREE.AdditiveBlending});graph.add(new THREE.Mesh(glowGeo,glowMat));
-    const particles=[];
-    for(let k=0;k<2;k++){const p=new THREE.Mesh(new THREE.SphereGeometry(.027,10,10),new THREE.MeshBasicMaterial({color:k===0?0xd9ffd0:0xa8d9ff,transparent:true,opacity:.95}));graph.add(p);particles.push(p)}
-    edgeObjects.push({ai,bi,curve,lineMat,particles});disposables.push(geo,lineMat,glowGeo,glowMat);
-   });
-   // Relationships are carried by the explicit curved edges and record traces.
-
-   const onDown=e=>{if(e.target.closest('.u4-label,.u4-controls,.u4-window'))return;dragging=true;lastX=e.clientX;lastY=e.clientY;downX=e.clientX;downY=e.clientY;el.setPointerCapture?.(e.pointerId)};
-   const onMove=e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;root.rotation.y+=dx*.006;root.rotation.x=Math.max(-1.25,Math.min(1.25,root.rotation.x+dy*.006));velocityX=dx*.0008;velocityY=dy*.0008;lastX=e.clientX;lastY=e.clientY};
-   const onUp=e=>{if(!dragging)return;const moved=Math.hypot(e.clientX-downX,e.clientY-downY);dragging=false;if(moved>6)return;const rect=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-rect.left)/rect.width)*2-1;pointer.y=-((e.clientY-rect.top)/rect.height)*2+1;root.updateMatrixWorld(true);raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(recordObjects.map(x=>x.body),false)[0];if(hit){const item=recordObjects.find(x=>x.body===hit.object);if(item){selectedId=item.record.directionId;setSelected(item.record.directionId);openRecordRef.current?.(item.record)}}};
-   const onWheel=e=>{e.preventDefault();targetZoom=THREE.MathUtils.clamp(targetZoom+(e.deltaY<0?.16:-.16),.48,3.1);setZoom(Math.round(targetZoom*100))};
-   const onResize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)};
-   el.addEventListener('pointerdown',onDown);el.addEventListener('pointermove',onMove);el.addEventListener('pointerup',onUp);el.addEventListener('pointercancel',onUp);el.addEventListener('wheel',onWheel,{passive:false});window.addEventListener('resize',onResize);
-   const zoomIn=()=>{targetZoom=Math.min(3.1,targetZoom+.2);setZoom(Math.round(targetZoom*100))},zoomOut=()=>{targetZoom=Math.max(.48,targetZoom-.2);setZoom(Math.round(targetZoom*100))};
-   el.querySelector('[data-zoom-in]').addEventListener('click',zoomIn);el.querySelector('[data-zoom-out]').addEventListener('click',zoomOut);el.querySelector('[data-zoom-reset]').addEventListener('click',()=>{targetZoom=1;setZoom(100)});
-   const clock=new THREE.Clock();
-   const animate=()=>{raf=requestAnimationFrame(animate);const t=clock.getElapsedTime(),dt=Math.min(clock.getDelta(),.04);currentZoom+=(targetZoom-currentZoom)*(1-Math.exp(-dt*4.5));camera.position.z=10.7/currentZoom;
-    if(!dragging){root.rotation.y+=velocityX;root.rotation.x+=velocityY;velocityX*=.94;velocityY*=.94;if(Math.abs(velocityX)<.00001)velocityX=0;if(Math.abs(velocityY)<.00001)velocityY=0;root.rotation.y+=dt*.012}
-    orbits.rotation.y=t*.018;orbits.rotation.z=Math.sin(t*.12)*.025;core.rotation.y=t*.13;core.rotation.x=Math.sin(t*.4)*.08;
-    nodeObjects.forEach((n,i)=>{const pulse=1+Math.sin(t*1.4+i*.8)*.045;n.group.scale.setScalar(pulse);n.ring.rotation.z=t*.16+i;});
-    edgeObjects.forEach((edge,i)=>{edge.particles.forEach((p,k)=>p.position.copy(edge.curve.getPointAt((t*.045+k*.5+i*.07)%1)));});
-    root.updateMatrixWorld(true);
-    nodeObjects.forEach(n=>{const p=n.group.getWorldPosition(new THREE.Vector3()).project(camera);const label=labels.get(n.id);label.style.left=((p.x*.5+.5)*el.clientWidth)+'px';label.style.top=((-p.y*.5+.5)*el.clientHeight)+'px';label.style.opacity=p.z<.98&&p.z>-.98?String(Math.max(.16,1-Math.max(0,p.z)*.55)):'0';label.classList.toggle('active',selectedId===n.id)});
-    renderer.render(scene,camera);
-   };
-   onResize();animate();
-   return ()=>{cancelAnimationFrame(raf);window.removeEventListener('resize',onResize);el.removeEventListener('pointerdown',onDown);el.removeEventListener('pointermove',onMove);el.removeEventListener('pointerup',onUp);el.removeEventListener('pointercancel',onUp);el.removeEventListener('wheel',onWheel);labels.forEach(x=>x.remove());el.querySelector('[data-zoom-in]')?.removeEventListener('click',zoomIn);el.querySelector('[data-zoom-out]')?.removeEventListener('click',zoomOut);renderer.dispose();disposables.forEach(x=>x.dispose?.());scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose())});renderer.domElement.remove()};
-  }catch(error){console.error('Universe 4 renderer failed',error);if(renderer){renderer.dispose();renderer.domElement.remove()}}
+   const its=nodes.filter(n=>n.dir===i&&!n.hub);
+   for(let j=0;j<46;j++){const nd={dir:i,dust:1,r:1+rnd()*1.2,x:d.p.x+gauss()*95,y:d.p.y+gauss()*95,z:d.p.z+gauss()*95};nodes.push(nd);if(rnd()<.6)edges.push({a:its[(rnd()*its.length)|0],b:nd,t:1})}
+  });
+  const deps=[];LINKS.forEach(([a,b])=>{const A=byName[a],B=byName[b];if(!A||!B)return;const e={a:A,b:B,t:2,ph:rnd()};edges.push(e);deps.push(e);A.out.push(B);B.inn.push(A)});
+  const named=nodes.filter(n=>!n.dust);
+  const status=el.querySelector('.u4-live');if(status)status.innerHTML='<i></i>'+DIRECTIONS.length+' DIRECTIONS · '+named.filter(n=>!n.hub).length+' ELEMENTS · '+deps.length+' CONNECTIONS';
+  const legend=document.createElement('div');legend.className='u4-legend';el.appendChild(legend);
+  let yaw=.4,pitch=.25,D=720,Dt=720,T={x:0,y:0,z:0},Tt={x:0,y:0,z:0},drag=null,idle=0,sel=null,hov=null,focus=-1,mx=-1,my=-1;
+  DIRECTIONS.forEach((d,i)=>{const item=document.createElement('button');item.type='button';item.innerHTML='<i style="--c:'+d.color+'"></i><span>'+d.name+'</span><b>'+d.items.length+'</b>';item.addEventListener('click',()=>{sel=null;if(focus===i){focus=-1;Tt={x:0,y:0,z:0};Dt=720}else{focus=i;Tt={...d.p};Dt=330}Array.from(legend.children).forEach((x,j)=>x.classList.toggle('on',j===focus))});legend.appendChild(item)});
+  function resize(){const r=el.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);W=r.width;H=r.height;canvas.width=Math.max(1,Math.round(W*dpr));canvas.height=Math.max(1,Math.round(H*dpr));canvas.style.width='100%';canvas.style.height='100%';ctx.setTransform(dpr,0,0,dpr,0,0);F=Math.min(W*.9,H*1.25)}
+  const ro=new ResizeObserver(resize);ro.observe(el);resize();
+  function proj(p){const x=p.x-T.x,y=p.y-T.y,z=p.z-T.z,cx=Math.cos(yaw),sx=Math.sin(yaw),x1=x*cx+z*sx,z1=-x*sx+z*cx,cp=Math.cos(pitch),sp=Math.sin(pitch),y2=y*cp-z1*sp,z2=y*sp+z1*cp+D;if(z2<30)return null;const k=F/z2;return{x:W/2+x1*k,y:H/2+y2*k,k,z:z2,f:Math.max(.18,Math.min(1,1-(z2-D+260)/850))}}
+  const rgba=(h,a)=>{const n=parseInt(h.slice(1),16);return'rgba('+(n>>16)+','+(n>>8&255)+','+(n&255)+','+Math.max(0,Math.min(1,a))+')'};
+  function pill(txt,x,y,c,alpha,big){ctx.font=(big?'11':'10')+'px ui-monospace,Menlo,monospace';const w=ctx.measureText(txt).width+14,h=big?20:17;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-w/2,y-h/2,w,h,h/2);else ctx.rect(x-w/2,y-h/2,w,h);ctx.fillStyle='rgba(10,10,16,'+(.8*alpha)+')';ctx.fill();ctx.strokeStyle=rgba(c,.7*alpha);ctx.lineWidth=1;ctx.stroke();ctx.fillStyle=rgba('#ffffff',.92*alpha);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,y+.5)}
+  function frame(ts){const dt=Math.min(.05,(ts-t0)/1000||.016);t0=ts;T.x+=(Tt.x-T.x)*.06;T.y+=(Tt.y-T.y)*.06;T.z+=(Tt.z-T.z)*.06;D+=(Dt-D)*.06;if(!drag){idle+=dt;if(idle>2)yaw+=dt*.07}ctx.clearRect(0,0,W,H);
+   const P=new Map();nodes.forEach(n=>P.set(n,proj(n)));const rel=n=>!sel||n===sel||sel.out.includes(n)||sel.inn.includes(n);const live=n=>(focus<0||n.dir===focus)&&rel(n);
+   edges.forEach(e=>{const a=P.get(e.a),b=P.get(e.b);if(!a||!b)return;const c=DIRECTIONS[e.a.dir].color,f=(a.f+b.f)/2,lit=live(e.a)&&live(e.b);let al=e.t===2?.28:e.t===0?.2:.08;if(sel&&e.t===2&&(e.a===sel||e.b===sel))al=.95;else if(!lit)al*=.25;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=rgba(e.t===2?'#ffffff':c,al*f);ctx.lineWidth=e.t===2?(al>.5?1.6:.8):.6;ctx.stroke();if(e.t===2&&(lit||al>.5)){const u=(ts/2600+e.ph)%1,px=a.x+(b.x-a.x)*u,py=a.y+(b.y-a.y)*u;ctx.beginPath();ctx.arc(px,py,al>.5?2.6:1.6,0,7);ctx.fillStyle=rgba(DIRECTIONS[e.b.dir].color,(al>.5?1:.7)*f);ctx.fill()}});
+   const vis=nodes.filter(n=>P.get(n)).sort((u,v)=>P.get(v).z-P.get(u).z);vis.forEach(n=>{const p=P.get(n),c=DIRECTIONS[n.dir].color,al=(live(n)?1:.2)*p.f,r=Math.max(.6,n.r*p.k*1.1);if(!n.dust){const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*4);g.addColorStop(0,rgba(c,.35*al));g.addColorStop(1,rgba(c,0));ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r*4,0,7);ctx.fill()}ctx.beginPath();ctx.arc(p.x,p.y,r,0,7);ctx.fillStyle=n.dust?rgba('#cfd6ee',.5*al):rgba(c,al);ctx.fill()});
+   hov=null;let best=14;named.forEach(n=>{const p=P.get(n);if(!p)return;const d=Math.hypot(p.x-mx,p.y-my);if(d<Math.max(best,n.r*p.k*2)&&live(n)){best=d;hov=n}});canvas.style.cursor=hov?'pointer':drag?'grabbing':'grab';
+   named.forEach(n=>{const p=P.get(n);if(!p)return;const c=DIRECTIONS[n.dir].color,show=n.hub?(focus<0||focus===n.dir)&&!sel||n===sel:(D<420||n===hov||n===sel||(sel&&rel(n))||focus===n.dir);if(!show||!live(n)&&n!==sel)return;pill(n.name,p.x,p.y-(n.hub?16:12),c,Math.min(1,p.f+.2),n.hub)});
+   if(sel){const p=P.get(sel);if(p){const c=DIRECTIONS[sel.dir].color,R=16+Math.sin(ts/400)*1.5,a0=ts/700;ctx.lineWidth=2.5;[[0,1.6,c],[2.4,3.3,'#ffffff'],[4,5,c]].forEach(([s0,s1,col])=>{ctx.beginPath();ctx.arc(p.x,p.y,R,a0+s0,a0+s1);ctx.strokeStyle=rgba(col,.9);ctx.stroke()});ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,R+7,0,7);ctx.strokeStyle=rgba(c,.25);ctx.stroke();const l1=sel.hub?'direction':DIRECTIONS[sel.dir].name,l2='influences: '+(sel.out.map(x=>x.name).join(', ')||'—'),l3='depends on: '+(sel.inn.map(x=>x.name).join(', ')||'—');ctx.font='10px ui-monospace,Menlo,monospace';const w=Math.min(300,Math.max(ctx.measureText(l2).width,ctx.measureText(l3).width,110)+22),bx=Math.min(W-w-12,p.x+26),by=Math.min(H-80,p.y+20);ctx.fillStyle='rgba(10,10,16,.88)';ctx.strokeStyle=rgba(c,.6);ctx.lineWidth=1;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(bx,by,w,62,7);else ctx.rect(bx,by,w,62);ctx.fill();ctx.stroke();ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 11px ui-monospace,Menlo,monospace';ctx.fillText(sel.name,bx+10,by+14);ctx.font='10px ui-monospace,Menlo,monospace';ctx.fillStyle=rgba(c,1);ctx.fillText(l1,bx+10,by+28);ctx.fillStyle='#9a9aae';ctx.fillText(l2.slice(0,44),bx+10,by+42);ctx.fillText(l3.slice(0,44),bx+10,by+55)}}
+   requestAnimationFrame(frame)
+  }
+  const pos=e=>{const r=canvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
+  const onDown=e=>{canvas.setPointerCapture(e.pointerId);[mx,my]=pos(e);drag={x:mx,y:my,moved:0};idle=0};
+  const onMove=e=>{const[x,y]=pos(e);if(drag){const dx=x-mx,dy=y-my;drag.moved+=Math.abs(dx)+Math.abs(dy);yaw+=dx*.006;pitch=Math.max(-1.3,Math.min(1.3,pitch+dy*.006));idle=0}mx=x;my=y};
+  const onUp=()=>{if(drag&&drag.moved<5){if(hov){sel=hov;focus=-1;Array.from(legend.children).forEach(c=>c.classList.remove('on'));Tt={x:hov.x,y:hov.y,z:hov.z};Dt=190;const record=recordForNode.get(hov);if(record)openRecordRef.current?.(record)}else if(sel){sel=null;Tt={x:0,y:0,z:0};Dt=720}}drag=null};
+  const onLeave=()=>{mx=my=-1};
+  const onWheel=e=>{e.preventDefault();Dt=Math.max(90,Math.min(1100,Dt*(1+e.deltaY*.0012)));idle=0};
+  canvas.addEventListener('pointerdown',onDown);canvas.addEventListener('pointermove',onMove);canvas.addEventListener('pointerup',onUp);canvas.addEventListener('pointercancel',onUp);canvas.addEventListener('pointerleave',onLeave);canvas.addEventListener('wheel',onWheel,{passive:false});
+  raf=requestAnimationFrame(frame);
+  return ()=>{cancelAnimationFrame(raf);ro.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);canvas.removeEventListener('pointerleave',onLeave);canvas.removeEventListener('wheel',onWheel);legend.remove();canvas.remove()};
  },[]);
  const active=DIRECTIONS.find(x=>x.id===selected);
  return <main className="u4" ref={host}>
-  <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS UNIVERSE</div><div className="u4-sub">NIFINANCE · INTERACTIVE SYSTEM</div></div>
-  <div className="u4-live"><i/>DATA MODEL · 240 RECORDS</div><div className="u4-labels"/>
-  {active&&<div className="u4-selection" style={{'--c':active.color}}><strong>{active.name.toUpperCase()}</strong><span>{active.metric.toUpperCase()}</span></div>}
-  <div className="u4-hint">DRAG TO ROTATE · SCROLL TO EXPLORE · CLICK DATA POINTS</div>
-  <div className="u4-controls"><button type="button" data-zoom-out aria-label="Zoom out">−</button><span>{zoom}%</span><button type="button" data-zoom-in aria-label="Zoom in">+</button><button type="button" data-zoom-reset aria-label="Reset zoom">↺</button></div>
- <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
+  <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS MAP · EVERYTHING IS CONNECTED</div></div>
+  <div className="u4-live"><i/>LOADING NETWORK</div>
+  <div className="u4-hint">DRAG TO ROTATE · WHEEL TO ZOOM · CLICK A NODE TO FOCUS / OPEN ITS DATA</div>
+  <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
 }
