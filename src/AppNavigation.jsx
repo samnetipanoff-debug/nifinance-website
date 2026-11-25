@@ -11,11 +11,6 @@ const NAV_ITEMS = [
 export default function AppNavigation() {
   const path = window.location.pathname;
   return <nav className="app-navigation" aria-label="NIFINANCE workspace navigation">
-    <a className="app-navigation-brand" href="/" aria-label="NIFINANCE home">
-      <span className="app-navigation-mark">N</span><span>NIFINANCE</span>
-    </a>
-    <div className="app-navigation-links">
-      {NAV_ITEMS.map(item => <a key={item.href} className={item.match(path) ? 'active' : ''} href={item.href}>{item.label}</a>)}
-    </div>
+    {NAV_ITEMS.map(item => <a key={item.href} className={item.match(path) ? 'active' : ''} href={item.href}>{item.label}</a>)}
   </nav>;
 }
