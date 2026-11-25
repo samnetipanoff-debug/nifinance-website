@@ -259,7 +259,7 @@ export default async function handler(req, res) {
       return send(res, 200, { payload: currentPayload });
     }
 
-    if (!['save', 'confirm-all'].includes(req.body?.action)) return send(res, 400, { error: 'Unsupported action' });
+    if (!['save', 'confirm-one', 'confirm-all'].includes(req.body?.action)) return send(res, 400, { error: 'Unsupported action' });
     const payload = req.body.payload;
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return send(res, 400, { error: 'Payload must be an object' });
@@ -277,11 +277,14 @@ export default async function handler(req, res) {
     }
 
     await syncNormalizedData(sql, workspaceId, normalizedPayload);
-    if (req.body?.action === 'confirm-all') {
-      const confirmedCount = normalizedPayload.transactions.filter(tx => tx.status === 'classified' && tx.confidence === 'Confirmed').length;
+    if (req.body?.action === 'confirm-all' || req.body?.action === 'confirm-one') {
+      const action = req.body.action === 'confirm-all' ? 'confirm_all' : 'confirm_one';
+      const confirmedCount = req.body.action === 'confirm-all'
+        ? normalizedPayload.transactions.filter(tx => tx.status === 'classified' && tx.confidence === 'Confirmed').length
+        : 1;
       await sql`INSERT INTO public.dc_audit_log (workspace_id, entity_type, entity_key, action, details)
-        VALUES (${workspaceId}::uuid, 'transaction_batch', NULL, 'confirm_all',
-          ${JSON.stringify({ confirmedCount, source: 'data-center-ui' })}::jsonb)`;
+        VALUES (${workspaceId}::uuid, ${req.body.action === 'confirm-all' ? 'transaction_batch' : 'transaction'}, NULL, ${action},
+          ${JSON.stringify({ confirmedCount, totalTransactions: normalizedPayload.transactions.length, source: 'data-center-ui' })}::jsonb)`;
     }
     for (const item of normalizedPayload.imports) {
       const importId = String(item.id || '');
