@@ -48,6 +48,45 @@ const SOURCE_DETECTION = {
   other: { label: 'Unclassified source', confidence: 'Low' }
 };
 const BASIS_LABELS = { cash: 'Cash basis', accrual: 'Accrual basis', unknown: 'Basis not confirmed' };
+function detectSourceTypeFromText(text) {
+  const table = parseCSV(String(text).replace(/^\\uFEFF/, ''));
+  if (!table.length) return { type: 'other', confidence: 'Low', reason: 'No tabular header detected' };
+  const aliases = {
+    date: ['date','datum','дата','дата операции'],
+    amount: ['amount','iznos','сумма','сумма операции'],
+    debit: ['debit','duguje','дебет','списание','расход'],
+    credit: ['credit','potrazuje','кредит','поступление','зачисление'],
+    description: ['description','purpose','назначение','назначение платежа','opis','svrha'],
+    counterparty: ['counterparty','beneficiary','payer','контрагент','получатель','плательщик'],
+    operationType: ['operation type','transaction type','вид операции','тип операции','операция'],
+    organization: ['organization','организация'],
+    bankAccount: ['bank account','банковский счет','банковский счёт']
+  };
+  const headerScore = row => {
+    const h = row.map(v => norm(v));
+    const has = key => h.some(x => aliases[key].some(a => x === norm(a) || (norm(a).length > 3 && x.includes(norm(a)))));
+    return {
+      bank: (has('date') ? 2 : 0) + ((has('debit') || has('credit')) ? 3 : 0) +
+        (has('counterparty') ? 2 : 0) + (has('description') ? 1 : 0) +
+        (has('bankAccount') ? 2 : 0) + (has('operationType') ? 2 : 0),
+      journal: (has('date') ? 2 : 0) + (has('description') ? 1 : 0) +
+        (has('operationType') ? 1 : 0) + (h.some(x => /дебет|кредит|debit|credit|счет|сч[её]т|account|проводк/.test(x)) ? 4 : 0),
+      crm: (has('date') ? 1 : 0) + (has('counterparty') ? 2 : 0) +
+        (h.some(x => /deal|сделк|лид|lead|client|клиент|pipeline|воронк/.test(x)) ? 4 : 0)
+    };
+  };
+  let best = { index: 0, scores: headerScore(table[0] || []) };
+  for (let i = 1; i < Math.min(table.length, 30); i++) {
+    const scores = headerScore(table[i]);
+    if (Math.max(scores.bank, scores.journal, scores.crm) > Math.max(best.scores.bank, best.scores.journal, best.scores.crm)) best = { index: i, scores };
+  }
+  const { bank, journal, crm } = best.scores;
+  if (bank >= 7 && bank >= journal + 2 && bank >= crm + 2) return { type: 'bank_statement', confidence: 'High', reason: 'Detected date + debit/credit + counterparty/payment fields and bank-operation metadata' };
+  if (journal >= 6 && journal >= bank + 2) return { type: 'accounting_journal', confidence: 'High', reason: 'Detected accounting-entry/debit-credit fields' };
+  if (crm >= 5 && crm >= bank) return { type: 'crm_export', confidence: 'Medium', reason: 'Detected CRM/deal/lead fields' };
+  return { type: 'other', confidence: 'Low', reason: 'Source structure is ambiguous' };
+}
+
 const norm = (v = '') => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
 const parseAmount = (v = '') => {
   let s = String(v).replace(/[€$£₽\s]/g, '').replace(/\((.*)\)/, '-$1');
@@ -405,11 +444,14 @@ export default function DataCenter() {
   const setTransactions = updater => setSaved(s => ({ ...s, transactions: typeof updater === 'function' ? updater(s.transactions || []) : updater }));
   const processImportText = async (text, sourceName) => {
     setError(''); setPreview([]); setMappingDraft(null);
+    const detected = detectSourceTypeFromText(text);
+    const resolvedSourceType = importSourceType && importSourceType !== 'auto' ? importSourceType : detected.type;
+    setImportSourceType(resolvedSourceType);
     try {
       const rows = readRows(text, rules, sourceName);
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+        const candidate = { ...row, sourceType: resolvedSourceType, accountingBasis: SOURCE_TYPES[resolvedSourceType].basis };
         const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
@@ -446,7 +488,7 @@ export default function DataCenter() {
             seen.add(fingerprint);
             return { ...candidate, fingerprint, isDuplicate };
           }));
-          setError('AI identified the file structure. Review the preview carefully before importing; operation classification is a separate step.');
+          setError('AI identified the file structure. Source type: ' + SOURCE_DETECTION[resolvedSourceType].label + '. Review the preview; operation classification remains separate.');
           return;
         } catch (aiParseError) {
           console.warn('AI mapping did not pass deterministic validation:', aiParseError);
@@ -483,10 +525,8 @@ export default function DataCenter() {
   };
   const onFile = async event => {
     const file = event.target.files?.[0]; if (!file) return;
-    if (!importSourceType || !SOURCE_TYPES[importSourceType]) {
-      setError('Choose the source type first. Bank statements use cash basis; accounting journals (e.g. 1C) use accrual basis.');
-      event.target.value = ''; return;
-    }
+    // Source type is auto-detected from the actual file structure. Manual selection remains an override.
+
     setError(''); setPreview([]); setMappingDraft(null); setFileName(file.name);
     setExcelSheets([]); setSelectedExcelSheet('');
     try {
