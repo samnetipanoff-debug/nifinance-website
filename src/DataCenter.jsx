@@ -286,7 +286,7 @@ async function readApiResponse(response) {
   if (!raw) return {};
   try { return JSON.parse(raw); }
   catch {
-    const preview = raw.replace(/\\s+/g, ' ').slice(0, 180);
+    const preview = raw.replace(/\s+/g, ' ').slice(0, 180);
     throw new Error(`API returned a non-JSON response (HTTP ${response.status}): ${preview}`);
   }
 }
