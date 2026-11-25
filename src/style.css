@@ -54,3 +54,36 @@
 }
 
 /* The globe is rendered entirely from points; no fallback halo. */
+
+
+/* Shared workspace navigation */
+.app-navigation{
+  position:fixed;top:14px;left:14px;right:14px;height:50px;
+  z-index:10000;display:flex;align-items:center;gap:18px;
+  padding:0 12px;border:1px solid rgba(201,255,69,.16);
+  border-radius:14px;background:rgba(5,8,7,.78);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 10px 35px rgba(0,0,0,.24);
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+.app-navigation-brand{
+  display:flex;align-items:center;gap:8px;color:#edf6ed;text-decoration:none;
+  font-size:11px;font-weight:800;letter-spacing:.12em;white-space:nowrap;
+}
+.app-navigation-mark{
+  width:27px;height:27px;border:1px solid rgba(201,255,69,.55);border-radius:8px;
+  display:grid;place-items:center;color:#c9ff45;font-size:13px;
+}
+.app-navigation-links{display:flex;align-items:center;gap:3px;overflow:auto;scrollbar-width:none}
+.app-navigation-links::-webkit-scrollbar{display:none}
+.app-navigation-links a{
+  color:#879188;text-decoration:none;font-size:9px;font-weight:800;letter-spacing:.09em;
+  padding:9px 10px;border-radius:9px;white-space:nowrap;transition:color .18s,background .18s;
+}
+.app-navigation-links a:hover{color:#edf6ed;background:rgba(255,255,255,.05)}
+.app-navigation-links a.active{color:#c9ff45;background:rgba(201,255,69,.08)}
+@media(max-width:700px){
+  .app-navigation{left:8px;right:8px;top:8px;height:46px;gap:8px;padding:0 8px}
+  .app-navigation-brand span:last-child{display:none}
+  .app-navigation-links a{font-size:8px;padding:8px 7px}
+}
