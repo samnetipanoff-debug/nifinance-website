@@ -254,6 +254,9 @@ function readRows(text, rules, fileName, mapping = null) {
   const descI = Number.isInteger(mapping?.description) ? mapping.description : fieldIndex(headers, headerAliases.description);
   const refI = Number.isInteger(mapping?.reference) ? mapping.reference : fieldIndex(headers, headerAliases.reference);
   const currencyI = Number.isInteger(mapping?.currency) ? mapping.currency : fieldIndex(headers, headerAliases.currency);
+  const operationTypeI = fieldIndex(headers, headerAliases.operationType);
+  const organizationI = fieldIndex(headers, headerAliases.organization);
+  const bankAccountI = fieldIndex(headers, headerAliases.bankAccount);
   if (dateI < 0 || (amountI < 0 && mappedDebitI < 0 && mappedCreditI < 0)) {
     const found = headers.filter(Boolean).slice(0, 20).join(', ');
     throw new Error('Could not confidently map the required date and amount fields. The importer checks header names and sample cell patterns, but this file needs column mapping before import. Detected columns: ' + (found || 'none') + '. No rows were imported.');
@@ -271,7 +274,7 @@ function readRows(text, rules, fileName, mapping = null) {
     const base = {
       id: 'imp-' + Date.now() + '-' + i, date: get(dateI), amount,
       currency: /€|eur/i.test(currencyText) ? 'EUR' : /\\brsd\\b|дин|rsd/i.test(currencyText) ? 'RSD' : /\\busd\\b|\\$/i.test(currencyText) ? 'USD' : '—',
-      counterparty, description, reference: get(refI), source: fileName, status: 'review', category: '', role: '', direction, original: cells
+      counterparty, description, reference: get(refI), operationType: get(operationTypeI), organization: get(organizationI), bankAccount: get(bankAccountI), source: fileName, status: 'review', category: '', role: '', direction, original: cells
     };
     return classify(base, rules);
   }).filter(r => looksLikeDate(r.date) && (amountI >= 0 ? looksLikeAmount(r.original[amountI] || '') : ((mappedDebitI >= 0 && looksLikeAmount(r.original[mappedDebitI] || '')) || (mappedCreditI >= 0 && looksLikeAmount(r.original[mappedCreditI] || '')))));
@@ -482,7 +485,7 @@ export default function DataCenter() {
           const rows = readRows(text, rules, sourceName, aiMapping);
           const seen = new Set(transactions.map(fingerprintOf));
           setPreview(rows.map(row => {
-            const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+            const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
             const fingerprint = fingerprintOf(candidate);
             const isDuplicate = seen.has(fingerprint);
             seen.add(fingerprint);
@@ -562,7 +565,7 @@ export default function DataCenter() {
       const rows = readRows(mappingDraft.text, rules, fileName, { ...mappingDraft.mapping, headerRow: mappingDraft.headerIndex });
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const candidate = { ...row, sourceType: importSourceType, accountingBasis: SOURCE_TYPES[importSourceType].basis };
+        const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
         const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
