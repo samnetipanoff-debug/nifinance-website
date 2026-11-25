@@ -93,7 +93,8 @@ export default function UniverseCore(){
  },[resetSignal,openWindow]);
  const filtered=NODES.filter(n=>(n.name+' '+n.en+' '+n.value).toLowerCase().includes(search.toLowerCase()));
  const reset=()=>{sceneData.current?.focus?.('core');setSelected('core');setView('COMPANY UNIVERSE');setEdgeFocus(null)};
- return <main className="universe-core">
+   <AppNavigation />
+  return <main className="universe-core">
   <header className="uc-top"><a href="/" className="uc-brand"><span className="uc-brand-mark">N</span><span>NIFINANCE <b>UNIVERSE</b></span></a><div className="uc-top-center"><i className="uc-live-dot"/><span>COMPANY INTELLIGENCE SPACE</span><b>INTERACTIVE DEMO</b></div><div className="uc-top-actions"><button onClick={()=>setSearchOpen(v=>!v)} title="Найти показатель"><Icon name="search"/></button><button onClick={()=>setHud(v=>!v)} title="Скрыть или показать подписи">Подписи {hud?'ON':'OFF'}</button><button onClick={()=>setHelp(v=>!v)}>Управление</button></div></header>
   <section className="uc-world">
    <div className="uc-cosmos" ref={mount}/><div className="uc-node-label-layer" ref={labelLayer}>{NODES.map(n=><button key={n.id} data-node={n.id} className={'uc-node-label '+(selected===n.id?'selected':'')+' tone-'+n.tone} onClick={()=>openWindow(n.id,true)}><span className="uc-node-point"/><span className="uc-node-copy"><small>{n.en}</small><b>{n.name}</b><strong>{n.value}</strong><em>{n.change}</em></span></button>)}</div>
