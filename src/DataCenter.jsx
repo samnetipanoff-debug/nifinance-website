@@ -609,45 +609,64 @@ export default function DataCenter() {
     setPreview([]); setError('');
     setTab('transactions');
   };
-  const updateTransaction = (id, patch, learn = false) => {
+  const persistTransactionChanges = async (nextPayload, action = 'save') => {
+    if (!workspaceCredentials || !cloudReady) throw new Error('Neon is not connected for this workspace. The change cannot be confirmed as saved.');
+    const response = await fetch('/api/data-center', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Workspace-Id': workspaceCredentials.workspaceId,
+        'X-Workspace-Token': workspaceCredentials.token
+      },
+      body: JSON.stringify({ action, payload: nextPayload })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Neon save failed (HTTP ${response.status})`);
+    setSaved(nextPayload);
+    setCloudStatus('connected');
+    setCloudMessage('Confirmation saved to Neon PostgreSQL.');
+  };
+  const updateTransaction = async (id, patch, learn = false) => {
     const current = transactions.find(t => t.id === id); if (!current) return;
     const next = { ...current, ...patch, status: 'classified', confidence: learn ? 'Rule' : 'Confirmed' };
-    setTransactions(old => old.map(t => t.id === id ? next : t));
+    let nextRules = rules;
+    let nextTransactions = transactions.map(t => t.id === id ? next : t);
     if (learn) {
       const key = norm(next.counterparty);
-      setSaved(s => ({ ...s, rules: [...(s.rules || []).filter(r => r.key !== key), { key, counterparty: next.counterparty, category: next.category, role: next.role, updatedAt: new Date().toISOString() }] }));
-      setTransactions(old => old.map(t => norm(t.counterparty) === key ? { ...t, category: next.category, role: next.role, status: 'classified', confidence: 'Rule' } : t));
+      nextRules = [...rules.filter(r => r.key !== key), { key, counterparty: next.counterparty, category: next.category, role: next.role, updatedAt: new Date().toISOString() }];
+      nextTransactions = nextTransactions.map(t => norm(t.counterparty) === key
+        ? { ...t, category: next.category, role: next.role, status: 'classified', confidence: 'Rule' }
+        : t);
+    }
+    const nextPayload = { ...saved, transactions: nextTransactions, rules: nextRules };
+    setCloudStatus('saving');
+    try {
+      await persistTransactionChanges(nextPayload, 'confirm-one');
+      setError('');
+    } catch (error) {
+      setCloudStatus('offline');
+      setCloudMessage(error.message);
+      setError(error.message);
     }
   };
   const confirmAllTransactions = async () => {
-    const pending = transactions.filter(t => t.status === 'review');
-    if (!pending.length || !workspaceCredentials || !cloudReady) return;
-    const confirmedTransactions = transactions.map(t => t.status === 'review'
-      ? { ...t, status: 'classified', confidence: 'Confirmed' }
-      : t
-    );
+    if (!transactions.length) return;
+    const confirmedTransactions = transactions.map(t => ({
+      ...t,
+      status: 'classified',
+      confidence: 'Confirmed'
+    }));
     const nextPayload = { ...saved, transactions: confirmedTransactions };
     setCloudStatus('saving');
-    setCloudMessage('Saving bulk confirmation to Neon PostgreSQL…');
+    setCloudMessage(`Saving confirmation of all ${transactions.length} operations to Neon PostgreSQL…`);
     try {
-      const response = await fetch('/api/data-center', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-Id': workspaceCredentials.workspaceId,
-          'X-Workspace-Token': workspaceCredentials.token
-        },
-        body: JSON.stringify({ action: 'confirm-all', payload: nextPayload })
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Bulk confirmation could not be saved to Neon');
-      setSaved(nextPayload);
-      setCloudStatus('connected');
-      setCloudMessage(`Confirmed ${pending.length} operations and saved the confirmation event to Neon PostgreSQL.`);
+      await persistTransactionChanges(nextPayload, 'confirm-all');
+      setError('');
+      setCloudMessage(`All ${transactions.length} operations confirmed and saved to Neon PostgreSQL.`);
     } catch (error) {
       setCloudStatus('offline');
-      setCloudMessage(error.message || 'Bulk confirmation failed. No confirmation was reported as saved.');
-      setError(error.message || 'Bulk confirmation failed. Check Neon connection and try again.');
+      setCloudMessage(error.message || 'Bulk confirmation failed. Nothing was reported as saved.');
+      setError(error.message || 'Bulk confirmation failed.');
     }
   };
   const addManual = e => {
@@ -695,7 +714,7 @@ export default function DataCenter() {
             <div className="dc-panel-head"><div><div className="dc-section-tag">FINANCING / SEPARATE VIEW</div><h2>Loan principal</h2><p>Principal is financing, not operating revenue or expense.</p></div></div><div className="dc-stats"><div><span>LOAN PROCEEDS</span><strong>{analytics.cash.financing.loanProceeds===null?'SEE BY CURRENCY':analytics.cash.financing.loanProceeds.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>PRINCIPAL REPAYMENTS</span><strong>{analytics.cash.financing.principalRepayments===null?'SEE BY CURRENCY':analytics.cash.financing.principalRepayments.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>UNCONFIRMED BASIS</span><strong>{analytics.dataScope.unconfirmedBasisCount}</strong><small>Excluded from totals</small></div><div><span>ACCRUAL RECORDS</span><strong>{analytics.dataScope.accrualCount}</strong><small>Shown separately from cash</small></div></div>
           </>}
         </>}
-        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={confirmAllTransactions} disabled={!reviewCount || !cloudReady || cloudStatus === 'saving'}>CONFIRM ALL ({reviewCount})</button><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="auto">AUTO-DETECT SOURCE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
+        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={confirmAllTransactions} disabled={!transactions.length || cloudStatus === 'saving'}>CONFIRM ALL ({transactions.length})</button><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="auto">AUTO-DETECT SOURCE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
           {excelSheets.length > 1 && <div className="dc-preview dc-excel-sheet-picker"><label><b>EXCEL WORKSHEET</b><select value={selectedExcelSheet} onChange={e=>onExcelSheetChange(e.target.value)}>{excelSheets.map(sheet=><option key={sheet.name} value={sheet.name}>{sheet.name}</option>)}</select></label><span>{excelSheets.length} non-empty worksheets found. Choose the sheet containing transaction rows; only the selected sheet will be previewed.</span></div>}
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
