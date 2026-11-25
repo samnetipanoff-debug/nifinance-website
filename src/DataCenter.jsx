@@ -291,7 +291,7 @@ export default function DataCenter() {
   const [fileName, setFileName] = useState('');
   const [excelSheets, setExcelSheets] = useState([]);
   const [selectedExcelSheet, setSelectedExcelSheet] = useState('');
-  const [importSourceType, setImportSourceType] = useState('');
+  const [importSourceType, setImportSourceType] = useState('auto');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('transactions');
   const [analytics, setAnalytics] = useState(null);
@@ -483,7 +483,7 @@ export default function DataCenter() {
           const rows = readRows(text, rules, sourceName, aiMapping);
           const seen = new Set(transactions.map(fingerprintOf));
           setPreview(rows.map(row => {
-            const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
+            const candidate = { ...row, sourceType: resolvedSourceType, accountingBasis: SOURCE_TYPES[resolvedSourceType].basis };
             const fingerprint = fingerprintOf(candidate);
             const isDuplicate = seen.has(fingerprint);
             seen.add(fingerprint);
@@ -563,7 +563,7 @@ export default function DataCenter() {
       const rows = readRows(mappingDraft.text, rules, fileName, { ...mappingDraft.mapping, headerRow: mappingDraft.headerIndex });
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
+        const candidate = { ...row, sourceType: resolvedSourceType, accountingBasis: SOURCE_TYPES[resolvedSourceType].basis };
         const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
@@ -664,7 +664,7 @@ export default function DataCenter() {
             <div className="dc-panel-head"><div><div className="dc-section-tag">FINANCING / SEPARATE VIEW</div><h2>Loan principal</h2><p>Principal is financing, not operating revenue or expense.</p></div></div><div className="dc-stats"><div><span>LOAN PROCEEDS</span><strong>{analytics.cash.financing.loanProceeds===null?'SEE BY CURRENCY':analytics.cash.financing.loanProceeds.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>PRINCIPAL REPAYMENTS</span><strong>{analytics.cash.financing.principalRepayments===null?'SEE BY CURRENCY':analytics.cash.financing.principalRepayments.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>UNCONFIRMED BASIS</span><strong>{analytics.dataScope.unconfirmedBasisCount}</strong><small>Excluded from totals</small></div><div><span>ACCRUAL RECORDS</span><strong>{analytics.dataScope.accrualCount}</strong><small>Shown separately from cash</small></div></div>
           </>}
         </>}
-        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="">SELECT SOURCE TYPE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()} disabled={!importSourceType}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
+        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="auto">AUTO-DETECT SOURCE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
           {excelSheets.length > 1 && <div className="dc-preview dc-excel-sheet-picker"><label><b>EXCEL WORKSHEET</b><select value={selectedExcelSheet} onChange={e=>onExcelSheetChange(e.target.value)}>{excelSheets.map(sheet=><option key={sheet.name} value={sheet.name}>{sheet.name}</option>)}</select></label><span>{excelSheets.length} non-empty worksheets found. Choose the sheet containing transaction rows; only the selected sheet will be previewed.</span></div>}
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
