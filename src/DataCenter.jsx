@@ -38,7 +38,14 @@ const ROLE_LABELS = {
 const SOURCE_TYPES = {
   bank_statement: { label: 'Bank statement', basis: 'cash' },
   accounting_journal: { label: 'Accounting journal (e.g. 1C)', basis: 'accrual' },
+  crm_export: { label: 'CRM / sales export', basis: 'accrual' },
   other: { label: 'Other / not confirmed', basis: 'unknown' }
+};
+const SOURCE_DETECTION = {
+  bank_statement: { label: 'Bank statement / cash movements', confidence: 'High' },
+  accounting_journal: { label: 'Accounting journal / accrual records', confidence: 'High' },
+  crm_export: { label: 'CRM / sales data', confidence: 'Medium' },
+  other: { label: 'Unclassified source', confidence: 'Low' }
 };
 const BASIS_LABELS = { cash: 'Cash basis', accrual: 'Accrual basis', unknown: 'Basis not confirmed' };
 const norm = (v = '') => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9а-яё]+/gi, ' ').trim();
@@ -168,7 +175,13 @@ function readRows(text, rules, fileName, mapping = null) {
     name: ['counterparty', 'beneficiary', 'payer', 'merchant', 'partner', 'payee', 'recipient', 'sender', 'account name', 'naziv nalogodavca', 'naziv primaoca', 'naziv primatelja', 'naziv', 'platilac', 'primalac', 'противоположная сторона', 'контрагент', 'плательщик', 'получатель', 'отправитель', 'название контрагента'],
     description: ['description', 'purpose', 'details', 'payment purpose', 'narrative', 'transaction details', 'reference description', 'описание', 'назначение', 'назначение платежа', 'детали операции', 'сврха', 'сврха плаћања', 'opis', 'opis transakcije', 'svrha placanja', 'svrha plaćanja'],
     reference: ['reference', 'transaction id', 'transaction number', 'document number', 'payment id', 'id transakcije', 'poziv na broj', 'референс', 'номер операции', 'номер транзакции', 'идентификатор операции'],
-    currency: ['currency', 'valuta', 'валюта', 'валута трансакције']
+    currency: ['currency', 'valuta', 'валюта', 'валута трансакције'],
+    operationType: ['operation type', 'transaction type', 'вид операции', 'тип операции', 'операция', 'vrsta transakcije'],
+    organization: ['organization', 'организация', 'organizacija'],
+    bankAccount: ['bank account', 'банковский счет', 'банковски рачун', 'racun', 'račun'],
+    operationType: ['operation type', 'transaction type', 'вид операции', 'тип операции', 'операция', 'vrsta transakcije'],
+    organization: ['organization', 'организация', 'organizacija'],
+    bankAccount: ['bank account', 'банковский счет', 'банковски рачун', 'racun', 'račun']
   };
   const headerScore = cells => {
     const normalized = cells.map(v => norm(String(v).replace(/^\\uFEFF/, '')));
