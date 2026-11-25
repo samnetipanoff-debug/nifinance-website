@@ -108,5 +108,5 @@ export default function UniverseCore(){
   </section>
   <footer className="uc-footer"><span><b>✦</b> UNIVERSE CORE <i/> SPATIAL ANALYTICS</span><span>ДЕМО-ДАННЫЕ · НЕ ПОДКЛЮЧЕНО К ФИНАНСОВОЙ ОТЧЁТНОСТИ</span><span>{windows.length} ОКОН ОТКРЫТО</span></footer>
   {windows.map((w,i)=><DetailWindow key={w.id} win={w} index={i} focused={activeWindow===w.id} onClose={closeWindow} onFocus={focusWindow} onMove={moveWindow} onResize={resizeWindow}/>)}
- </main>;
+ </main></>
 }
