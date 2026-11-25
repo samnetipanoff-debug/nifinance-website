@@ -259,7 +259,7 @@ export default async function handler(req, res) {
       return send(res, 200, { payload: currentPayload });
     }
 
-    if (req.body?.action !== 'save') return send(res, 400, { error: 'Unsupported action' });
+    if (!['save', 'save-batch', 'confirm-one', 'confirm-all'].includes(req.body?.action)) return send(res, 400, { error: 'Unsupported action' });
     const payload = req.body.payload;
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return send(res, 400, { error: 'Payload must be an object' });
@@ -276,7 +276,80 @@ export default async function handler(req, res) {
       return send(res, 413, { error: 'Workspace data exceeds the 5 MB prototype limit' });
     }
 
+    if (req.body?.action === 'save-batch') {
+      const batch = normalizedPayload.transactions;
+      const finalBatch = req.body.finalBatch === true;
+      if (batch.length > 1000) return send(res, 413, { error: 'A save batch may contain at most 1000 transactions' });
+      const batchBytes = Buffer.byteLength(JSON.stringify(batch), 'utf8');
+      if (batchBytes > 1024 * 1024) return send(res, 413, { error: 'A transaction batch exceeds the 1 MB limit' });
+      const rulesForBatch = finalBatch ? normalizedPayload.rules : [];
+      await syncNormalizedData(sql, workspaceId, { transactions: batch, rules: rulesForBatch });
+      const batchKeys = batch.map((tx, index) => String(tx.id || tx.fingerprint || ''));
+      const batchJson = JSON.stringify(batch);
+      const rulesJson = JSON.stringify(normalizedPayload.rules);
+      const importsJson = JSON.stringify(normalizedPayload.imports);
+      await sql`UPDATE public.dc_workspaces
+        SET payload = jsonb_set(
+          jsonb_set(
+            jsonb_set(
+              COALESCE(payload, '{"transactions":[],"rules":[],"imports":[]}'::jsonb),
+              '{transactions}',
+              (
+                SELECT COALESCE(jsonb_agg(item), '[]'::jsonb)
+                FROM jsonb_array_elements(COALESCE(payload->'transactions', '[]'::jsonb)) AS items(item)
+                WHERE COALESCE(item->>'id', item->>'fingerprint', '') <> ALL(${batchKeys}::text[])
+              ) || ${batchJson}::jsonb,
+              true
+            ),
+            '{rules}',
+            CASE WHEN ${finalBatch} THEN ${rulesJson}::jsonb ELSE COALESCE(payload->'rules', '[]'::jsonb) END,
+            true
+          ),
+          '{imports}',
+          CASE WHEN ${finalBatch} THEN ${importsJson}::jsonb ELSE COALESCE(payload->'imports', '[]'::jsonb) END,
+          true
+        ),
+        updated_at = NOW()
+        WHERE workspace_id = ${workspaceId}::uuid`;
+      if (finalBatch) {
+        for (const item of normalizedPayload.imports) {
+          const importId = String(item.id || '');
+          if (!importId) continue;
+          const sourceName = String(item.sourceName || 'Imported file').slice(0, 500);
+          const importedCount = Math.max(0, Math.trunc(Number(item.importedCount) || 0));
+          const skippedCount = Math.max(0, Math.trunc(Number(item.skippedCount) || 0));
+          const metadata = JSON.stringify({ ...item, importId });
+          await sql`INSERT INTO public.dc_imports
+            (workspace_id, source_name, imported_count, skipped_count, status, metadata)
+            SELECT ${workspaceId}::uuid, ${sourceName}, ${importedCount}, ${skippedCount}, ${String(item.status || 'completed')}, ${metadata}::jsonb
+            WHERE NOT EXISTS (
+              SELECT 1 FROM public.dc_imports
+              WHERE workspace_id = ${workspaceId}::uuid AND metadata->>'importId' = ${importId}
+            )`;
+        }
+        if (req.body.auditAction === 'confirm-all' || req.body.auditAction === 'confirm-one') {
+          const action = req.body.auditAction === 'confirm-all' ? 'confirm_all' : 'confirm_one';
+          const confirmedCount = req.body.auditAction === 'confirm-all'
+            ? Math.max(0, Math.trunc(Number(req.body.totalTransactions) || batch.length))
+            : 1;
+          await sql`INSERT INTO public.dc_audit_log (workspace_id, entity_type, entity_key, action, details)
+            VALUES (${workspaceId}::uuid, ${req.body.auditAction === 'confirm-all' ? 'transaction_batch' : 'transaction'}, NULL, ${action},
+              ${JSON.stringify({ confirmedCount, totalTransactions: Math.max(0, Math.trunc(Number(req.body.totalTransactions) || batch.length)), source: 'data-center-ui' })}::jsonb)`;
+        }
+      }
+      return send(res, 200, { ok: true, updatedAt: new Date().toISOString(), normalized: true, batchCount: batch.length, finalBatch });
+    }
+
     await syncNormalizedData(sql, workspaceId, normalizedPayload);
+    if (req.body?.action === 'confirm-all' || req.body?.action === 'confirm-one') {
+      const action = req.body.action === 'confirm-all' ? 'confirm_all' : 'confirm_one';
+      const confirmedCount = req.body.action === 'confirm-all'
+        ? normalizedPayload.transactions.filter(tx => tx.status === 'classified' && tx.confidence === 'Confirmed').length
+        : 1;
+      await sql`INSERT INTO public.dc_audit_log (workspace_id, entity_type, entity_key, action, details)
+        VALUES (${workspaceId}::uuid, ${req.body.action === 'confirm-all' ? 'transaction_batch' : 'transaction'}, NULL, ${action},
+          ${JSON.stringify({ confirmedCount, totalTransactions: normalizedPayload.transactions.length, source: 'data-center-ui' })}::jsonb)`;
+    }
     for (const item of normalizedPayload.imports) {
       const importId = String(item.id || '');
       if (!importId) continue;

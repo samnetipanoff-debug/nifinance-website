@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AppNavigation from './AppNavigation.jsx';
 
 const DIRECTIONS = [
  {id:'marketing',name:'Marketing',color:'#ff9f43',metric:'Demand generation',items:['Brand','Traffic','Content','Advertising','SEO','Analytics']},
@@ -229,7 +230,7 @@ export default function Universe4(){
   return ()=>{graphCancelled=true;cancelAnimationFrame(raf);ro.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);canvas.removeEventListener('pointerleave',onLeave);canvas.removeEventListener('wheel',onWheel);legend.remove();canvas.remove()};
  },[]);
  const active=DIRECTIONS.find(x=>x.id===selected);
- return <main className="u4" ref={host}>
+ return <><AppNavigation /><main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS MAP · EVERYTHING IS CONNECTED</div></div>
   <div className="u4-live"><i/>CONNECTING TO NEON</div>
   <button className="u4-core-trigger" type="button" onClick={()=>{const next=!coreOpen;setCoreOpen(next);if(next)loadCore();}}>CORE ANALYSIS ↗</button>
@@ -252,5 +253,5 @@ export default function Universe4(){
    <button className="u4-core-trigger" style={{position:'static',marginTop:12}} type="button" onClick={loadCore}>REFRESH ANALYSIS ↻</button>
   </aside>}
   <div className="u4-hint">DRAG TO ROTATE · WHEEL TO ZOOM · CLICK A NODE TO FOCUS / OPEN ITS DATA</div>
-  <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main>;
+  <div className="u4-windows">{windows.map(w=><DataWindow key={w.id} win={w} onClose={closeWindow} onFront={frontWindow} onMove={moveWindow} onResize={resizeWindow}/>)}</div></main></>
 }

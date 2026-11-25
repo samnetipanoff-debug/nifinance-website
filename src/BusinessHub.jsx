@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import AppNavigation from './AppNavigation.jsx';
 
 const credentialKey='nifinance-data-center-credentials-v1';
 const stages=[['lead','Lead'],['qualified','Qualified'],['discovery','Discovery'],['proposal','Proposal'],['negotiation','Negotiation'],['won','Won'],['lost','Lost']];
@@ -28,7 +29,7 @@ export default function BusinessHub(){
  const graphVisualPositions=useMemo(()=>{const out=new Map();const main=graphVisualNodes.filter(n=>n.type!=='transaction'),tx=graphVisualNodes.filter(n=>n.type==='transaction');const place=(list,rx,ry,start)=>list.forEach((node,i)=>{const angle=start+i/Math.max(list.length,1)*Math.PI*2;out.set(node.id,{x:50+Math.cos(angle)*rx,y:50+Math.sin(angle)*ry});});place(main,27,31,-Math.PI/2);place(tx,43,42,-Math.PI/2+0.22);return out;},[graphVisualNodes]);
  const openTasks=data.tasks.filter(t=>!['done','cancelled'].includes(t.status)).length;
  const nav=[['overview','Overview'],['crm','CRM & Pipeline'],['chat','Team Chat'],['tasks','Tasks'],['graph','Business Graph'],['core','Universe Core']];
- return <><style>{styles}</style><main className="bh"><div className="bh-inner">
+ return <><AppNavigation /><style>{styles}</style><main className="bh"><div className="bh-inner">
   <header className="bh-head"><div><div className="bh-brand">NIFINANCE / BUSINESS UNIVERSE</div><h1 className="bh-title">Business Hub</h1><div className="bh-sub">One operating layer for customers, people, work and intelligence.</div></div><div className="bh-status">● WORKSPACE CORE · PROTOTYPE</div></header>
   <nav className="bh-tabs">{nav.map(([k,label])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}>{label}</button>)}<button onClick={refresh}>↻ Refresh</button><a className="bh-link" href="/data-center" style={{alignSelf:'center',padding:'0 8px'}}>Data Center ↗</a><a className="bh-link" href="/universe-3" style={{alignSelf:'center',padding:'0 8px'}}>Universe ↗</a></nav>
   {error&&<div className="bh-error">{error}{!credentials&&<> <a href="/data-center" className="bh-link">Open Data Center</a></>}</div>}

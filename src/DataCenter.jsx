@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AppNavigation from './AppNavigation.jsx';
 import * as XLSX from 'xlsx';
 import { transactionFingerprint } from './data-center-import-utils.js';
 import './data-center.css';
@@ -279,6 +280,61 @@ function readRows(text, rules, fileName, mapping = null) {
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
 }
+
+async function readApiResponse(response) {
+  const raw = await response.text();
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch {
+    const preview = raw.replace(/\s+/g, ' ').slice(0, 180);
+    throw new Error(`API returned a non-JSON response (HTTP ${response.status}): ${preview}`);
+  }
+}
+async function savePayloadInBatches(payload, credentials, auditAction = 'save') {
+  if (!credentials?.workspaceId || !credentials?.token) throw new Error('Workspace credentials are missing.');
+  const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
+  const chunks = [];
+  let currentChunk = [];
+  let currentBytes = 0;
+  for (const transaction of transactions) {
+    const transactionBytes = new TextEncoder().encode(JSON.stringify(transaction)).length;
+    if (currentChunk.length && (currentChunk.length >= 1000 || currentBytes + transactionBytes > 700 * 1024)) {
+      chunks.push(currentChunk);
+      currentChunk = [];
+      currentBytes = 0;
+    }
+    if (transactionBytes > 700 * 1024) throw new Error('One transaction is too large to sync safely (over 700 KB).');
+    currentChunk.push(transaction);
+    currentBytes += transactionBytes;
+  }
+  if (currentChunk.length) chunks.push(currentChunk);
+  if (!chunks.length) chunks.push([]);
+  for (let index = 0; index < chunks.length; index++) {
+    const finalBatch = index === chunks.length - 1;
+    const response = await fetch('/api/data-center', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Workspace-Id': credentials.workspaceId,
+        'X-Workspace-Token': credentials.token
+      },
+      body: JSON.stringify({
+        action: 'save-batch',
+        finalBatch,
+        auditAction: finalBatch ? auditAction : null,
+        totalTransactions: transactions.length,
+        payload: {
+          transactions: chunks[index],
+          rules: finalBatch ? (payload.rules || []) : [],
+          imports: finalBatch ? (payload.imports || []) : []
+        }
+      })
+    });
+    const result = await readApiResponse(response);
+    if (!response.ok) throw new Error(result.error || `Cloud save failed (HTTP ${response.status})`);
+  }
+  return { ok: true, transactionCount: transactions.length };
+}
 export default function DataCenter() {
   const [saved, setSaved] = useState(loadSaved);
   const [cloudReady, setCloudReady] = useState(false);
@@ -290,7 +346,7 @@ export default function DataCenter() {
   const [fileName, setFileName] = useState('');
   const [excelSheets, setExcelSheets] = useState([]);
   const [selectedExcelSheet, setSelectedExcelSheet] = useState('');
-  const [importSourceType, setImportSourceType] = useState('');
+  const [importSourceType, setImportSourceType] = useState('auto');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('transactions');
   const [analytics, setAnalytics] = useState(null);
@@ -334,7 +390,7 @@ export default function DataCenter() {
           const createdResponse = await fetch('/api/data-center', {
             method: 'POST', headers, body: JSON.stringify({ action: 'create' })
           });
-          const created = await createdResponse.json();
+          const created = await readApiResponse(createdResponse);
           if (!createdResponse.ok) throw new Error(created.error || 'Could not create a cloud workspace');
           credentials = { workspaceId: created.workspaceId, token: created.token };
           localStorage.setItem('nifinance-data-center-credentials-v1', JSON.stringify(credentials));
@@ -342,30 +398,20 @@ export default function DataCenter() {
           setWorkspaceCredentials(credentials);
           const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
           if (hasLocalData) {
-            const migrated = await fetch('/api/data-center', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Workspace-Id': credentials.workspaceId, 'X-Workspace-Token': credentials.token },
-              body: JSON.stringify({ action: 'save', payload: localSnapshot })
-            });
-            if (!migrated.ok) throw new Error('Cloud workspace was created, but existing browser data could not be migrated.');
+            await savePayloadInBatches(localSnapshot, credentials, 'save');
             setSaved(localSnapshot);
           } else {
             setSaved(created.payload || { transactions: [], rules: [] });
           }
         } else {
           const response = await fetch('/api/data-center', { headers });
-          const result = await response.json();
+          const result = await readApiResponse(response);
           if (!response.ok) throw new Error(result.error || 'Could not load cloud workspace');
           const cloudPayload = result.payload || { transactions: [], rules: [] };
           const hasCloudData = (cloudPayload.transactions || []).length || (cloudPayload.rules || []).length;
           const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
-          if (!hasCloudData && hasLocalData) {
-            const migrated = await fetch('/api/data-center', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ action: 'save', payload: localSnapshot })
-            });
-            if (!migrated.ok) throw new Error('Existing browser data could not be migrated to the cloud.');
+          if (hasLocalData && ((localSnapshot.transactions || []).length > (cloudPayload.transactions || []).length || (!hasCloudData && ((localSnapshot.rules || []).length > 0)))) {
+            await savePayloadInBatches(localSnapshot, credentials, 'save');
             setSaved(localSnapshot);
           } else {
             setSaved(cloudPayload);
@@ -393,17 +439,7 @@ export default function DataCenter() {
     const timer = setTimeout(async () => {
       setCloudStatus('saving');
       try {
-        const response = await fetch('/api/data-center', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Workspace-Id': workspaceCredentials.workspaceId,
-            'X-Workspace-Token': workspaceCredentials.token
-          },
-          body: JSON.stringify({ action: 'save', payload: saved })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Cloud save failed');
+        await savePayloadInBatches(saved, workspaceCredentials, 'save');
         setCloudStatus('connected');
         setCloudMessage('All changes saved to Neon PostgreSQL.');
       } catch (e) {
@@ -428,7 +464,7 @@ export default function DataCenter() {
             'X-Workspace-Token': workspaceCredentials.token
           }
         });
-        const result = await response.json();
+        const result = await readApiResponse(response);
         if (!response.ok) throw new Error(result.error || 'Could not load analytics');
         if (!cancelled) setAnalytics(result.analytics);
       } catch (error) {
@@ -471,7 +507,7 @@ export default function DataCenter() {
           },
           body: JSON.stringify({ fileName: sourceName, sample: text.slice(0, 14000) })
         });
-        const result = await response.json();
+        const result = await readApiResponse(response);
         if (response.ok && result.mapping && Number.isInteger(result.mapping.headerRow)) aiMapping = result.mapping;
         else if (!response.ok) console.warn('AI structure recognition unavailable:', result.error || response.status);
       } catch (aiError) {
@@ -482,7 +518,7 @@ export default function DataCenter() {
           const rows = readRows(text, rules, sourceName, aiMapping);
           const seen = new Set(transactions.map(fingerprintOf));
           setPreview(rows.map(row => {
-            const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
+            const candidate = { ...row, sourceType: resolvedSourceType, accountingBasis: SOURCE_TYPES[resolvedSourceType].basis };
             const fingerprint = fingerprintOf(candidate);
             const isDuplicate = seen.has(fingerprint);
             seen.add(fingerprint);
@@ -562,7 +598,7 @@ export default function DataCenter() {
       const rows = readRows(mappingDraft.text, rules, fileName, { ...mappingDraft.mapping, headerRow: mappingDraft.headerIndex });
       const seen = new Set(transactions.map(fingerprintOf));
       setPreview(rows.map(row => {
-        const candidate = { ...row, sourceType: (importSourceType || detectSourceTypeFromText(mappingDraft.text).type), accountingBasis: SOURCE_TYPES[importSourceType || detectSourceTypeFromText(mappingDraft.text).type].basis };
+        const candidate = { ...row, sourceType: resolvedSourceType, accountingBasis: SOURCE_TYPES[resolvedSourceType].basis };
         const fingerprint = fingerprintOf(candidate);
         const isDuplicate = seen.has(fingerprint);
         seen.add(fingerprint);
@@ -608,14 +644,54 @@ export default function DataCenter() {
     setPreview([]); setError('');
     setTab('transactions');
   };
-  const updateTransaction = (id, patch, learn = false) => {
+  const persistTransactionChanges = async (nextPayload, action = 'save') => {
+    if (!workspaceCredentials || !cloudReady) throw new Error('Neon is not connected for this workspace. The change cannot be confirmed as saved.');
+    await savePayloadInBatches(nextPayload, workspaceCredentials, action);
+    setSaved(nextPayload);
+    setCloudStatus('connected');
+    setCloudMessage('Changes saved to Neon PostgreSQL in verified batches.');
+  };
+  const updateTransaction = async (id, patch, learn = false) => {
     const current = transactions.find(t => t.id === id); if (!current) return;
     const next = { ...current, ...patch, status: 'classified', confidence: learn ? 'Rule' : 'Confirmed' };
-    setTransactions(old => old.map(t => t.id === id ? next : t));
+    let nextRules = rules;
+    let nextTransactions = transactions.map(t => t.id === id ? next : t);
     if (learn) {
       const key = norm(next.counterparty);
-      setSaved(s => ({ ...s, rules: [...(s.rules || []).filter(r => r.key !== key), { key, counterparty: next.counterparty, category: next.category, role: next.role, updatedAt: new Date().toISOString() }] }));
-      setTransactions(old => old.map(t => norm(t.counterparty) === key ? { ...t, category: next.category, role: next.role, status: 'classified', confidence: 'Rule' } : t));
+      nextRules = [...rules.filter(r => r.key !== key), { key, counterparty: next.counterparty, category: next.category, role: next.role, updatedAt: new Date().toISOString() }];
+      nextTransactions = nextTransactions.map(t => norm(t.counterparty) === key
+        ? { ...t, category: next.category, role: next.role, status: 'classified', confidence: 'Rule' }
+        : t);
+    }
+    const nextPayload = { ...saved, transactions: nextTransactions, rules: nextRules };
+    setCloudStatus('saving');
+    try {
+      await persistTransactionChanges(nextPayload, 'confirm-one');
+      setError('');
+    } catch (error) {
+      setCloudStatus('offline');
+      setCloudMessage(error.message);
+      setError(error.message);
+    }
+  };
+  const confirmAllTransactions = async () => {
+    if (!transactions.length) return;
+    const confirmedTransactions = transactions.map(t => ({
+      ...t,
+      status: 'classified',
+      confidence: 'Confirmed'
+    }));
+    const nextPayload = { ...saved, transactions: confirmedTransactions };
+    setCloudStatus('saving');
+    setCloudMessage(`Saving confirmation of all ${transactions.length} operations to Neon PostgreSQL…`);
+    try {
+      await persistTransactionChanges(nextPayload, 'confirm-all');
+      setError('');
+      setCloudMessage(`All ${transactions.length} operations confirmed and saved to Neon PostgreSQL.`);
+    } catch (error) {
+      setCloudStatus('offline');
+      setCloudMessage(error.message || 'Bulk confirmation failed. Nothing was reported as saved.');
+      setError(error.message || 'Bulk confirmation failed.');
     }
   };
   const addManual = e => {
@@ -633,11 +709,11 @@ export default function DataCenter() {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = 'nifinance-classified-transactions.csv'; a.click(); URL.revokeObjectURL(url);
   };
-  return <main className="dc-page">
+  return <><AppNavigation /><main className="dc-page">
     <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className={"dc-status " + cloudStatus}><span /> {cloudStatus === "connected" ? "NEON SYNC / SAVED" : cloudStatus === "saving" ? "NEON SYNC / SAVING" : cloudStatus === "connecting" ? "CONNECTING TO NEON" : "LOCAL CACHE / OFFLINE"}</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
     <section className="dc-hero"><div><div className="dc-eyebrow">DATA INFRASTRUCTURE / 01</div><h1>From raw data<br/><em>to business meaning.</em></h1><p>Import financial transactions. Identify counterparties. Build a consistent management view — with uncertain decisions kept visible.</p></div><div className="dc-hero-orb"><span /><i /><b>DATA<br/>INTELLIGENCE</b></div></section>
     <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>{cloudStatus==='connected'?'Synced with Neon PostgreSQL':'Browser cache / cloud status above'}</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
-    {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage} Check that DATABASE_URL is configured in Vercel. Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
+    {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage}{/database connection is not configured|DATABASE_NOT_CONFIGURED/i.test(cloudMessage) ? ' Check that DATABASE_URL is configured in Vercel.' : ''} Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['analytics','02','Universe Core'],['counterparties','03','Counterparties'],['rules','04','Classification rules'],['manual','05','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
@@ -663,7 +739,7 @@ export default function DataCenter() {
             <div className="dc-panel-head"><div><div className="dc-section-tag">FINANCING / SEPARATE VIEW</div><h2>Loan principal</h2><p>Principal is financing, not operating revenue or expense.</p></div></div><div className="dc-stats"><div><span>LOAN PROCEEDS</span><strong>{analytics.cash.financing.loanProceeds===null?'SEE BY CURRENCY':analytics.cash.financing.loanProceeds.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>PRINCIPAL REPAYMENTS</span><strong>{analytics.cash.financing.principalRepayments===null?'SEE BY CURRENCY':analytics.cash.financing.principalRepayments.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>UNCONFIRMED BASIS</span><strong>{analytics.dataScope.unconfirmedBasisCount}</strong><small>Excluded from totals</small></div><div><span>ACCRUAL RECORDS</span><strong>{analytics.dataScope.accrualCount}</strong><small>Shown separately from cash</small></div></div>
           </>}
         </>}
-        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="">SELECT SOURCE TYPE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()} disabled={!importSourceType}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
+        {tab === 'transactions' && <><div className="dc-panel-head"><div><div className="dc-section-tag">FINANCIAL DATA / LEDGER</div><h2>Transaction ledger</h2><p>Every category remains traceable to the imported source row.</p></div><div className="dc-actions"><button className="dc-btn secondary" onClick={confirmAllTransactions} disabled={!transactions.length || cloudStatus === 'saving'}>CONFIRM ALL ({transactions.length})</button><button className="dc-btn secondary" onClick={exportCSV} disabled={!transactions.length}>EXPORT CSV ↓</button><select aria-label="Import source type" value={importSourceType} onChange={e=>setImportSourceType(e.target.value)}><option value="auto">AUTO-DETECT SOURCE</option><option value="bank_statement">Bank statement · cash</option><option value="accounting_journal">1C / accounting journal · accrual</option><option value="other">Other / not confirmed</option></select><button className="dc-btn primary" onClick={()=>inputRef.current?.click()}>＋ IMPORT FILE</button><input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.xls,.xlsm,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={onFile}/></div></div>
           {excelSheets.length > 1 && <div className="dc-preview dc-excel-sheet-picker"><label><b>EXCEL WORKSHEET</b><select value={selectedExcelSheet} onChange={e=>onExcelSheetChange(e.target.value)}>{excelSheets.map(sheet=><option key={sheet.name} value={sheet.name}>{sheet.name}</option>)}</select></label><span>{excelSheets.length} non-empty worksheets found. Choose the sheet containing transaction rows; only the selected sheet will be previewed.</span></div>}
           <div className="dc-filterbar">{[['all','All operations'],['review','Needs review'],['income','Income'],['expense','Expenses']].map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}{id==='review'&&reviewCount>0?<b>{reviewCount}</b>:null}</button>)}</div>
           {error&&<div className="dc-error" role="alert">{error}</div>}
@@ -684,5 +760,5 @@ export default function DataCenter() {
       </div>
     </section>
     <footer className="dc-footer"><span>NIFINANCE SOLUTION / DATA CENTER</span><span>RAW SOURCE → NORMALIZED RECORD → VERIFIED DECISION</span><span>NEON WORKSPACE · NO BANK CONNECTION</span></footer>
-  </main>;
+  </main></>;
 }

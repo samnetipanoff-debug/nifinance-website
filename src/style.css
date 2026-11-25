@@ -54,3 +54,44 @@
 }
 
 /* The globe is rendered entirely from points; no fallback halo. */
+
+
+/* Shared workspace navigation — lightweight labels, positioned below the canvas header. */
+.app-navigation--data-center{
+  position:relative;top:auto;left:auto;right:auto;transform:none;
+  width:100%;max-width:none;min-height:46px;justify-content:center;
+  margin:0;padding:5px 18px;border-bottom:1px solid rgba(201,255,120,.10);
+}
+@media(max-width:700px){
+  .app-navigation--data-center{min-height:42px;justify-content:flex-start;padding:4px 12px}
+}
+
+.app-navigation{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  z-index:10000;display:flex;align-items:center;justify-content:center;
+  gap:clamp(18px,2.4vw,34px);width:max-content;max-width:calc(100vw - 230px);
+  padding:5px 12px;border:0;border-radius:0;background:transparent;
+  box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.app-navigation a{
+  position:relative;display:inline-block;padding:5px 0;
+  color:#777789;text-decoration:none;font-size:9px;font-weight:500;
+  letter-spacing:.09em;white-space:nowrap;
+  text-shadow:0 1px 8px rgba(0,0,0,.9);
+  transition:color .2s,text-shadow .2s;
+}
+.app-navigation a:hover{color:#d8d8e5;text-shadow:0 0 12px rgba(201,255,69,.22)}
+.app-navigation a.active{color:#c9ff78}
+.app-navigation a.active:after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,255,120,.8),transparent);
+  box-shadow:0 0 8px rgba(201,255,120,.28);
+}
+@media(max-width:700px){
+  .app-navigation{top:12px;left:158px;right:8px;transform:none;
+    width:auto;max-width:none;justify-content:flex-end;gap:clamp(8px,2vw,15px);
+    padding:4px 3px;overflow-x:auto;scrollbar-width:none}
+  .app-navigation::-webkit-scrollbar{display:none}
+  .app-navigation a{font-size:7px;letter-spacing:.04em}
+}
