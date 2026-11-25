@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AppNavigation from './AppNavigation.jsx';
 import * as THREE from 'three';
 import './universe-core.css';
 
