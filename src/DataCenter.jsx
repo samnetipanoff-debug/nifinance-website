@@ -280,6 +280,48 @@ function readRows(text, rules, fileName, mapping = null) {
 function loadSaved() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
 }
+
+async function readApiResponse(response) {
+  const raw = await response.text();
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch {
+    const preview = raw.replace(/\\s+/g, ' ').slice(0, 180);
+    throw new Error(`API returned a non-JSON response (HTTP ${response.status}): ${preview}`);
+  }
+}
+async function savePayloadInBatches(payload, credentials, auditAction = 'save') {
+  if (!credentials?.workspaceId || !credentials?.token) throw new Error('Workspace credentials are missing.');
+  const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
+  const chunks = [];
+  for (let i = 0; i < transactions.length; i += 100) chunks.push(transactions.slice(i, i + 100));
+  if (!chunks.length) chunks.push([]);
+  for (let index = 0; index < chunks.length; index++) {
+    const finalBatch = index === chunks.length - 1;
+    const response = await fetch('/api/data-center', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Workspace-Id': credentials.workspaceId,
+        'X-Workspace-Token': credentials.token
+      },
+      body: JSON.stringify({
+        action: 'save-batch',
+        finalBatch,
+        auditAction: finalBatch ? auditAction : null,
+        totalTransactions: transactions.length,
+        payload: {
+          transactions: chunks[index],
+          rules: finalBatch ? (payload.rules || []) : [],
+          imports: finalBatch ? (payload.imports || []) : []
+        }
+      })
+    });
+    const result = await readApiResponse(response);
+    if (!response.ok) throw new Error(result.error || `Cloud save failed (HTTP ${response.status})`);
+  }
+  return { ok: true, transactionCount: transactions.length };
+}
 export default function DataCenter() {
   const [saved, setSaved] = useState(loadSaved);
   const [cloudReady, setCloudReady] = useState(false);
@@ -335,7 +377,7 @@ export default function DataCenter() {
           const createdResponse = await fetch('/api/data-center', {
             method: 'POST', headers, body: JSON.stringify({ action: 'create' })
           });
-          const created = await createdResponse.json();
+          const created = await readApiResponse(createdResponse);
           if (!createdResponse.ok) throw new Error(created.error || 'Could not create a cloud workspace');
           credentials = { workspaceId: created.workspaceId, token: created.token };
           localStorage.setItem('nifinance-data-center-credentials-v1', JSON.stringify(credentials));
@@ -343,30 +385,20 @@ export default function DataCenter() {
           setWorkspaceCredentials(credentials);
           const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
           if (hasLocalData) {
-            const migrated = await fetch('/api/data-center', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-Workspace-Id': credentials.workspaceId, 'X-Workspace-Token': credentials.token },
-              body: JSON.stringify({ action: 'save', payload: localSnapshot })
-            });
-            if (!migrated.ok) throw new Error('Cloud workspace was created, but existing browser data could not be migrated.');
+            await savePayloadInBatches(localSnapshot, credentials, 'save');
             setSaved(localSnapshot);
           } else {
             setSaved(created.payload || { transactions: [], rules: [] });
           }
         } else {
           const response = await fetch('/api/data-center', { headers });
-          const result = await response.json();
+          const result = await readApiResponse(response);
           if (!response.ok) throw new Error(result.error || 'Could not load cloud workspace');
           const cloudPayload = result.payload || { transactions: [], rules: [] };
           const hasCloudData = (cloudPayload.transactions || []).length || (cloudPayload.rules || []).length;
           const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
           if (!hasCloudData && hasLocalData) {
-            const migrated = await fetch('/api/data-center', {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ action: 'save', payload: localSnapshot })
-            });
-            if (!migrated.ok) throw new Error('Existing browser data could not be migrated to the cloud.');
+            await savePayloadInBatches(localSnapshot, credentials, 'save');
             setSaved(localSnapshot);
           } else {
             setSaved(cloudPayload);
@@ -394,17 +426,7 @@ export default function DataCenter() {
     const timer = setTimeout(async () => {
       setCloudStatus('saving');
       try {
-        const response = await fetch('/api/data-center', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Workspace-Id': workspaceCredentials.workspaceId,
-            'X-Workspace-Token': workspaceCredentials.token
-          },
-          body: JSON.stringify({ action: 'save', payload: saved })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Cloud save failed');
+        await savePayloadInBatches(saved, workspaceCredentials, 'save');
         setCloudStatus('connected');
         setCloudMessage('All changes saved to Neon PostgreSQL.');
       } catch (e) {
@@ -611,20 +633,10 @@ export default function DataCenter() {
   };
   const persistTransactionChanges = async (nextPayload, action = 'save') => {
     if (!workspaceCredentials || !cloudReady) throw new Error('Neon is not connected for this workspace. The change cannot be confirmed as saved.');
-    const response = await fetch('/api/data-center', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Workspace-Id': workspaceCredentials.workspaceId,
-        'X-Workspace-Token': workspaceCredentials.token
-      },
-      body: JSON.stringify({ action, payload: nextPayload })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `Neon save failed (HTTP ${response.status})`);
+    await savePayloadInBatches(nextPayload, workspaceCredentials, action);
     setSaved(nextPayload);
     setCloudStatus('connected');
-    setCloudMessage('Confirmation saved to Neon PostgreSQL.');
+    setCloudMessage('Changes saved to Neon PostgreSQL in verified batches.');
   };
   const updateTransaction = async (id, patch, learn = false) => {
     const current = transactions.find(t => t.id === id); if (!current) return;
