@@ -57,6 +57,15 @@
 
 
 /* Shared workspace navigation — lightweight labels, positioned below the canvas header. */
+.app-navigation--data-center{
+  position:relative;top:auto;left:auto;right:auto;transform:none;
+  width:100%;max-width:none;min-height:46px;justify-content:center;
+  margin:0;padding:5px 18px;border-bottom:1px solid rgba(201,255,120,.10);
+}
+@media(max-width:700px){
+  .app-navigation--data-center{min-height:42px;justify-content:flex-start;padding:4px 12px}
+}
+
 .app-navigation{
   position:fixed;top:14px;left:50%;transform:translateX(-50%);
   z-index:10000;display:flex;align-items:center;justify-content:center;
