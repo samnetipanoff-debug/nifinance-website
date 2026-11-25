@@ -295,9 +295,9 @@ export default async function handler(req, res) {
               COALESCE(payload, '{"transactions":[],"rules":[],"imports":[]}'::jsonb),
               '{transactions}',
               (
-                SELECT COALESCE(jsonb_agg(existing), '[]'::jsonb)
-                FROM jsonb_array_elements(COALESCE(payload->'transactions', '[]'::jsonb)) AS existing
-                WHERE COALESCE(existing->>'id', existing->>'fingerprint', '') <> ALL(${batchKeys}::text[])
+                SELECT COALESCE(jsonb_agg(item), '[]'::jsonb)
+                FROM jsonb_array_elements(COALESCE(payload->'transactions', '[]'::jsonb)) AS items(item)
+                WHERE COALESCE(item->>'id', item->>'fingerprint', '') <> ALL(${batchKeys}::text[])
               ) || ${batchJson}::jsonb,
               true
             ),
@@ -330,11 +330,11 @@ export default async function handler(req, res) {
         if (req.body.auditAction === 'confirm-all' || req.body.auditAction === 'confirm-one') {
           const action = req.body.auditAction === 'confirm-all' ? 'confirm_all' : 'confirm_one';
           const confirmedCount = req.body.auditAction === 'confirm-all'
-            ? batch.length
-            : batch.length;
+            ? Math.max(0, Math.trunc(Number(req.body.totalTransactions) || batch.length))
+            : 1;
           await sql`INSERT INTO public.dc_audit_log (workspace_id, entity_type, entity_key, action, details)
             VALUES (${workspaceId}::uuid, ${req.body.auditAction === 'confirm-all' ? 'transaction_batch' : 'transaction'}, NULL, ${action},
-              ${JSON.stringify({ confirmedCount, totalTransactions: batch.length, source: 'data-center-ui' })}::jsonb)`;
+              ${JSON.stringify({ confirmedCount, totalTransactions: Math.max(0, Math.trunc(Number(req.body.totalTransactions) || batch.length)), source: 'data-center-ui' })}::jsonb)`;
         }
       }
       return send(res, 200, { ok: true, updatedAt: new Date().toISOString(), normalized: true, batchCount: batch.length, finalBatch });
