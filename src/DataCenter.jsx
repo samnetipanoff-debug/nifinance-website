@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AppNavigation from './AppNavigation.jsx';
 import * as XLSX from 'xlsx';
 import { transactionFingerprint } from './data-center-import-utils.js';
 import './data-center.css';
@@ -633,7 +634,7 @@ export default function DataCenter() {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = 'nifinance-classified-transactions.csv'; a.click(); URL.revokeObjectURL(url);
   };
-  return <main className="dc-page">
+  return <><AppNavigation /><main className="dc-page">
     <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className={"dc-status " + cloudStatus}><span /> {cloudStatus === "connected" ? "NEON SYNC / SAVED" : cloudStatus === "saving" ? "NEON SYNC / SAVING" : cloudStatus === "connecting" ? "CONNECTING TO NEON" : "LOCAL CACHE / OFFLINE"}</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
     <section className="dc-hero"><div><div className="dc-eyebrow">DATA INFRASTRUCTURE / 01</div><h1>From raw data<br/><em>to business meaning.</em></h1><p>Import financial transactions. Identify counterparties. Build a consistent management view — with uncertain decisions kept visible.</p></div><div className="dc-hero-orb"><span /><i /><b>DATA<br/>INTELLIGENCE</b></div></section>
     <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>{cloudStatus==='connected'?'Synced with Neon PostgreSQL':'Browser cache / cloud status above'}</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
