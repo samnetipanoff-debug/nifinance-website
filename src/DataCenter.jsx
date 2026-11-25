@@ -294,7 +294,20 @@ async function savePayloadInBatches(payload, credentials, auditAction = 'save') 
   if (!credentials?.workspaceId || !credentials?.token) throw new Error('Workspace credentials are missing.');
   const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
   const chunks = [];
-  for (let i = 0; i < transactions.length; i += 100) chunks.push(transactions.slice(i, i + 100));
+  let currentChunk = [];
+  let currentBytes = 0;
+  for (const transaction of transactions) {
+    const transactionBytes = new TextEncoder().encode(JSON.stringify(transaction)).length;
+    if (currentChunk.length && (currentChunk.length >= 100 || currentBytes + transactionBytes > 700 * 1024)) {
+      chunks.push(currentChunk);
+      currentChunk = [];
+      currentBytes = 0;
+    }
+    if (transactionBytes > 700 * 1024) throw new Error('One transaction is too large to sync safely (over 700 KB).');
+    currentChunk.push(transaction);
+    currentBytes += transactionBytes;
+  }
+  if (currentChunk.length) chunks.push(currentChunk);
   if (!chunks.length) chunks.push([]);
   for (let index = 0; index < chunks.length; index++) {
     const finalBatch = index === chunks.length - 1;
@@ -397,7 +410,7 @@ export default function DataCenter() {
           const cloudPayload = result.payload || { transactions: [], rules: [] };
           const hasCloudData = (cloudPayload.transactions || []).length || (cloudPayload.rules || []).length;
           const hasLocalData = (localSnapshot.transactions || []).length || (localSnapshot.rules || []).length;
-          if (!hasCloudData && hasLocalData) {
+          if (hasLocalData && ((localSnapshot.transactions || []).length > (cloudPayload.transactions || []).length || (!hasCloudData && ((localSnapshot.rules || []).length > 0)))) {
             await savePayloadInBatches(localSnapshot, credentials, 'save');
             setSaved(localSnapshot);
           } else {
@@ -451,7 +464,7 @@ export default function DataCenter() {
             'X-Workspace-Token': workspaceCredentials.token
           }
         });
-        const result = await response.json();
+        const result = await readApiResponse(response);
         if (!response.ok) throw new Error(result.error || 'Could not load analytics');
         if (!cancelled) setAnalytics(result.analytics);
       } catch (error) {
@@ -700,7 +713,7 @@ export default function DataCenter() {
     <header className="dc-topbar"><a className="dc-brand" href="/"><span className="dc-mark">N</span><span>NIFINANCE <i>SOLUTION</i></span></a><div className={"dc-status " + cloudStatus}><span /> {cloudStatus === "connected" ? "NEON SYNC / SAVED" : cloudStatus === "saving" ? "NEON SYNC / SAVING" : cloudStatus === "connecting" ? "CONNECTING TO NEON" : "LOCAL CACHE / OFFLINE"}</div><a className="dc-back" href="/universe-3">BACK TO UNIVERSE ↗</a></header>
     <section className="dc-hero"><div><div className="dc-eyebrow">DATA INFRASTRUCTURE / 01</div><h1>From raw data<br/><em>to business meaning.</em></h1><p>Import financial transactions. Identify counterparties. Build a consistent management view — with uncertain decisions kept visible.</p></div><div className="dc-hero-orb"><span /><i /><b>DATA<br/>INTELLIGENCE</b></div></section>
     <section className="dc-stats"><div><span>IMPORTED OPERATIONS</span><strong>{transactions.length.toLocaleString()}</strong><small>{cloudStatus==='connected'?'Synced with Neon PostgreSQL':'Browser cache / cloud status above'}</small></div><div><span>COUNTERPARTIES</span><strong>{counterparties.length.toLocaleString()}</strong><small>Generated from transaction history</small></div><div><span>RULES LEARNED</span><strong>{rules.length.toLocaleString()}</strong><small>Confirmed classification patterns</small></div><div className={reviewCount ? 'dc-stat-alert' : ''}><span>NEEDS REVIEW</span><strong>{reviewCount.toLocaleString()}</strong><small>Unconfirmed classifications</small></div></section>
-    {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage} Check that DATABASE_URL is configured in Vercel. Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
+    {cloudStatus === "offline" && <div className="dc-cloud-warning"><b>CLOUD STORAGE UNAVAILABLE</b><span>{cloudMessage}{/database connection is not configured|DATABASE_NOT_CONFIGURED/i.test(cloudMessage) ? ' Check that DATABASE_URL is configured in Vercel.' : ''} Avoid importing sensitive financial data until cloud storage is connected.</span></div>}
     {cloudStatus === "connected" && <div className="dc-cloud-note"><span className="dc-pulse"/> {cloudMessage} This prototype uses a private workspace token stored in this browser.</div>}\n    <section className="dc-workspace">
       <aside className="dc-sidebar"><div className="dc-section-tag">WORKSPACE</div>{[['transactions','01','Transactions'],['analytics','02','Universe Core'],['counterparties','03','Counterparties'],['rules','04','Classification rules'],['manual','05','Add operation']].map(([id,num,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><span>{num}</span>{label}{id==='transactions'&&reviewCount>0&&<b>{reviewCount}</b>}</button>)}<div className="dc-sidebar-note"><span className="dc-pulse"/> CLASSIFICATION ENGINE ONLINE<small>Rule-based prototype · no external AI calls</small></div></aside>
       <div className="dc-main">
