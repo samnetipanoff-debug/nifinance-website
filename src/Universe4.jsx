@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AppNavigation from './AppNavigation.jsx';
 
 const DIRECTIONS = [
  {id:'marketing',name:'Marketing',color:'#ff9f43',metric:'Demand generation',items:['Brand','Traffic','Content','Advertising','SEO','Analytics']},
@@ -229,7 +230,8 @@ export default function Universe4(){
   return ()=>{graphCancelled=true;cancelAnimationFrame(raf);ro.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('pointercancel',onUp);canvas.removeEventListener('pointerleave',onLeave);canvas.removeEventListener('wheel',onWheel);legend.remove();canvas.remove()};
  },[]);
  const active=DIRECTIONS.find(x=>x.id===selected);
- return <main className="u4" ref={host}>
+   <AppNavigation />
+  return <main className="u4" ref={host}>
   <style>{css}</style><div className="u4-head"><div className="u4-kicker">BUSINESS MAP · EVERYTHING IS CONNECTED</div></div>
   <div className="u4-live"><i/>CONNECTING TO NEON</div>
   <button className="u4-core-trigger" type="button" onClick={()=>{const next=!coreOpen;setCoreOpen(next);if(next)loadCore();}}>CORE ANALYSIS ↗</button>
