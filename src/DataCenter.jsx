@@ -685,5 +685,5 @@ export default function DataCenter() {
       </div>
     </section>
     <footer className="dc-footer"><span>NIFINANCE SOLUTION / DATA CENTER</span><span>RAW SOURCE → NORMALIZED RECORD → VERIFIED DECISION</span><span>NEON WORKSPACE · NO BANK CONNECTION</span></footer>
-  </main>;
+  </main></>;
 }
