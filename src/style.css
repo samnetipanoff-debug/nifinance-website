@@ -56,34 +56,33 @@
 /* The globe is rendered entirely from points; no fallback halo. */
 
 
-/* Shared workspace navigation */
+/* Shared workspace navigation — lightweight labels, positioned below the canvas header. */
 .app-navigation{
-  position:fixed;top:14px;left:14px;right:14px;height:50px;
-  z-index:10000;display:flex;align-items:center;gap:18px;
-  padding:0 12px;border:1px solid rgba(201,255,69,.16);
-  border-radius:14px;background:rgba(5,8,7,.78);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  box-shadow:0 10px 35px rgba(0,0,0,.24);
-  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  position:fixed;top:76px;left:50%;transform:translateX(-50%);
+  z-index:10000;display:flex;align-items:center;justify-content:center;
+  gap:clamp(18px,2.4vw,34px);width:max-content;max-width:calc(100vw - 230px);
+  padding:5px 12px;border:0;border-radius:0;background:transparent;
+  box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
-.app-navigation-brand{
-  display:flex;align-items:center;gap:8px;color:#edf6ed;text-decoration:none;
-  font-size:11px;font-weight:800;letter-spacing:.12em;white-space:nowrap;
+.app-navigation a{
+  position:relative;display:inline-block;padding:5px 0;
+  color:#777789;text-decoration:none;font-size:9px;font-weight:500;
+  letter-spacing:.09em;white-space:nowrap;
+  text-shadow:0 1px 8px rgba(0,0,0,.9);
+  transition:color .2s,text-shadow .2s;
 }
-.app-navigation-mark{
-  width:27px;height:27px;border:1px solid rgba(201,255,69,.55);border-radius:8px;
-  display:grid;place-items:center;color:#c9ff45;font-size:13px;
+.app-navigation a:hover{color:#d8d8e5;text-shadow:0 0 12px rgba(201,255,69,.22)}
+.app-navigation a.active{color:#c9ff78}
+.app-navigation a.active:after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,255,120,.8),transparent);
+  box-shadow:0 0 8px rgba(201,255,120,.28);
 }
-.app-navigation-links{display:flex;align-items:center;gap:3px;overflow:auto;scrollbar-width:none}
-.app-navigation-links::-webkit-scrollbar{display:none}
-.app-navigation-links a{
-  color:#879188;text-decoration:none;font-size:9px;font-weight:800;letter-spacing:.09em;
-  padding:9px 10px;border-radius:9px;white-space:nowrap;transition:color .18s,background .18s;
-}
-.app-navigation-links a:hover{color:#edf6ed;background:rgba(255,255,255,.05)}
-.app-navigation-links a.active{color:#c9ff45;background:rgba(201,255,69,.08)}
 @media(max-width:700px){
-  .app-navigation{left:8px;right:8px;top:8px;height:46px;gap:8px;padding:0 8px}
-  .app-navigation-brand span:last-child{display:none}
-  .app-navigation-links a{font-size:8px;padding:8px 7px}
+  .app-navigation{top:38px;left:158px;right:8px;transform:none;
+    width:auto;max-width:none;justify-content:flex-end;gap:clamp(8px,2vw,15px);
+    padding:4px 3px;overflow-x:auto;scrollbar-width:none}
+  .app-navigation::-webkit-scrollbar{display:none}
+  .app-navigation a{font-size:7px;letter-spacing:.04em}
 }
