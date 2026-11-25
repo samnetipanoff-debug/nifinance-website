@@ -58,7 +58,7 @@
 
 /* Shared workspace navigation — lightweight labels, positioned below the canvas header. */
 .app-navigation{
-  position:fixed;top:76px;left:50%;transform:translateX(-50%);
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);
   z-index:10000;display:flex;align-items:center;justify-content:center;
   gap:clamp(18px,2.4vw,34px);width:max-content;max-width:calc(100vw - 230px);
   padding:5px 12px;border:0;border-radius:0;background:transparent;
@@ -80,7 +80,7 @@
   box-shadow:0 0 8px rgba(201,255,120,.28);
 }
 @media(max-width:700px){
-  .app-navigation{top:38px;left:158px;right:8px;transform:none;
+  .app-navigation{top:12px;left:158px;right:8px;transform:none;
     width:auto;max-width:none;justify-content:flex-end;gap:clamp(8px,2vw,15px);
     padding:4px 3px;overflow-x:auto;scrollbar-width:none}
   .app-navigation::-webkit-scrollbar{display:none}
