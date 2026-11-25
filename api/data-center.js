@@ -279,7 +279,7 @@ export default async function handler(req, res) {
     if (req.body?.action === 'save-batch') {
       const batch = normalizedPayload.transactions;
       const finalBatch = req.body.finalBatch === true;
-      if (batch.length > 100) return send(res, 413, { error: 'A save batch may contain at most 100 transactions' });
+      if (batch.length > 1000) return send(res, 413, { error: 'A save batch may contain at most 1000 transactions' });
       const batchBytes = Buffer.byteLength(JSON.stringify(batch), 'utf8');
       if (batchBytes > 1024 * 1024) return send(res, 413, { error: 'A transaction batch exceeds the 1 MB limit' });
       const rulesForBatch = finalBatch ? normalizedPayload.rules : [];
