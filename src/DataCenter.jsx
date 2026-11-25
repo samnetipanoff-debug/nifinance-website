@@ -507,7 +507,7 @@ export default function DataCenter() {
           },
           body: JSON.stringify({ fileName: sourceName, sample: text.slice(0, 14000) })
         });
-        const result = await response.json();
+        const result = await readApiResponse(response);
         if (response.ok && result.mapping && Number.isInteger(result.mapping.headerRow)) aiMapping = result.mapping;
         else if (!response.ok) console.warn('AI structure recognition unavailable:', result.error || response.status);
       } catch (aiError) {
