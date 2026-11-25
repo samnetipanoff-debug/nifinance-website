@@ -298,7 +298,7 @@ async function savePayloadInBatches(payload, credentials, auditAction = 'save') 
   let currentBytes = 0;
   for (const transaction of transactions) {
     const transactionBytes = new TextEncoder().encode(JSON.stringify(transaction)).length;
-    if (currentChunk.length && (currentChunk.length >= 100 || currentBytes + transactionBytes > 700 * 1024)) {
+    if (currentChunk.length && (currentChunk.length >= 1000 || currentBytes + transactionBytes > 700 * 1024)) {
       chunks.push(currentChunk);
       currentChunk = [];
       currentBytes = 0;
