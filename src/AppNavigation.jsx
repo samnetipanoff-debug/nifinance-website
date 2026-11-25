@@ -10,7 +10,7 @@ const NAV_ITEMS = [
 
 export default function AppNavigation() {
   const path = window.location.pathname;
-  return <nav className="app-navigation" aria-label="NIFINANCE workspace navigation">
+  return <nav className={"app-navigation" + (path.startsWith("/data-center") ? " app-navigation--data-center" : "")} aria-label="NIFINANCE workspace navigation">
     {NAV_ITEMS.map(item => <a key={item.href} className={item.match(path) ? 'active' : ''} href={item.href}>{item.label}</a>)}
   </nav>;
 }
