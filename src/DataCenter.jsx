@@ -217,9 +217,6 @@ function readRows(text, rules, fileName, mapping = null) {
     currency: ['currency', 'valuta', 'валюта', 'валута трансакције'],
     operationType: ['operation type', 'transaction type', 'вид операции', 'тип операции', 'операция', 'vrsta transakcije'],
     organization: ['organization', 'организация', 'organizacija'],
-    bankAccount: ['bank account', 'банковский счет', 'банковски рачун', 'racun', 'račun'],
-    operationType: ['operation type', 'transaction type', 'вид операции', 'тип операции', 'операция', 'vrsta transakcije'],
-    organization: ['organization', 'организация', 'organizacija'],
     bankAccount: ['bank account', 'банковский счет', 'банковски рачун', 'racun', 'račun']
   };
   const headerScore = cells => {
